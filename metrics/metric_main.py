@@ -1,4 +1,6 @@
-﻿﻿# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+﻿# test_script.py
+
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -18,6 +20,9 @@ from . import kernel_inception_distance
 from . import precision_recall
 from . import perceptual_path_length
 from . import inception_score
+from . import pr_authen
+from . import density_coverage
+from . import density_coverage_modified
 
 #----------------------------------------------------------------------------
 
@@ -36,13 +41,14 @@ def list_valid_metrics():
 
 #----------------------------------------------------------------------------
 
-def calc_metric(metric, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
+def calc_metric(metric, oc_detector_path, train_OC, snapshot_pkl, run_dir, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
+    
     assert is_valid_metric(metric)
-    opts = metric_utils.MetricOptions(**kwargs)
+    opts = metric_utils.MetricOptions(run_dir, snapshot_pkl, **kwargs)
 
     # Calculate.
     start_time = time.time()
-    results = _metric_dict[metric](opts)
+    results = _metric_dict[metric](opts) if metric != 'pr_auth' else _metric_dict[metric](opts, oc_detector_path, train_OC, run_dir)
     total_time = time.time() - start_time
 
     # Broadcast results.
@@ -73,6 +79,7 @@ def report_metric(result_dict, run_dir=None, snapshot_pkl=None):
     jsonl_line = json.dumps(dict(result_dict, snapshot_pkl=snapshot_pkl, timestamp=time.time()))
     print(jsonl_line)
     if run_dir is not None and os.path.isdir(run_dir):
+        print(f'Saving metrics in {run_dir}')
         with open(os.path.join(run_dir, f'metric-{metric}.jsonl'), 'at') as f:
             f.write(jsonl_line + '\n')
 
@@ -150,3 +157,24 @@ def ppl_wend(opts):
     return dict(ppl_wend=ppl)
 
 #----------------------------------------------------------------------------
+# Extra metrics.
+
+@register_metric
+def pr_auth(opts, oc_detector_path, train_OC, run_dir):
+    opts.dataset_kwargs.update(max_size=None)
+    a_precision_c, b_recall_c, authenticity_c, a_precision_m, b_recall_m, authenticity_m  = pr_authen.compute_pr_a(opts, oc_detector_path, train_OC, run_dir, max_real=50000, num_gen=5000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    return dict(a_precision_c=a_precision_c, b_recall_c=b_recall_c, authenticity_c=authenticity_c, a_precision_m=a_precision_m, b_recall_m=b_recall_m, authenticity_m=authenticity_m)
+
+
+@register_metric
+def prdc50k(opts):
+    opts.dataset_kwargs.update(max_size=None)
+    precision, recall, density, coverage  = density_coverage.compute_prdc(opts, max_real=50000, num_gen=500, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    return dict(precision=precision, recall=recall, density=density, coverage=coverage)
+
+
+@register_metric
+def prdc50k_modified(opts):
+    opts.dataset_kwargs.update(max_size=None)
+    precision, recall, density, coverage  = density_coverage_modified.compute_prdc(opts, max_real=50000, num_gen=5000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    return dict(precision=precision, recall=recall, density=density, coverage=coverage)
