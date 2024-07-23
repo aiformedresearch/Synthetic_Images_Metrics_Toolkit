@@ -1,4 +1,4 @@
-﻿﻿# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -16,10 +16,17 @@ import numpy as np
 import torch
 import dnnlib
 
+import legacy
+import nibabel as nib
+from representations.OneClass import OneClassLayer
+import tensorflow as tf
+from tensorflow.keras.models import Model
+from tensorflow.python.keras import backend 
+import matplotlib.pyplot as plt
 #----------------------------------------------------------------------------
 
 class MetricOptions:
-    def __init__(self, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
+    def __init__(self, run_dir, network_pkl, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
         assert 0 <= rank < num_gpus
         self.G              = G
         self.G_kwargs       = dnnlib.EasyDict(G_kwargs)
@@ -29,13 +36,28 @@ class MetricOptions:
         self.device         = device if device is not None else torch.device('cuda', rank)
         self.progress       = progress.sub() if progress is not None and rank == 0 else ProgressMonitor()
         self.cache          = cache
+        self.run_dir        = run_dir
+        self.gen_path       = network_pkl
+        self.data_path      = dataset_kwargs.path
 
 #----------------------------------------------------------------------------
 
 _feature_detector_cache = dict()
 
+# def get_feature_detector_name(url):
+#     return os.path.splitext(url.split('/')[-1])[0]
+
 def get_feature_detector_name(url):
-    return os.path.splitext(url.split('/')[-1])[0]
+    """
+    Function added to manage the different types of detectors:
+    - "url" is a string with the path to the detector (NVIDIA pretrained models)
+    - "url" is a dictionary with the model name (to exploit tf pretrained models)
+    """
+    if type(url)==str and url.startswith('https://') and url.endswith('.pt'):
+        detector_name = os.path.splitext(url.split('/')[-1])[0]
+    elif type(url)==dict:
+        detector_name = url['model']
+    return detector_name
 
 def get_feature_detector(url, device=torch.device('cpu'), num_gpus=1, rank=0, verbose=False):
     assert 0 <= rank < num_gpus
@@ -176,6 +198,299 @@ class ProgressMonitor:
         )
 
 #----------------------------------------------------------------------------
+# Functions added to manage the different types of detectors
+#--------------------------------------------------------------------------------
+def visualize_ex_samples(args, device):
+
+    # Load a real image
+    dataset = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
+    data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2)
+    item_subset = [0]
+    batch_size = 1
+    dataloader = torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs)
+    real_image, label = next(iter(dataloader))
+    real_sample = real_image[0,0,:,:]
+
+    # Generate a synthetic image
+    args.G.to(device)
+    label = label.to(device)
+    z = torch.from_numpy(np.random.RandomState(42).randn(1, args.G.z_dim)).to(device)
+    img = args.G(z, label)
+    img_synth = (img.permute(0, 1, 2, 3) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+    synth_sample = img_synth[0,0,:,:].cpu()
+
+    # Plot the images in a 2x1 subplot
+    fig, axs = plt.subplots(1, 2, figsize=(20, 12))
+
+    axs[0].imshow(real_sample, cmap='gray')
+    axs[0].set_title('Real Sample', fontsize=25)
+    axs[0].axis('off')
+
+    axs[1].imshow(synth_sample, cmap='gray')
+    axs[1].set_title('Synthetic Sample', fontsize=25)
+    axs[1].axis('off')
+
+    plt.tight_layout()
+    save_path = os.path.join(args.run_dir, "samples_visualization.png")
+    plt.savefig(save_path)
+
+def reset_weights(model):
+    for layer in model.layers: 
+        if isinstance(layer, tf.keras.Model):
+            reset_weights(layer)
+            continue
+    for k, initializer in layer.__dict__.items():
+        if "initializer" not in k:
+            continue
+      # find the corresponding variable
+        var = getattr(layer, k.replace("_initializer", ""))
+        var.assign(initializer(var.shape, var.dtype))
+    return model
+
+def remove_layer(model):
+        new_input = model.input
+        hidden_layer = model.layers[-2].output
+        return Model(new_input, hidden_layer)   
+
+def load_embedder(embedding):
+    """
+    Load embedder to compute density and coverage metrics
+    """
+    if embedding['model'] == 'vgg16' or embedding['model'] == 'vgg':
+        model = tf.keras.applications.VGG16(include_top = True, weights='imagenet')
+        model = remove_layer(model)
+        model.trainable = False
+          
+    elif embedding['model'] == 'inceptionv3' or embedding['model'] == 'inception':
+        model = tf.keras.applications.InceptionV3(include_top = True, weights='imagenet')
+        model = remove_layer(model)
+        model.trainable = False
+    
+    if embedding['randomise']:
+        model = reset_weights(model)
+        if embedding['dim64']:
+            # removes last layer and inserts 64 output
+            model = remove_layer(model)
+            new_input = model.input
+            hidden_layer = tf.keras.layers.Dense(64)(model.layers[-2].output)
+            model = Model(new_input, hidden_layer)   
+    model.run_eagerly = True
+    return model
+
+def adjust_size_embedder(embedder, embedding, batch):
+    if embedder.input.shape[2]==299:
+
+        # Desired output shape
+        output_shape = (None, 299, 299, 3)
+
+        # Calculate the amount of padding needed
+        pad_height = output_shape[1] - batch.shape[1]
+        pad_width = output_shape[2] - batch.shape[2]
+
+        # Calculate padding for each side
+        pad_top = pad_height // 2
+        pad_bottom = pad_height - pad_top
+        pad_left = pad_width // 2
+        pad_right = pad_width - pad_left
+
+        # Pad the array to obtain a 299x299 array
+        batch = np.pad(batch, ((0,0), (pad_top, pad_bottom), (pad_left, pad_right), (0,0)), mode='constant')
+    
+    if embedding['model'] == 'vgg16' or embedding['model'] == 'vgg':
+        if batch.shape[2]!=224:
+            batch = tf.image.resize(batch, [224, 224])
+    return batch
+
+
+def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size=None, verbose=False):
+    """Calculates the activations of the pool_3 layer for all images.
+
+    Params:
+    -- synth_file      : a) path to the NIFTI file containing the images or
+                       b) path to the generator model that generates the images
+    -- embedding        : embedding type (Inception, VGG16, None)
+    -- batch_size  : the images numpy array is split into batches with batch size
+                     batch_size. A reasonable batch size depends on the disposable hardware.
+    -- verbose    : If set to True and parameter out_step is given, the number of calculated
+                     batches is reported.
+    Returns:
+    -- A numpy array of dimension (num images, embedding_size) that contains the
+       activations of the given tensor when feeding e.g. inception with the query tensor.
+    """
+    
+    
+    # Check if synth_file is a .nii.gz format:
+    if synth_file.endswith('.nii.gz'):
+        # Load the NIFTI file
+        img_nifti = nib.load(synth_file)
+        img_data = img_nifti.get_fdata()
+
+        # Transpose dimensions to match the expected input shape of the embedder
+        img_data = np.transpose(img_data, (3, 0, 1, 2))  # Adjust dimensions to (num_images, height, width, channels)
+        if embedder is not None:
+            if embedder.input.shape[-1]==3:
+                img_data = np.repeat(img_data, 3, axis=-1)
+
+        print(f"Image data shape: {img_data.shape}")
+
+        n_imgs = img_data.shape[0]
+        print(f"Number of images: {n_imgs}")
+
+    elif synth_file.endswith('.pkl'):
+        # Define the generator model
+        #   QUI MODIFICA QUI (1/2)
+        network_pkl = synth_file
+        print(f'Loading network from "{network_pkl}"...')
+        with dnnlib.util.open_url(network_pkl, verbose=True) as f:
+            network_dict = legacy.load_network_pkl(f)
+            G = network_dict['G_ema'] # subclass of torch.nn.Module
+        G = copy.deepcopy(G).eval().requires_grad_(False).to(opts.device)
+        
+        n_imgs = 5000 
+        print(f"Generating {n_imgs} synthetic images...")
+        n_generated = 0
+    
+    if batch_size is None:
+        batch_size = n_imgs
+    elif batch_size > n_imgs:
+        print("warning: batch size is bigger than the data size. setting batch size to data size")
+        batch_size = n_imgs
+
+    n_batches = n_imgs//batch_size + 1
+    
+
+    pred_arr = np.empty((n_imgs,embedder.output.shape[-1]))
+    input_shape = embedder.input.shape[1]
+    
+    for i in range(n_batches):
+        if verbose:
+            print("\rPropagating batch %d/%d" % (i+1, n_batches), end="", flush=True)
+        start = i*batch_size
+        if start+batch_size < n_imgs:
+            end = start+batch_size
+        else:
+            end = n_imgs
+        
+ 
+        if synth_file.endswith('.nii.gz'):
+            batch = img_data[start:end,:,:,:]
+            batch = adjust_size_embedder(embedder, embedding, batch)
+            batch_embedding = embedder(batch)
+            # Convert to numpy array:
+            pred_arr[start:end] = np.stack(list(batch_embedding))
+            del batch #clean up memory
+
+        elif synth_file.endswith('.pkl'):
+            ##   QUI MODIFICA QUI (2/2)
+            n_to_generate = end-start
+            z = torch.randn([n_to_generate, G.z_dim], device=opts.device)
+            # define c as a vector with batch_size elements sampled from 0 and 1:
+            half_n = n_to_generate // 2
+            c = [torch.tensor([1, 0]) for _ in range(half_n)] + [torch.tensor([0, 1]) for _ in range(half_n)]       
+            if n_to_generate % 2 != 0:
+                c.append(torch.tensor([1, 0]) if torch.randint(0, 2, (1,)).item() == 1 else torch.tensor([0, 1]))
+            c = torch.from_numpy(np.stack(c)).pin_memory().to(opts.device)
+            batch = G(z=z, c=c, **{}).to(opts.device)
+            batch = (batch * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+            batch = batch.cpu().detach().numpy()
+            n_generated += n_to_generate
+            print(f'\rGenerated {n_generated}/{n_imgs} images')
+            batch = np.transpose(batch, (0, 2, 3, 1))
+            batch = np.repeat(batch, 3, axis=-1)
+            #batch = batch[start:end,:,:,:]
+            batch = adjust_size_embedder(embedder, embedding, batch)
+
+            batch_embedding = embedder(batch)
+            # Convert to numpy array:
+            pred_arr[start:end] = np.stack(list(batch_embedding))
+            del batch #clean up memory
+        
+    if verbose:
+        print(" done")
+    
+    return pred_arr
+
+def get_activation(opts, path, embedding, embedder=None, verbose=True, save_act=False):
+# Check if folder exists
+    if not os.path.exists(path):
+        raise RuntimeError("Invalid path: %s" % path)
+    # Don't embed data if no embedding is given 
+    if embedding is None:
+        act = load_all_images_nifti(path)    
+
+    else:
+        act_filename = f'{opts.run_dir}/act_{embedding["model"]}_{embedding["dim64"]}_{embedding["randomise"]}'
+        # Check if embeddings are already available
+        if os.path.exists(f'{act_filename}.npz'):
+            print('Loaded activations from', act_filename)
+            print(act_filename)
+            data = np.load(f'{act_filename}.npz',allow_pickle=True)
+            act, _ = data['act'], data['embedding']
+        # Otherwise compute embeddings
+        else:
+            # if load_act:
+            #     print('Could not find activation file', act_filename)
+            print('Calculating activations')
+            act = get_activations_from_nifti(opts, path, embedder, embedding, batch_size=64*2, verbose=verbose)
+            # Save embeddings
+            if save_act:
+                np.savez(f'{act_filename}', act=act,embedding=embedding)
+    return act
+
+
+def extract_features_from_detector(opts, images, detector, detector_url, detector_kwargs):
+    if type(detector_url)==str and detector_url.startswith('https://') and detector_url.endswith('.pt'):
+        features = detector(images.to(opts.device), **detector_kwargs)
+    elif type(detector_url)==dict:
+        if detector.input_shape[-1]==3:
+            images = images.permute(0,2,3,1)
+        if images.shape[1] != detector.input_shape[1]:
+            res_shape = detector.input_shape[1]
+            images = images.cpu()
+            images = tf.image.resize(images, (res_shape, res_shape))
+
+        features = detector(tf.convert_to_tensor(images))
+        features = torch.from_numpy(features.numpy()).to(opts.device)
+    return features
+
+def define_detector(opts, detector_url, progress):
+    if type(detector_url)==str and detector_url.startswith('https://') and detector_url.endswith('.pt'):
+        detector = get_feature_detector(url=detector_url, device=opts.device, num_gpus=opts.num_gpus, rank=opts.rank, verbose=progress.verbose)
+    else:
+        detector = load_embedder(detector_url)
+    return detector
+
+def get_OC_model(opts, OC_filename, train_OC, X=None, OC_params=None, OC_hyperparams=None):
+    if train_OC or not os.path.exists(OC_filename):
+        
+        OC_params['input_dim'] = X.shape[1]
+
+        if OC_params['rep_dim'] is None:
+            OC_params['rep_dim'] = X.shape[1]
+        # Check center definition !
+        OC_hyperparams['center'] = torch.ones(OC_params['rep_dim'])*10
+        
+        OC_model = OneClassLayer(params=OC_params, 
+                                 hyperparams=OC_hyperparams)
+        OC_model.fit(X,verbosity=True)
+        
+        # Check taht the folder exists
+        if not os.path.exists(os.path.dirname(OC_filename)):
+            os.makedirs(os.path.dirname(OC_filename))
+
+        # Save the OC model
+        pickle.dump((OC_model, OC_params, OC_hyperparams),open(OC_filename,'wb'))
+    
+    else:
+        OC_model, OC_params, OC_hyperparams = pickle.load(open(OC_filename,'rb'))
+    
+    OC_model.to(opts.device)
+    print(OC_params)
+    print(OC_hyperparams)
+    OC_model.eval()
+    return OC_model, OC_params, OC_hyperparams
+
+#----------------------------------------------------------------------------
 
 def compute_feature_stats_for_dataset(opts, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, batch_size=64, data_loader_kwargs=None, max_items=None, **stats_kwargs):
     dataset = dnnlib.util.construct_class_by_name(**opts.dataset_kwargs)
@@ -208,14 +523,14 @@ def compute_feature_stats_for_dataset(opts, detector_url, detector_kwargs, rel_l
         num_items = min(num_items, max_items)
     stats = FeatureStats(max_items=num_items, **stats_kwargs)
     progress = opts.progress.sub(tag='dataset features', num_items=num_items, rel_lo=rel_lo, rel_hi=rel_hi)
-    detector = get_feature_detector(url=detector_url, device=opts.device, num_gpus=opts.num_gpus, rank=opts.rank, verbose=progress.verbose)
+    detector = define_detector(opts, detector_url, progress)
 
     # Main loop.
     item_subset = [(i * opts.num_gpus + opts.rank) % num_items for i in range((num_items - 1) // opts.num_gpus + 1)]
     for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs):
         if images.shape[1] == 1:
             images = images.repeat([1, 3, 1, 1])
-        features = detector(images.to(opts.device), **detector_kwargs)
+        features = extract_features_from_detector(opts, images, detector, detector_url, detector_kwargs)
         stats.append_torch(features, num_gpus=opts.num_gpus, rank=opts.rank)
         progress.update(stats.num_items)
 
@@ -254,7 +569,7 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
     stats = FeatureStats(**stats_kwargs)
     assert stats.max_items is not None
     progress = opts.progress.sub(tag='generator features', num_items=stats.max_items, rel_lo=rel_lo, rel_hi=rel_hi)
-    detector = get_feature_detector(url=detector_url, device=opts.device, num_gpus=opts.num_gpus, rank=opts.rank, verbose=progress.verbose)
+    detector = define_detector(opts, detector_url, progress)
 
     # Main loop.
     while not stats.is_full():
@@ -267,7 +582,7 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
         images = torch.cat(images)
         if images.shape[1] == 1:
             images = images.repeat([1, 3, 1, 1])
-        features = detector(images, **detector_kwargs)
+        features = extract_features_from_detector(opts, images, detector, detector_url, detector_kwargs)
         stats.append_torch(features, num_gpus=opts.num_gpus, rank=opts.rank)
         progress.update(stats.num_items)
     return stats
