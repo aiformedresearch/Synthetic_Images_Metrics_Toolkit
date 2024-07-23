@@ -234,6 +234,8 @@ def visualize_ex_samples(args, device):
     save_path = os.path.join(args.run_dir, "samples_visualization.png")
     plt.savefig(save_path)
 
+    print(f"Saved samples from real and synthetic datasets in {save_path}")
+
 def reset_weights(model):
     for layer in model.layers: 
         if isinstance(layer, tf.keras.Model):
