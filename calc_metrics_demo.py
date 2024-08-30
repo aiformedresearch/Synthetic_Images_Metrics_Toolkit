@@ -19,8 +19,10 @@ CUDA_VISIBLE_DEVICES=0, python /home/matteolai/diciotti/matteo/Synthetic_Images_
     --labels /home/matteolai/diciotti/data/ADNI/ADNI_train/PACGAN/labels.csv \
     --gpus 1 \
     --verbose True
+    --run_dir "/home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/outputs" 
 
-pr50k3,pr_auth
+
+fid50k,kid50k,pr50k3,ppl_zfull,pr_auth,prdc50k
 """
 
 
@@ -82,12 +84,20 @@ def subprocess_fn(rank, args, temp_dir):
         c = torch.empty([1, G.c_dim], device=device)
         misc.print_module_summary(G, [z, c])
 
+    # Visualize one sample for real and generated data
+    metric_utils.visualize_ex_samples(args, device=device)
+
     # Calculate each metric.
     for metric in args.metrics:
         if rank == 0 and args.verbose:
             print(f'Calculating {metric}...')
         progress = metric_utils.ProgressMonitor(verbose=args.verbose)
-        result_dict = metric_main.calc_metric(metric=metric, G=G, dataset_kwargs=args.dataset_kwargs,
+ 
+        # Set the path to the OC detector:
+        train_OC = False if args.oc_detector_path is not None else True
+        oc_detector_path = args.oc_detector_path if args.oc_detector_path is not None else args.run_dir+'/oc_detector.pkl'
+        
+        result_dict = metric_main.calc_metric(metric=metric, oc_detector_path=oc_detector_path, train_OC=train_OC, snapshot_pkl=args.network_pkl, run_dir=args.run_dir, G=G, dataset_kwargs=args.dataset_kwargs,
             num_gpus=args.num_gpus, rank=rank, device=device, progress=progress)
         if rank == 0:
             metric_main.report_metric(result_dict, run_dir=args.run_dir, snapshot_pkl=args.network_pkl)
@@ -120,8 +130,10 @@ class CommaSeparatedList(click.ParamType):
 @click.option('--mirror', help='Whether the dataset was augmented with x-flips during training [default: look up]', type=bool, metavar='BOOL')
 @click.option('--gpus', help='Number of GPUs to use', type=int, default=1, metavar='INT', show_default=True)
 @click.option('--verbose', help='Print optional information', type=bool, default=True, metavar='BOOL', show_default=True)
+@click.option('--run_dir', help='Path where to save the outputs', metavar='PATH', default=None)
+@click.option('--oc_detector_path', help='Path to the pretrained OC detector (.pkl), for the computation of alpha-precision, beta-recall and authenticity.', metavar='PATH', default=None)
 
-def calc_metrics(ctx, network_path, json_path, metrics, data, labels, mirror, gpus, verbose):
+def calc_metrics(ctx, network_pkl, metrics, data, labels, mirror, gpus, verbose, run_dir, oc_detector_path):
     """Calculate quality metrics for previous training run or pretrained network pickle.
 
     Examples:
@@ -189,7 +201,7 @@ def calc_metrics(ctx, network_path, json_path, metrics, data, labels, mirror, gp
         # args.dataset_kwargs = dnnlib.EasyDict(class_name='XXXXX_to_be_replaced_XXXXX', path=data, path_labels=labels)
         #
         # e.g.,
-        # -> args.dataset_kwargs = dnnlib.EasyDict(class_name='training.dataset_NIfTI_PACGAN.ImageFolderDataset', path=data, path_labels=labels)#, use_labels=True)
+        # -> args.dataset_kwargs = dnnlib.EasyDict(class_name='training.dataset_NIfTI.ImageFolderDataset', path=data, path_labels=labels)#, use_labels=True)
         # -----------------------------------------------------------------------------------------------
 
     elif network_dict['training_set_kwargs'] is not None:
@@ -209,13 +221,10 @@ def calc_metrics(ctx, network_path, json_path, metrics, data, labels, mirror, gp
         print(json.dumps(args.dataset_kwargs, indent=2))
 
     # Locate run dir.
-    args.run_dir = None
-    print(os.path.join(os.path.dirname(network_path), 'training_options.json'))
-    if os.path.isfile(network_path):
-        pkl_dir = os.path.dirname(network_path)
-        print(os.path.join(pkl_dir, 'training_options.json'))
-        if os.path.isfile(os.path.join(pkl_dir, 'training_options.json')):
-            args.run_dir = pkl_dir
+    args.run_dir = run_dir
+
+    # Set the paths to the outputs:
+    args.oc_detector_path = oc_detector_path
 
     # Launch processes.
     if args.verbose:
