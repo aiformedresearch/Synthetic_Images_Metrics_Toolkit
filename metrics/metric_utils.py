@@ -200,7 +200,23 @@ class ProgressMonitor:
 #----------------------------------------------------------------------------
 # Functions added to manage the different types of detectors
 #--------------------------------------------------------------------------------
-def visualize_ex_samples(args, device):
+
+def get_unique_filename(base_figname):
+    """
+    Check if a file already exists. If so, add a suffix to create a unique filename.
+    """
+    if not os.path.exists(base_figname):
+        return base_figname
+    
+    filename, ext = os.path.splitext(base_figname)
+    counter = 1
+    
+    while os.path.exists(f"{filename}_{counter}{ext}"):
+        counter += 1
+    
+    return f"{filename}_{counter}{ext}"
+
+def visualize_ex_samples(args, device, rank=0, verbose=True):
 
     # Load a real image
     dataset = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
@@ -231,10 +247,14 @@ def visualize_ex_samples(args, device):
     axs[1].axis('off')
 
     plt.tight_layout()
-    save_path = os.path.join(args.run_dir, "samples_visualization.png")
-    plt.savefig(save_path)
+    fig_dir = os.path.join(args.run_dir, 'figures')
+    os.makedirs(fig_dir, exist_ok=True)
+    save_path_base = os.path.join(fig_dir, "samples_visualization.png")
+    save_path = get_unique_filename(save_path_base)
 
-    print(f"Saved samples from real and synthetic datasets in {save_path}")
+    plt.savefig(save_path)
+    if rank == 0 and verbose:
+        print(f"Saved samples from real and synthetic datasets in {save_path}")
 
 def reset_weights(model):
     for layer in model.layers: 

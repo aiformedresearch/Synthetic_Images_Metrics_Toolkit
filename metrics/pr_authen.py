@@ -15,6 +15,22 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 #----------------------------------------------------------------------------
+
+def get_unique_filename(base_figname):
+    """
+    Check if a file already exists. If so, add a suffix to create a unique filename.
+    """
+    if not os.path.exists(base_figname):
+        return base_figname
+    
+    filename, ext = os.path.splitext(base_figname)
+    counter = 1
+    
+    while os.path.exists(f"{filename}_{counter}{ext}"):
+        counter += 1
+    
+    return f"{filename}_{counter}{ext}"
+
 def plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, run_dir, emb):
     plt.figure(figsize=(10, 6))
     
@@ -35,7 +51,11 @@ def plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, run_dir, emb
     
     # Display the plot
     plt.grid(True)
-    plt.savefig(os.path.join(run_dir, f'alpha_precision_beta_coverage_curves{emb}.png'))
+    fig_dir = os.path.join(run_dir, 'figures')
+    os.makedirs(fig_dir, exist_ok=True)
+    base_figname = os.path.join(fig_dir, f'alpha_precision_beta_coverage_curves{emb}.png')
+    figname = get_unique_filename(base_figname)
+    plt.savefig(figname)
 
 def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
     
@@ -196,7 +216,8 @@ def compute_pr_a(opts, oc_detector_path, train_OC, run_dir, max_real, num_gen, n
         print('OneClass: Delta_autenticity    ', results[f'Daut{emb}'])
     
         # Plot the curves
-        plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, run_dir, emb)
+        if opts.rank == 0:
+            plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, run_dir, emb)
     
     return results['Dpa_c'], results['Dcb_c'], results['Daut_c'], results['Dpa_mean'], results['Dcb_mean'], results['Daut_mean']
 
