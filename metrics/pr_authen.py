@@ -31,7 +31,7 @@ def get_unique_filename(base_figname):
     
     return f"{filename}_{counter}{ext}"
 
-def plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, run_dir, emb):
+def plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, authen, run_dir, emb):
     plt.figure(figsize=(10, 6))
     
     # Plot alpha precision curve
@@ -56,6 +56,56 @@ def plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, run_dir, emb
     base_figname = os.path.join(fig_dir, f'alpha_precision_beta_coverage_curves{emb}.png')
     figname = get_unique_filename(base_figname)
     plt.savefig(figname)
+
+    # Plot authenticity
+    plt.figure(figsize=(10, 6))
+    plt.hist(authenticity_values, bins=30, alpha=0.75)
+    plt.axvline(x=authen, color='r', linestyle='--', label='Authenticity')
+    plt.title("Distribution of Authenticity Values")
+    plt.xlabel("Authenticity")
+    plt.ylabel("Frequency")
+    plt.legend()
+    base_figname = os.path.join(fig_dir, f'authenticity_distribution{emb}.png')
+    figname = get_unique_filename(base_figname)
+    plt.savefig(figname)
+
+def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
+
+    authenticity_values = []
+
+    # Determine the batch size
+    batch_size = min(batch_size, real_data.shape[0])
+
+    # Fit the NearestNeighbors model on real data once
+    nbrs_real = NearestNeighbors(n_neighbors=2, n_jobs=-1, p=2).fit(real_data)
+    real_to_real, _ = nbrs_real.kneighbors(real_data)
+    real_to_real = torch.from_numpy(real_to_real[:, 1].squeeze())  # Closest other real image (excluding itself)
+
+    # Shuffle synthetic data once and split into batches without replacement
+    np.random.shuffle(synthetic_data)  # Shuffle synthetic data to ensure randomness
+    num_batches = int(np.ceil(synthetic_data.shape[0] / batch_size))
+
+    for i in range(num_batches):
+        # Select batch of synthetic images without replacement
+        start_idx = i * batch_size
+        end_idx = min((i + 1) * batch_size, synthetic_data.shape[0])
+        subset_synth_data = synthetic_data[start_idx:end_idx]
+
+        # Compute nearest neighbors for this batch of synthetic data
+        nbrs_synth = NearestNeighbors(n_neighbors=1, n_jobs=-1, p=2).fit(subset_synth_data)
+        real_to_synth_auth, real_to_synth_args_auth = nbrs_synth.kneighbors(real_data)
+
+        real_to_synth_auth = torch.from_numpy(real_to_synth_auth.squeeze())
+        real_to_synth_args_auth = real_to_synth_args_auth.squeeze()
+
+        # Find the closest real point to any real point (excluding itself)
+        authen = real_to_real[real_to_synth_args_auth] < real_to_synth_auth
+        batch_authenticity = np.mean(authen.numpy())
+        authenticity_values.append(batch_authenticity)
+
+    # Compute and return the average authenticity
+    authenticity = np.mean(authenticity_values)
+    return authenticity_values, authenticity
 
 def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
     
@@ -99,8 +149,11 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
     real_synth_closest_d  = torch.sqrt(torch.sum((torch.tensor(real_synth_closest).float()- synth_center) ** 2, dim=1))
     closest_synth_Radii   = np.quantile(real_synth_closest_d, alphas)
 
+    # Compute authenticity
+    authenticity_values, authenticity = compute_authenticity_in_batches(real_data, synthetic_data)
 
-    
+
+    # Compute alpha precision and beta recall   
     for k in range(len(Radii)):
         precision_audit_mask = (synth_to_center <= Radii[k]).detach().float().numpy()
         alpha_precision      = np.mean(precision_audit_mask)
@@ -109,17 +162,11 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
  
         alpha_precision_curve.append(alpha_precision)
         beta_coverage_curve.append(beta_coverage)
-    
-
-    # See which one is bigger
-    
-    authen = real_to_real[real_to_synth_args_auth] < real_to_synth_auth
-    authenticity = np.mean(authen.numpy())
 
     Delta_precision_alpha = 1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(alpha_precision_curve))) * (alphas[1] - alphas[0])
     Delta_coverage_beta  = 1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(beta_coverage_curve))) * (alphas[1] - alphas[0])
     
-    return alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, authenticity
+    return alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, authenticity_values, authenticity
 
 #----------------------------------------------------------------------------
 
@@ -202,7 +249,7 @@ def compute_pr_a(opts, oc_detector_path, train_OC, run_dir, max_real, num_gen, n
 
         # Compute the metrics
         OC_res = compute_alpha_precision(opts, real_features, gen_features, emb_center)
-        alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, authen = OC_res
+        alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, authenticity_values, authen = OC_res
         
         results[f'alphas{emb}'] = alphas
         results[f'alpha_pc{emb}'] = alpha_precision_curve
@@ -217,7 +264,7 @@ def compute_pr_a(opts, oc_detector_path, train_OC, run_dir, max_real, num_gen, n
     
         # Plot the curves
         if opts.rank == 0:
-            plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, run_dir, emb)
+            plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, authen, run_dir, emb)
     
     return results['Dpa_c'], results['Dcb_c'], results['Daut_c'], results['Dpa_mean'], results['Dcb_mean'], results['Daut_mean']
 

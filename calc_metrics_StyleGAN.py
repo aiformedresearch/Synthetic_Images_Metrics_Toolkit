@@ -8,21 +8,6 @@
 
 """Calculate quality metrics for previous training run or pretrained network pickle."""
 
-"""
-To run the script:
-
-CUDA_VISIBLE_DEVICES=0, python /home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/calc_metrics_StyleGAN.py \
-    --network /home/matteolai/diciotti/matteo/StyleACGAN2-ADA/outdir/00091-ADNI_baseline2D-cond-auto2-custom/network-snapshot-005600.pkl \
-    --metrics pr_auth \
-    --data /home/matteolai/diciotti/data/ADNI_baseline2D/ADNI_T1w_reg2std_axslicez127_baseline.nii.gz \
-    --labels /home/matteolai/diciotti/data/ADNI_baseline2D/ADNI_test.csv \
-    --gpus 1 \
-    --verbose True \
-    --run_dir "/home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/outputs" \
-    --oc_detector_path /home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/metrics/oc_detector.pkl
-
-pr50k3,pr_auth
-"""
 
 
 import os
@@ -78,7 +63,8 @@ def subprocess_fn(rank, args, temp_dir):
         misc.print_module_summary(G, [z, c])
 
     # Visualize one sample for real and generated data
-    metric_utils.visualize_ex_samples(args, device=device)
+    if rank == 0:
+        metric_utils.visualize_ex_samples(args, device=device, rank=rank, verbose=args.verbose)
 
     # Calculate each metric.
     for metric in args.metrics:
@@ -208,6 +194,7 @@ def calc_metrics(ctx, network_pkl, metrics, data, labels, mirror, gpus, verbose,
 
     # Locate run dir.
     args.run_dir = run_dir
+    os.makedirs(args.run_dir, exist_ok=True)
     # if os.path.isfile(network_pkl):
     #     pkl_dir = os.path.dirname(network_pkl)
     #     if os.path.isfile(os.path.join(pkl_dir, 'training_options.json')):

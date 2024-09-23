@@ -323,7 +323,6 @@ def adjust_size_embedder(embedder, embedding, batch):
             batch = tf.image.resize(batch, [224, 224])
     return batch
 
-
 def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size=None, verbose=False):
     """Calculates the activations of the pool_3 layer for all images.
 
@@ -339,8 +338,7 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
     -- A numpy array of dimension (num images, embedding_size) that contains the
        activations of the given tensor when feeding e.g. inception with the query tensor.
     """
-    
-    
+      
     # Check if synth_file is a .nii.gz format:
     if synth_file.endswith('.nii.gz'):
         # Load the NIFTI file
@@ -360,7 +358,6 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
 
     elif synth_file.endswith('.pkl'):
         # Define the generator model
-        #   QUI MODIFICA QUI (1/2)
         network_pkl = synth_file
         print(f'Loading network from "{network_pkl}"...')
         with dnnlib.util.open_url(network_pkl, verbose=True) as f:
@@ -380,7 +377,6 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
 
     n_batches = n_imgs//batch_size + 1
     
-
     pred_arr = np.empty((n_imgs,embedder.output.shape[-1]))
     input_shape = embedder.input.shape[1]
     
@@ -393,7 +389,6 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
         else:
             end = n_imgs
         
- 
         if synth_file.endswith('.nii.gz'):
             batch = img_data[start:end,:,:,:]
             batch = adjust_size_embedder(embedder, embedding, batch)
@@ -403,7 +398,6 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
             del batch #clean up memory
 
         elif synth_file.endswith('.pkl'):
-            ##   QUI MODIFICA QUI (2/2)
             n_to_generate = end-start
             z = torch.randn([n_to_generate, G.z_dim], device=opts.device)
             # define c as a vector with batch_size elements sampled from 0 and 1:
@@ -458,7 +452,6 @@ def get_activation(opts, path, embedding, embedder=None, verbose=True, save_act=
             if save_act:
                 np.savez(f'{act_filename}', act=act,embedding=embedding)
     return act
-
 
 def extract_features_from_detector(opts, images, detector, detector_url, detector_kwargs):
     if type(detector_url)==str and detector_url.startswith('https://') and detector_url.endswith('.pt'):
@@ -566,7 +559,7 @@ def compute_feature_stats_for_dataset(opts, detector_url, detector_kwargs, rel_l
 
 #----------------------------------------------------------------------------
 
-def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, batch_size=64, batch_gen=None, jit=False, **stats_kwargs):
+def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, batch_size=64, batch_gen=None, jit=False, return_imgs=False, **stats_kwargs):
     if batch_gen is None:
         batch_gen = min(batch_size, 4)
     assert batch_size % batch_gen == 0
@@ -607,6 +600,9 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
         features = extract_features_from_detector(opts, images, detector, detector_url, detector_kwargs)
         stats.append_torch(features, num_gpus=opts.num_gpus, rank=opts.rank)
         progress.update(stats.num_items)
-    return stats
+    if return_imgs:
+        return stats, images
+    else:
+        return stats
 
 #----------------------------------------------------------------------------

@@ -160,14 +160,14 @@ def ppl_wend(opts):
 @register_metric
 def pr_auth(opts, oc_detector_path, train_OC, run_dir):
     opts.dataset_kwargs.update(max_size=None)
-    a_precision_c, b_recall_c, authenticity_c, a_precision_m, b_recall_m, authenticity_m  = pr_authen.compute_pr_a(opts, oc_detector_path, train_OC, run_dir, max_real=50000, num_gen=5000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    a_precision_c, b_recall_c, authenticity_c, a_precision_m, b_recall_m, authenticity_m  = pr_authen.compute_pr_a(opts, oc_detector_path, train_OC, run_dir, max_real=50000, num_gen=50000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
     return dict(a_precision_c=a_precision_c, b_recall_c=b_recall_c, authenticity_c=authenticity_c, a_precision_m=a_precision_m, b_recall_m=b_recall_m, authenticity_m=authenticity_m)
 
 
 @register_metric
 def prdc50k(opts):
     opts.dataset_kwargs.update(max_size=None)
-    precision, recall, density, coverage  = density_coverage.compute_prdc(opts, max_real=50000, num_gen=500, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    precision, recall, density, coverage  = density_coverage.compute_prdc(opts, max_real=50000, num_gen=50000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
     return dict(precision=precision, recall=recall, density=density, coverage=coverage)
 
 
