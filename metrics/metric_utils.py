@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 #----------------------------------------------------------------------------
 
 class MetricOptions:
-    def __init__(self, run_dir, network_pkl, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
+    def __init__(self, run_dir, network_pkl, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
         assert 0 <= rank < num_gpus
         self.G              = G
         self.G_kwargs       = dnnlib.EasyDict(G_kwargs)
@@ -39,6 +39,8 @@ class MetricOptions:
         self.run_dir        = run_dir
         self.gen_path       = network_pkl
         self.data_path      = dataset_kwargs.path
+        self.oc_detector_path = oc_detector_path
+        self.train_OC       = train_OC
 
 #----------------------------------------------------------------------------
 
@@ -475,8 +477,9 @@ def define_detector(opts, detector_url, progress):
         detector = load_embedder(detector_url)
     return detector
 
-def get_OC_model(opts, OC_filename, train_OC, X=None, OC_params=None, OC_hyperparams=None):
-    if train_OC or not os.path.exists(OC_filename):
+def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None):
+
+    if opts.train_OC or not os.path.exists(opts.oc_detector_path):
         
         OC_params['input_dim'] = X.shape[1]
 
@@ -490,14 +493,14 @@ def get_OC_model(opts, OC_filename, train_OC, X=None, OC_params=None, OC_hyperpa
         OC_model.fit(X,verbosity=True)
         
         # Check taht the folder exists
-        if not os.path.exists(os.path.dirname(OC_filename)):
-            os.makedirs(os.path.dirname(OC_filename))
+        if not os.path.exists(os.path.dirname(opts.oc_detector_path)):
+            os.makedirs(os.path.dirname(opts.oc_detector_path))
 
         # Save the OC model
-        pickle.dump((OC_model, OC_params, OC_hyperparams),open(OC_filename,'wb'))
+        pickle.dump((OC_model, OC_params, OC_hyperparams),open(opts.oc_detector_path,'wb'))
     
     else:
-        OC_model, OC_params, OC_hyperparams = pickle.load(open(OC_filename,'rb'))
+        OC_model, OC_params, OC_hyperparams = pickle.load(open(opts.oc_detector_path,'rb'))
     
     OC_model.to(opts.device)
     print(OC_params)

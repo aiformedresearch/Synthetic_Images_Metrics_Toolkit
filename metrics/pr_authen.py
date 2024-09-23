@@ -31,7 +31,7 @@ def get_unique_filename(base_figname):
     
     return f"{filename}_{counter}{ext}"
 
-def plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, authen, run_dir, emb):
+def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, authen, emb):
     plt.figure(figsize=(10, 6))
     
     # Plot alpha precision curve
@@ -51,7 +51,7 @@ def plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, authenticity
     
     # Display the plot
     plt.grid(True)
-    fig_dir = os.path.join(run_dir, 'figures')
+    fig_dir = os.path.join(opts.run_dir, 'figures')
     os.makedirs(fig_dir, exist_ok=True)
     base_figname = os.path.join(fig_dir, f'alpha_precision_beta_coverage_curves{emb}.png')
     figname = get_unique_filename(base_figname)
@@ -170,7 +170,7 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
 
 #----------------------------------------------------------------------------
 
-def compute_pr_a(opts, oc_detector_path, train_OC, run_dir, max_real, num_gen, nhood_size, row_batch_size, col_batch_size):
+def compute_pr_a(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_size):
     OC_params  = dict({"rep_dim": 32, 
                 "num_layers": 3, 
                 "num_hidden": 128, 
@@ -215,7 +215,7 @@ def compute_pr_a(opts, oc_detector_path, train_OC, run_dir, max_real, num_gen, n
     
 
     # Get the OC model (and eventually train it on the real features)
-    OC_model, OC_params, OC_hyperparams = metric_utils.get_OC_model(opts, oc_detector_path, train_OC, real_features, OC_params, OC_hyperparams)
+    OC_model, OC_params, OC_hyperparams = metric_utils.get_OC_model(opts, real_features, OC_params, OC_hyperparams)
     print(OC_params)
     print(OC_hyperparams)
     OC_model.eval()
@@ -264,7 +264,7 @@ def compute_pr_a(opts, oc_detector_path, train_OC, run_dir, max_real, num_gen, n
     
         # Plot the curves
         if opts.rank == 0:
-            plot_curves(alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, authen, run_dir, emb)
+            plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, authen, emb)
     
     return results['Dpa_c'], results['Dcb_c'], results['Daut_c'], results['Dpa_mean'], results['Dcb_mean'], results['Daut_mean']
 

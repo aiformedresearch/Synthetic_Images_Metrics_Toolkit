@@ -20,7 +20,7 @@ from . import perceptual_path_length
 from . import inception_score
 from . import pr_authen
 from . import density_coverage
-from . import density_coverage_modified
+from . import knn_analysis
 
 #----------------------------------------------------------------------------
 
@@ -42,11 +42,11 @@ def list_valid_metrics():
 def calc_metric(metric, oc_detector_path, train_OC, snapshot_pkl, run_dir, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
     
     assert is_valid_metric(metric)
-    opts = metric_utils.MetricOptions(run_dir, snapshot_pkl, **kwargs)
+    opts = metric_utils.MetricOptions(run_dir, snapshot_pkl, oc_detector_path, train_OC, **kwargs)
 
     # Calculate.
     start_time = time.time()
-    results = _metric_dict[metric](opts) if metric != 'pr_auth' else _metric_dict[metric](opts, oc_detector_path, train_OC, run_dir)
+    results = _metric_dict[metric](opts)
     total_time = time.time() - start_time
 
     # Broadcast results.
@@ -158,11 +158,10 @@ def ppl_wend(opts):
 # Extra metrics.
 
 @register_metric
-def pr_auth(opts, oc_detector_path, train_OC, run_dir):
+def pr_auth(opts):
     opts.dataset_kwargs.update(max_size=None)
-    a_precision_c, b_recall_c, authenticity_c, a_precision_m, b_recall_m, authenticity_m  = pr_authen.compute_pr_a(opts, oc_detector_path, train_OC, run_dir, max_real=50000, num_gen=50000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    a_precision_c, b_recall_c, authenticity_c, a_precision_m, b_recall_m, authenticity_m  = pr_authen.compute_pr_a(opts, max_real=50000, num_gen=50000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
     return dict(a_precision_c=a_precision_c, b_recall_c=b_recall_c, authenticity_c=authenticity_c, a_precision_m=a_precision_m, b_recall_m=b_recall_m, authenticity_m=authenticity_m)
-
 
 @register_metric
 def prdc50k(opts):
@@ -170,9 +169,8 @@ def prdc50k(opts):
     precision, recall, density, coverage  = density_coverage.compute_prdc(opts, max_real=50000, num_gen=50000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
     return dict(precision=precision, recall=recall, density=density, coverage=coverage)
 
-
 @register_metric
-def prdc50k_modified(opts):
+def knn(opts):
     opts.dataset_kwargs.update(max_size=None)
-    precision, recall, density, coverage  = density_coverage_modified.compute_prdc(opts, max_real=50000, num_gen=5000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
-    return dict(precision=precision, recall=recall, density=density, coverage=coverage)
+    knn_analysis.plot_knn(opts, batch_size=64, k=8, top_n=6, max_items=100)
+
