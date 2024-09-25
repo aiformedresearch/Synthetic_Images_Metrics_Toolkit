@@ -172,5 +172,5 @@ def prdc50k(opts):
 @register_metric
 def knn(opts):
     opts.dataset_kwargs.update(max_size=None)
-    knn_analysis.plot_knn(opts, batch_size=64, k=8, top_n=6, max_items=100)
-
+    knn_analysis.plot_knn(opts, max_real=50000, num_gen=50000, batch_size=64, k=5, top_n=5)
+    return dict()

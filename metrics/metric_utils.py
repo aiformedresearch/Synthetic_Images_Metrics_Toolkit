@@ -609,3 +609,59 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
         return stats
 
 #----------------------------------------------------------------------------
+# Functions added to k-NN analysis visualization
+
+
+def visualize_grid(real_images, synthetic_images, fig_path, top_n, k):
+    fig, axes = plt.subplots(top_n, k+1, figsize=(5 * k, 5 * top_n))
+    base_fontsize = max(35, 30 - k) 
+
+    for row_idx in range(top_n):
+        # Show the real image in the first column
+        image = real_images[row_idx][0,:,:].cpu()
+        axes[row_idx, 0].imshow(image, cmap='gray')
+        axes[row_idx, 0].axis('off')
+        if row_idx == 0:
+            axes[row_idx, 0].set_title(f"Real Image", fontsize=base_fontsize)
+        
+        
+        # Show the top k synthetic images in the next columns
+        for col_idx in range(k):
+            image = synthetic_images[row_idx][col_idx][0,:,:]
+            axes[row_idx, col_idx+1].imshow(image, cmap='gray')
+            axes[row_idx, col_idx+1].axis('off')
+            if row_idx == 0:
+                axes[row_idx, col_idx+1].set_title(f"Synth {col_idx+1}", fontsize=base_fontsize)
+    
+    plt.tight_layout()
+    plt.savefig(fig_path)
+
+def select_top_n_real_images(closest_similarities, top_n=6):
+    """
+    Select the top-n real images based on the highest similarity.
+    """
+    # Compute the highest similarity for each real image (first column of closest_similarities)
+    max_similarities = {idx: similarities[0] for idx, similarities in closest_similarities.items()}
+
+    # Sort real images by highest similarity and select top-n
+    sorted_real_indices = sorted(max_similarities, key=max_similarities.get, reverse=True)[:top_n]
+    
+    return sorted_real_indices
+
+
+def visualize_top_k(opts, closest_images, top_n_real_indices, fig_path, batch_size, top_n=6, k=8):
+    """
+    Visualize the top-k closest synthetic images for the selected real images.
+    """
+    # Create a dataset and DataLoader for the real images
+    dataset = dnnlib.util.construct_class_by_name(**opts.dataset_kwargs)
+
+    # Use the indices of the closest synthetic images to load the real images from the dataset
+    real_images, _ = next(iter(torch.utils.data.DataLoader(dataset=dataset, sampler=top_n_real_indices, batch_size=batch_size)))
+
+    # Collect the synthetic images corresponding to each real image from closest_images
+    synthetic_images_to_visualize = [closest_images[real_idx][:k] for real_idx in top_n_real_indices]
+
+    # Now visualize the real image and the k closest synthetic images
+    visualize_grid(real_images, synthetic_images_to_visualize, fig_path, top_n, k)
+   
