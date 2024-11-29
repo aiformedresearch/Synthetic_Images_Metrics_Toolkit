@@ -8,35 +8,6 @@
 
 """Calculate quality metrics for previous training run or pretrained network pickle."""
 
-"""
-To run the script:
-
-CUDA_VISIBLE_DEVICES=0 python /home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/calc_metrics_StyleGAN.py \
-    --network /home/matteolai/diciotti/matteo/StyleACGAN2-ADA/EXPERIMENTS_DATASET_SIZE/size_3227/00000-OpenBHB-auto1-kimg3000-custom/network-snapshot-002000.pkl \
-    --metrics pr_auth \
-    --data /home/matteolai/diciotti/data/OpenBHB/OpenBHB_train.nii.gz \
-    --gpus 2 \
-    --verbose True \
-    --num_gen 3000 \
-    --run_dir "/home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/EXPERIMENTS_DATASET_SIZE_train_3k/size_3227" 
-
-------
-    --labels /home/matteolai/diciotti/data/ADNI_baseline2D/ADNI_test.csv \
-  
-fid50k_full,kid50k_full,pr50k3_full,ppl_zfull,pr_auth,prdc50k,knn
-
-
-# PROVE CON DATI LONGITUDINALI
-CUDA_VISIBLE_DEVICES=0,1 python /home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/calc_metrics_StyleGAN.py \
-    --network /home/matteolai/diciotti/matteo/StyleACGAN2-ADA/EXPERIMENTS_DATASET_SIZE/size_3227/00000-OpenBHB-auto1-kimg3000-custom/network-snapshot-002000.pkl \
-    --metrics knn \
-    --data /home/matteolai/diciotti/data/OpenBHB/OpenBHB_train.nii.gz \
-    --gpus 1 \
-    --verbose True \
-    --run_dir "/home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/EXPERIMENTS_DATASET_SIZE_train/test_longitudinal" > /home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/EXPERIMENTS_DATASET_SIZE_train/test_longitudinal/output.log 2>&1 & 
-
-"""
-
 
 import os
 import click
