@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 #----------------------------------------------------------------------------
 
 class MetricOptions:
-    def __init__(self, run_dir, network_pkl, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
+    def __init__(self, run_dir, network_pkl, num_gen, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
         assert 0 <= rank < num_gpus
         self.G              = G
         self.G_kwargs       = dnnlib.EasyDict(G_kwargs)
@@ -39,6 +39,7 @@ class MetricOptions:
         self.run_dir        = run_dir
         self.gen_path       = network_pkl
         self.data_path      = dataset_kwargs.path
+        self.num_gen        = num_gen
         self.oc_detector_path = oc_detector_path
         self.train_OC       = train_OC
 
@@ -367,7 +368,7 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
             G = network_dict['G_ema'] # subclass of torch.nn.Module
         G = copy.deepcopy(G).eval().requires_grad_(False).to(opts.device)
         
-        n_imgs = 5000 
+        n_imgs = opts.num_gen 
         print(f"Generating {n_imgs} synthetic images...")
         n_generated = 0
     
@@ -503,8 +504,9 @@ def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None):
         OC_model, OC_params, OC_hyperparams = pickle.load(open(opts.oc_detector_path,'rb'))
     
     OC_model.to(opts.device)
-    print(OC_params)
-    print(OC_hyperparams)
+    if opts.rank == 0:
+        print(OC_params)
+        print(OC_hyperparams)
     OC_model.eval()
     return OC_model, OC_params, OC_hyperparams
 
@@ -604,7 +606,7 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
         stats.append_torch(features, num_gpus=opts.num_gpus, rank=opts.rank)
         progress.update(stats.num_items)
     if return_imgs:
-        return stats, images
+        return stats, images[:,0,:,:]
     else:
         return stats
 
@@ -626,8 +628,12 @@ def visualize_grid(real_images, synthetic_images, fig_path, top_n, k):
         
         
         # Show the top k synthetic images in the next columns
+        img_gray = synthetic_images[0][0].shape[0] != 3
         for col_idx in range(k):
-            image = synthetic_images[row_idx][col_idx][0,:,:]
+            if img_gray:
+                image = synthetic_images[row_idx][col_idx][:,:]
+            else:
+                image = synthetic_images[row_idx][col_idx][0,:,:]
             axes[row_idx, col_idx+1].imshow(image, cmap='gray')
             axes[row_idx, col_idx+1].axis('off')
             if row_idx == 0:

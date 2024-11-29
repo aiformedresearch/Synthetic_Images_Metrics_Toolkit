@@ -1,6 +1,4 @@
 """
-MIO CODICE
-
 alpha-Precision, beta-Recall and authenticity from the paper "How Faithful is your Synthetic Data? Sample-level Metrics for Evaluating and Auditing Generative Models". 
 Matches the original implementation by Alaa et al. at https://github.com/vanderschaarlab/evaluating-generative-models
 """
@@ -16,21 +14,6 @@ import tensorflow as tf
 
 #----------------------------------------------------------------------------
 
-def get_unique_filename(base_figname):
-    """
-    Check if a file already exists. If so, add a suffix to create a unique filename.
-    """
-    if not os.path.exists(base_figname):
-        return base_figname
-    
-    filename, ext = os.path.splitext(base_figname)
-    counter = 1
-    
-    while os.path.exists(f"{filename}_{counter}{ext}"):
-        counter += 1
-    
-    return f"{filename}_{counter}{ext}"
-
 def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, authen, emb):
     plt.figure(figsize=(10, 6))
     
@@ -38,11 +21,11 @@ def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authen
     plt.plot(alphas, alpha_precision_curve, label='Alpha Precision Curve', marker='o')
     
     # Plot beta coverage curve
-    plt.plot(alphas, beta_coverage_curve, label='Beta Coverage Curve', marker='s')
+    plt.plot(alphas, beta_coverage_curve, label='Beta Recall Curve', marker='s')
     plt.plot([0, 1], [0, 1], "k--", label="Optimal performance")
     
     # Add titles and labels
-    plt.title('Alpha Precision and Beta Coverage Curves')
+    plt.title('Alpha Precision and Beta Recall Curves')
     plt.xlabel('alpha, beta')
     plt.ylabel('Value')
     
@@ -53,8 +36,8 @@ def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authen
     plt.grid(True)
     fig_dir = os.path.join(opts.run_dir, 'figures')
     os.makedirs(fig_dir, exist_ok=True)
-    base_figname = os.path.join(fig_dir, f'alpha_precision_beta_coverage_curves{emb}.png')
-    figname = get_unique_filename(base_figname)
+    base_figname = os.path.join(fig_dir, f'alpha_precision_beta_recall_curves{emb}.png')
+    figname = metric_utils.get_unique_filename(base_figname)
     plt.savefig(figname)
 
     # Plot authenticity
@@ -66,7 +49,7 @@ def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authen
     plt.ylabel("Frequency")
     plt.legend()
     base_figname = os.path.join(fig_dir, f'authenticity_distribution{emb}.png')
-    figname = get_unique_filename(base_figname)
+    figname = metric_utils.get_unique_filename(base_figname)
     plt.savefig(figname)
 
 def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
@@ -133,7 +116,8 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
     real_to_synth, real_to_synth_args = nbrs_synth.kneighbors(real_data)
 
     # To compute authenticity, select a subset of fake images of the same number of real images
-    subset_synth_data = synthetic_data[np.random.choice(synthetic_data.shape[0], real_data.shape[0], replace=False)]
+    smaller_population = min(real_data.shape[0], synthetic_data.shape[0])
+    subset_synth_data = synthetic_data[np.random.choice(synthetic_data.shape[0], smaller_population, replace=False)]
     nbrs_synth_auth = NearestNeighbors(n_neighbors = 1, n_jobs=-1, p=2).fit(subset_synth_data)
     real_to_synth_auth, real_to_synth_args_auth = nbrs_synth_auth.kneighbors(real_data)
 
@@ -226,26 +210,32 @@ def compute_pr_a(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_
 
         if emb_index == 1:
             # Embed the data into the OC representation
-            print('Computing metrics for OC embedding')
-            print('Embedding data into OC representation')
+            if opts.rank == 0:
+                print('Computing metrics for OC embedding')
+                print('Embedding data into OC representation')
             OC_model.to(opts.device)
             with torch.no_grad():
                 real_features = OC_model(torch.tensor(real_features).float().to(opts.device)).cpu().detach().numpy()
                 gen_features = OC_model(torch.tensor(gen_features).float().to(opts.device)).cpu().detach().numpy()
-            print('Done embedding')
-            print('real_features: mean, std - ', np.mean(real_features), np.std(real_features))
-            print('gen_features:  mean, std - ', np.mean(gen_features), np.std(gen_features))
+            
+            if opts.rank == 0:
+                print('Done embedding')
+                print('real_features: mean, std - ', np.mean(real_features), np.std(real_features))
+                print('gen_features:  mean, std - ', np.mean(gen_features), np.std(gen_features))
         else:
-            print('Computing metrics for no additional OneClass embedding')
+            if opts.rank == 0:
+                print('Computing metrics for no additional OneClass embedding')
 
         if emb_index==1:
             emb = '_c'
             emb_center = OC_model.c
-            print('\n-> with embedding centered in c=10:')
+            if opts.rank == 0:
+                print('\n-> with embedding centered in c=10:')
         else:
             emb = '_mean'
             emb_center = np.mean(real_features,axis=0)
-            print('\n-> with as center the data center:')
+            if opts.rank == 0:
+                print('\n-> with as center the data center:')
 
         # Compute the metrics
         OC_res = compute_alpha_precision(opts, real_features, gen_features, emb_center)
@@ -258,14 +248,15 @@ def compute_pr_a(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_
         results[f'Dpa{emb}'] = Delta_precision_alpha
         results[f'Dcb{emb}'] = Delta_coverage_beta
         results[f'Daut{emb}'] = np.mean(authen)
-        print('OneClass: Delta_precision_alpha', results[f'Dpa{emb}'])
-        print('OneClass: Delta_coverage_beta  ', results[f'Dcb{emb}'])
-        print('OneClass: Delta_autenticity    ', results[f'Daut{emb}'])
+        if opts.rank == 0:
+            print('OneClass: Delta_precision_alpha', results[f'Dpa{emb}'])
+            print('OneClass: Delta_coverage_beta  ', results[f'Dcb{emb}'])
+            print('OneClass: Delta_autenticity    ', results[f'Daut{emb}'])
     
         # Plot the curves
-        if opts.rank == 0:
+        if opts.rank == 0 and emb_index==1:
             plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, authen, emb)
     
-    return results['Dpa_c'], results['Dcb_c'], results['Daut_c'], results['Dpa_mean'], results['Dcb_mean'], results['Daut_mean']
+    return results['Dpa_c'], results['Dcb_c'], results['Daut_c']
 
 

@@ -39,10 +39,10 @@ def list_valid_metrics():
 
 #----------------------------------------------------------------------------
 
-def calc_metric(metric, oc_detector_path, train_OC, snapshot_pkl, run_dir, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
+def calc_metric(metric, num_gen, oc_detector_path, train_OC, snapshot_pkl, run_dir, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
     
     assert is_valid_metric(metric)
-    opts = metric_utils.MetricOptions(run_dir, snapshot_pkl, oc_detector_path, train_OC, **kwargs)
+    opts = metric_utils.MetricOptions(run_dir, snapshot_pkl, num_gen, oc_detector_path, train_OC, **kwargs)
 
     # Calculate.
     start_time = time.time()
@@ -87,30 +87,30 @@ def report_metric(result_dict, run_dir=None, snapshot_pkl=None):
 @register_metric
 def fid50k_full(opts):
     opts.dataset_kwargs.update(max_size=None, xflip=False)
-    fid = frechet_inception_distance.compute_fid(opts, max_real=None, num_gen=50000)
+    fid = frechet_inception_distance.compute_fid(opts, max_real=None, num_gen=opts.num_gen)
     return dict(fid50k_full=fid)
 
 @register_metric
 def kid50k_full(opts):
     opts.dataset_kwargs.update(max_size=None, xflip=False)
-    kid = kernel_inception_distance.compute_kid(opts, max_real=1000000, num_gen=50000, num_subsets=100, max_subset_size=1000)
+    kid = kernel_inception_distance.compute_kid(opts, max_real=1000000, num_gen=opts.num_gen, num_subsets=100, max_subset_size=1000)
     return dict(kid50k_full=kid)
 
 @register_metric
 def pr50k3_full(opts):
     opts.dataset_kwargs.update(max_size=None, xflip=False)
-    precision, recall = precision_recall.compute_pr(opts, max_real=200000, num_gen=50000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    precision, recall = precision_recall.compute_pr(opts, max_real=200000, num_gen=opts.num_gen, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
     return dict(pr50k3_full_precision=precision, pr50k3_full_recall=recall)
 
 @register_metric
 def ppl2_wend(opts):
-    ppl = perceptual_path_length.compute_ppl(opts, num_samples=50000, epsilon=1e-4, space='w', sampling='end', crop=False, batch_size=2)
+    ppl = perceptual_path_length.compute_ppl(opts, num_samples=opts.num_gen, epsilon=1e-4, space='w', sampling='end', crop=False, batch_size=2)
     return dict(ppl2_wend=ppl)
 
 @register_metric
 def is50k(opts):
     opts.dataset_kwargs.update(max_size=None, xflip=False)
-    mean, std = inception_score.compute_is(opts, num_gen=50000, num_splits=10)
+    mean, std = inception_score.compute_is(opts, num_gen=opts.num_gen, num_splits=10)
     return dict(is50k_mean=mean, is50k_std=std)
 
 #----------------------------------------------------------------------------
@@ -119,39 +119,39 @@ def is50k(opts):
 @register_metric
 def fid50k(opts):
     opts.dataset_kwargs.update(max_size=None)
-    fid = frechet_inception_distance.compute_fid(opts, max_real=50000, num_gen=50000)
+    fid = frechet_inception_distance.compute_fid(opts, max_real=50000, num_gen=opts.num_gen)
     return dict(fid50k=fid)
 
 @register_metric
 def kid50k(opts):
     opts.dataset_kwargs.update(max_size=None)
-    kid = kernel_inception_distance.compute_kid(opts, max_real=50000, num_gen=50000, num_subsets=100, max_subset_size=1000)
+    kid = kernel_inception_distance.compute_kid(opts, max_real=50000, num_gen=opts.num_gen, num_subsets=100, max_subset_size=1000)
     return dict(kid50k=kid)
 
 @register_metric
 def pr50k3(opts):
     opts.dataset_kwargs.update(max_size=None)
-    precision, recall = precision_recall.compute_pr(opts, max_real=50000, num_gen=50000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    precision, recall = precision_recall.compute_pr(opts, max_real=50000, num_gen=opts.num_gen, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
     return dict(pr50k3_precision=precision, pr50k3_recall=recall)
 
 @register_metric
 def ppl_zfull(opts):
-    ppl = perceptual_path_length.compute_ppl(opts, num_samples=50000, epsilon=1e-4, space='z', sampling='full', crop=True, batch_size=2)
+    ppl = perceptual_path_length.compute_ppl(opts, num_samples=opts.num_gen, epsilon=1e-4, space='z', sampling='full', crop=True, batch_size=2)
     return dict(ppl_zfull=ppl)
 
 @register_metric
 def ppl_wfull(opts):
-    ppl = perceptual_path_length.compute_ppl(opts, num_samples=50000, epsilon=1e-4, space='w', sampling='full', crop=True, batch_size=2)
+    ppl = perceptual_path_length.compute_ppl(opts, num_samples=opts.num_gen, epsilon=1e-4, space='w', sampling='full', crop=True, batch_size=2)
     return dict(ppl_wfull=ppl)
 
 @register_metric
 def ppl_zend(opts):
-    ppl = perceptual_path_length.compute_ppl(opts, num_samples=50000, epsilon=1e-4, space='z', sampling='end', crop=True, batch_size=2)
+    ppl = perceptual_path_length.compute_ppl(opts, num_samples=opts.num_gen, epsilon=1e-4, space='z', sampling='end', crop=True, batch_size=2)
     return dict(ppl_zend=ppl)
 
 @register_metric
 def ppl_wend(opts):
-    ppl = perceptual_path_length.compute_ppl(opts, num_samples=50000, epsilon=1e-4, space='w', sampling='end', crop=True, batch_size=2)
+    ppl = perceptual_path_length.compute_ppl(opts, num_samples=opts.num_gen, epsilon=1e-4, space='w', sampling='end', crop=True, batch_size=2)
     return dict(ppl_wend=ppl)
 
 #----------------------------------------------------------------------------
@@ -160,17 +160,18 @@ def ppl_wend(opts):
 @register_metric
 def pr_auth(opts):
     opts.dataset_kwargs.update(max_size=None)
-    a_precision_c, b_recall_c, authenticity_c, a_precision_m, b_recall_m, authenticity_m  = pr_authen.compute_pr_a(opts, max_real=50000, num_gen=50000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
-    return dict(a_precision_c=a_precision_c, b_recall_c=b_recall_c, authenticity_c=authenticity_c, a_precision_m=a_precision_m, b_recall_m=b_recall_m, authenticity_m=authenticity_m)
+    a_precision_c, b_recall_c, authenticity_c  = pr_authen.compute_pr_a(opts, max_real=50000, num_gen=opts.num_gen, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    return dict(a_precision_c=a_precision_c, b_recall_c=b_recall_c, authenticity_c=authenticity_c)
 
 @register_metric
 def prdc50k(opts):
     opts.dataset_kwargs.update(max_size=None)
-    precision, recall, density, coverage  = density_coverage.compute_prdc(opts, max_real=50000, num_gen=50000, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    precision, recall, density, coverage  = density_coverage.compute_prdc(opts, max_real=50000, num_gen=opts.num_gen, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
     return dict(precision=precision, recall=recall, density=density, coverage=coverage)
 
 @register_metric
 def knn(opts):
     opts.dataset_kwargs.update(max_size=None)
-    knn_analysis.plot_knn(opts, max_real=50000, num_gen=50000, batch_size=64, k=5, top_n=5)
-    return dict()
+    path_to_img = knn_analysis.plot_knn(opts, max_real=50000, num_gen=opts.num_gen, batch_size=64, k=5, top_n=5)
+    #path_to_img = knn_analysis_from_nii.plot_knn(opts, max_real=50000, num_gen=opts.num_gen, batch_size=64, k=5, top_n=5)
+    return dict(path_to_knn=path_to_img)

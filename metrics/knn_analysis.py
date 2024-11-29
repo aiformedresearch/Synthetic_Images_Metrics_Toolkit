@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
-import matplotlib.pyplot as plt
 
 from metrics import metric_utils
 
@@ -74,7 +73,9 @@ def plot_knn(opts, max_real, num_gen, batch_size=64, k=8, top_n=6):
     )
 
     # Step 3: Select the top 6 real images with the smallest distance to any synthetic image
-    fig_path = opts.run_dir + '/knn_analysis.png'
+    fig_path = opts.run_dir + '/figures/knn_analysis.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
     top_n_real_indices = metric_utils.select_top_n_real_images(closest_similarities, top_n=top_n)
     metric_utils.visualize_top_k(opts, closest_images, top_n_real_indices, fig_path, batch_size, top_n=top_n, k=k)
 
+    return fig_path

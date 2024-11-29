@@ -8,6 +8,34 @@
 
 """Calculate quality metrics for previous training run or pretrained network pickle."""
 
+"""
+To run the script:
+
+CUDA_VISIBLE_DEVICES=0 python /home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/calc_metrics_StyleGAN.py \
+    --network /home/matteolai/diciotti/matteo/StyleACGAN2-ADA/EXPERIMENTS_DATASET_SIZE/size_3227/00000-OpenBHB-auto1-kimg3000-custom/network-snapshot-002000.pkl \
+    --metrics pr_auth \
+    --data /home/matteolai/diciotti/data/OpenBHB/OpenBHB_train.nii.gz \
+    --gpus 2 \
+    --verbose True \
+    --num_gen 3000 \
+    --run_dir "/home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/EXPERIMENTS_DATASET_SIZE_train_3k/size_3227" 
+
+------
+    --labels /home/matteolai/diciotti/data/ADNI_baseline2D/ADNI_test.csv \
+  
+fid50k_full,kid50k_full,pr50k3_full,ppl_zfull,pr_auth,prdc50k,knn
+
+
+# PROVE CON DATI LONGITUDINALI
+CUDA_VISIBLE_DEVICES=0,1 python /home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/calc_metrics_StyleGAN.py \
+    --network /home/matteolai/diciotti/matteo/StyleACGAN2-ADA/EXPERIMENTS_DATASET_SIZE/size_3227/00000-OpenBHB-auto1-kimg3000-custom/network-snapshot-002000.pkl \
+    --metrics knn \
+    --data /home/matteolai/diciotti/data/OpenBHB/OpenBHB_train.nii.gz \
+    --gpus 1 \
+    --verbose True \
+    --run_dir "/home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/EXPERIMENTS_DATASET_SIZE_train/test_longitudinal" > /home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/EXPERIMENTS_DATASET_SIZE_train/test_longitudinal/output.log 2>&1 & 
+
+"""
 
 
 import os
@@ -76,7 +104,7 @@ def subprocess_fn(rank, args, temp_dir):
         train_OC = False if args.oc_detector_path is not None else True
         oc_detector_path = args.oc_detector_path if args.oc_detector_path is not None else args.run_dir+'/oc_detector.pkl'
         
-        result_dict = metric_main.calc_metric(metric=metric, oc_detector_path=oc_detector_path, train_OC=train_OC, snapshot_pkl=args.network_pkl, run_dir=args.run_dir, G=G, dataset_kwargs=args.dataset_kwargs,
+        result_dict = metric_main.calc_metric(metric=metric, num_gen=args.num_gen, oc_detector_path=oc_detector_path, train_OC=train_OC, snapshot_pkl=args.network_pkl, run_dir=args.run_dir, G=G, dataset_kwargs=args.dataset_kwargs,
             num_gpus=args.num_gpus, rank=rank, device=device, progress=progress)
         if rank == 0:
             metric_main.report_metric(result_dict, run_dir=args.run_dir, snapshot_pkl=args.network_pkl)
@@ -109,11 +137,12 @@ class CommaSeparatedList(click.ParamType):
 @click.option('--mirror', help='Whether the dataset was augmented with x-flips during training [default: look up]', type=bool, metavar='BOOL')
 @click.option('--gpus', help='Number of GPUs to use', type=int, default=1, metavar='INT', show_default=True)
 @click.option('--verbose', help='Print optional information', type=bool, default=True, metavar='BOOL', show_default=True)
+@click.option('--num_gen', help='Number of synthetic images to generate to compute the metrics [default: 50000]', type=int, default=50000, metavar='INT', show_default=True)
 @click.option('--run_dir', help='Path where to save the outputs', metavar='PATH', default=None)
 @click.option('--oc_detector_path', help='Path to the pretrained OC detector (.pkl), for the computation of alpha-precision, beta-recall and authenticity.', metavar='PATH', default=None)
 
 
-def calc_metrics(ctx, network_pkl, metrics, data, labels, mirror, gpus, verbose, run_dir, oc_detector_path):
+def calc_metrics(ctx, network_pkl, metrics, data, labels, mirror, gpus, verbose, run_dir, num_gen, oc_detector_path):
     """Calculate quality metrics for previous training run or pretrained network pickle.
 
     Examples:
@@ -199,6 +228,9 @@ def calc_metrics(ctx, network_pkl, metrics, data, labels, mirror, gpus, verbose,
     #     pkl_dir = os.path.dirname(network_pkl)
     #     if os.path.isfile(os.path.join(pkl_dir, 'training_options.json')):
     #         args.run_dir = pkl_dir
+
+    # Set the number of synthetic images to generate to compute the metrics.
+    args.num_gen = num_gen
 
     # Set the paths to the outputs:
     args.oc_detector_path = oc_detector_path
