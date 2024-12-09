@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+# SPDX-License-Identifier: MIT
+
 """
 alpha-Precision, beta-Recall and authenticity from the paper "How Faithful is your Synthetic Data? Sample-level Metrics for Evaluating and Auditing Generative Models". 
 Matches the original implementation by Alaa et al. at https://github.com/vanderschaarlab/evaluating-generative-models
@@ -171,22 +174,8 @@ def compute_pr_a(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_
 
     OC_hyperparams = dict({"Radius": 1, "nu": 1e-2})
 
-    # # Direct TorchScript translation of http://download.tensorflow.org/models/image/imagenet/inception-2015-12-05.tgz
-    # detector_url = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/inception-2015-12-05.pt'
-    # detector_kwargs = dict(return_features=True) # Return raw features before the softmax layer.
-
-    # # Compute the embedding from pre-trained detector
-    # real_features = metric_utils.compute_feature_stats_for_dataset(
-    #     opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
-    #     rel_lo=0, rel_hi=0, capture_all=True, max_items=max_real).get_all()
-
-    # gen_features = metric_utils.compute_feature_stats_for_generator(
-    #     opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
-    #     rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all()
-
-
     # Load embedder function
-    detector_url = embedding = {'model': 'inceptionv3', 'randomise': False, 'dim64': False}
+    embedding = {'model': 'inceptionv3', 'randomise': False, 'dim64': False}
     if embedding is not None:
         embedder = metric_utils.load_embedder(embedding)
         print('Checking of embedder is using GPU')

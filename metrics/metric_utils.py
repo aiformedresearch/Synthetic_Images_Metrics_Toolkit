@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+# SPDX-License-Identifier: LicenseRef-NVIDIA-1.0
+# 
 # Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -416,7 +419,6 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
             print(f'\rGenerated {n_generated}/{n_imgs} images')
             batch = np.transpose(batch, (0, 2, 3, 1))
             batch = np.repeat(batch, 3, axis=-1)
-            #batch = batch[start:end,:,:,:]
             batch = adjust_size_embedder(embedder, embedding, batch)
 
             batch_embedding = embedder(batch)
@@ -493,7 +495,7 @@ def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None):
                                  hyperparams=OC_hyperparams)
         OC_model.fit(X,verbosity=True)
         
-        # Check taht the folder exists
+        # Check that the folder exists
         if not os.path.exists(os.path.dirname(opts.oc_detector_path)):
             os.makedirs(os.path.dirname(opts.oc_detector_path))
 
@@ -611,8 +613,7 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
         return stats
 
 #----------------------------------------------------------------------------
-# Functions added to k-NN analysis visualization
-
+# Functions added for k-NN analysis visualization
 
 def visualize_grid(real_images, synthetic_images, fig_path, top_n, k):
     fig, axes = plt.subplots(top_n, k+1, figsize=(5 * k, 5 * top_n))

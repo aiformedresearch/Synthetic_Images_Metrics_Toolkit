@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 """Timeseries encoding to a fixed size vector representation.
 
 Author: Evgeny Saveliev (e.s.saveliev@gmail.com)

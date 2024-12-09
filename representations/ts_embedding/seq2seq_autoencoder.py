@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 """Seq-2-Seq autoencoder.
 """
 import torch

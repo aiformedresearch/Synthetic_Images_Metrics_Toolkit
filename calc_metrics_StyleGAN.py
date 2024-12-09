@@ -1,4 +1,7 @@
-# # Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+# SPDX-License-Identifier: LicenseRef-NVIDIA-1.0
+#
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -195,10 +198,6 @@ def calc_metrics(ctx, network_pkl, metrics, data, labels, mirror, gpus, verbose,
     # Locate run dir.
     args.run_dir = run_dir
     os.makedirs(args.run_dir, exist_ok=True)
-    # if os.path.isfile(network_pkl):
-    #     pkl_dir = os.path.dirname(network_pkl)
-    #     if os.path.isfile(os.path.join(pkl_dir, 'training_options.json')):
-    #         args.run_dir = pkl_dir
 
     # Set the number of synthetic images to generate to compute the metrics.
     args.num_gen = num_gen

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+# SPDX-License-Identifier: NPOSL-3.0
+ 
 import numpy as np
 import torch
 from sklearn.metrics.pairwise import cosine_similarity

@@ -1,4 +1,7 @@
-﻿# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+﻿# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+# SPDX-License-Identifier: LicenseRef-NVIDIA-1.0
+# 
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -173,5 +176,4 @@ def prdc50k(opts):
 def knn(opts):
     opts.dataset_kwargs.update(max_size=None)
     path_to_img = knn_analysis.plot_knn(opts, max_real=50000, num_gen=opts.num_gen, batch_size=64, k=5, top_n=5)
-    #path_to_img = knn_analysis_from_nii.plot_knn(opts, max_real=50000, num_gen=opts.num_gen, batch_size=64, k=5, top_n=5)
     return dict(path_to_knn=path_to_img)

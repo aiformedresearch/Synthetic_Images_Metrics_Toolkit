@@ -1,6 +1,7 @@
-"""
-MIO CODICE
+# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+# SPDX-License-Identifier: MIT
 
+"""
 Taken from https://github.com/clovaai/generative-evaluation-prdc
 
 prdc 
