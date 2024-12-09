@@ -6,7 +6,10 @@ This repository contains a collection of the state-of-the-art metrics used to ev
 
 The metrics in this repository allows for the evaluation of fidelity (realness of synthetic data), diversity (coverage of real data distribution), and generalizability (generation of authentic, non-memorized images). 
 
-![](./Metrics.png "")
+<p align="center">
+  <img src="Metrics.png" width="400" title="PACGAN">
+</p>
+
 
 ## Licenses
 This repository follows the [REUSE Specification](https://reuse.software/). All source files are annotated with SPDX license identifiers, and full license texts are included in the `LICENSES` directory.
