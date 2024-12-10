@@ -381,7 +381,7 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
         print("warning: batch size is bigger than the data size. setting batch size to data size")
         batch_size = n_imgs
 
-    n_batches = n_imgs//batch_size + 1
+    n_batches = (n_imgs + batch_size - 1) // batch_size
     
     pred_arr = np.empty((n_imgs,embedder.output.shape[-1]))
     input_shape = embedder.input.shape[1]

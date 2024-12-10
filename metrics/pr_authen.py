@@ -60,7 +60,7 @@ def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
     authenticity_values = []
 
     # Determine the batch size
-    batch_size = min(batch_size, real_data.shape[0])
+    batch_size = min(batch_size, real_data.shape[0], synthetic_data.shape[0])
 
     # Fit the NearestNeighbors model on real data once
     nbrs_real = NearestNeighbors(n_neighbors=2, n_jobs=-1, p=2).fit(real_data)
