@@ -112,17 +112,17 @@ The following quantitative metrics are available:
 
 | Metric        | Description | Original implementation |
 | :-----        | :-----: | :---------- |
-| `fid50k_full` | Fr&eacute;chet inception distance<sup>[1]</sup> against the full dataset | https://github.com/NVlabs/stylegan2-ada-pytorch
-| `kid50k_full` | Kernel inception distance<sup>[2]</sup> against the full dataset | https://github.com/NVlabs/stylegan2-ada-pytorch
-| `pr50k3_full` | Precision and recall<sup>[3]</sup> againt the full dataset |  https://github.com/NVlabs/stylegan2-ada-pytorch
-| `is50k`       | Inception score<sup>[4]</sup> for CIFAR-10 |  https://github.com/NVlabs/stylegan2-ada-pytorch
-| `ppl2_wend`   |  Perceptual path length<sup>[5]</sup> in W, endpoints, full image |  https://github.com/NVlabs/stylegan2-ada-pytorch
-| `ppl_zfull`   |  Perceptual path length in Z, full paths, cropped image |  https://github.com/NVlabs/stylegan2-ada-pytorch
-| `ppl_wfull`   |  Perceptual path length in W, full paths, cropped image |  https://github.com/NVlabs/stylegan2-ada-pytorch
-| `ppl_zend`    | Perceptual path length in Z, endpoints, cropped image |  https://github.com/NVlabs/stylegan2-ada-pytorch
-| `ppl_wend`    |  Perceptual path length in W, endpoints, cropped image |  https://github.com/NVlabs/stylegan2-ada-pytorch
-| `prdc`    |  Precision, recall, density, and coverage<sup>[6]</sup>|  https://github.com/clovaai/generative-evaluation-prdc
-| `pr_auth`    |  	$\alpha$-precision, 	$\beta$-recall, and authenticity<sup>[7]</sup>|  https://github.com/vanderschaarlab/evaluating-generative-models
+| `fid50k_full` | Fr&eacute;chet inception distance<sup>[1]</sup> against the full dataset | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `kid50k_full` | Kernel inception distance<sup>[2]</sup> against the full dataset         | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `pr50k3_full` | Precision and recall<sup>[3]</sup> againt the full dataset               | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `is50k`       | Inception score<sup>[4]</sup> for CIFAR-10                               | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `ppl2_wend`   |  Perceptual path length<sup>[5]</sup> in W, endpoints, full image        | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `ppl_zfull`   |  Perceptual path length in Z, full paths, cropped image                  | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `ppl_wfull`   |  Perceptual path length in W, full paths, cropped image                  | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `ppl_zend`    | Perceptual path length in Z, endpoints, cropped image                    | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `ppl_wend`    |  Perceptual path length in W, endpoints, cropped image                   | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `prdc`    |  Precision, recall, density, and coverage<sup>[6]</sup>                      | [prdc](https://github.com/clovaai/generative-evaluation-prdc)
+| `pr_auth`    |  	$\alpha$-precision, 	$\beta$-recall, and authenticity<sup>[7]</sup>   | [evaluating-generative-models](https://github.com/vanderschaarlab/evaluating-generative-models)
 
 References:
 1. [GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium](https://arxiv.org/abs/1706.08500), Heusel et al. 2017
