@@ -8,7 +8,7 @@ RUN conda install -c conda-forge nibabel==4.0.2
 RUN conda install tensorflow=2.4.1
 RUN conda install matplotlib=3.5.3 tqdm=4.64.1
 RUN conda install anaconda::scikit-learn=1.0.2
-RUN pip install click==7.1.2 requests==2.24 tqdm==4.53.0 pyspng==0.1.1 imageio-ffmpeg==0.4.3
+RUN pip install click==7.1.2 requests==2.24 pyspng==0.1.1 imageio-ffmpeg==0.4.3
 RUN pip install psutil==5.7.2 legacy
 
 RUN apt-get update

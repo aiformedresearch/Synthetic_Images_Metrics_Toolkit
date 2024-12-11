@@ -1,7 +1,9 @@
+# SPDX-FileCopyrightText: 2024 NVIDIA CORPORATION
 # SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
 # SPDX-License-Identifier: LicenseRef-NVIDIA-1.0
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved. 
+# Modifications copyright (c) 2024, Matteo Lai
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation

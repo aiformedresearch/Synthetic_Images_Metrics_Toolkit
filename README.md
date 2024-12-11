@@ -1,23 +1,31 @@
+<!--
+SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+
+SPDX-License-Identifier: NPOSL-3.0
+-->
+
 [<img src="https://img.shields.io/badge/  -Dockerhub-blue.svg?logo=docker&logoColor=white">](<https://hub.docker.com/r/matteolai/metrics_toolkit>) 
 
 # Synthetic_Images_Metrics_Toolkit
 
-This repository contains a collection of the state-of-the-art metrics used to evaluate the quality of synthetic images. 
-
-The metrics in this repository allows for the evaluation of fidelity (realness of synthetic data), diversity (coverage of real data distribution), and generalizability (generation of authentic, non-memorized images). 
+This repository provides a comprehensive collection of state-of-the-art metrics for evaluating the quality of synthetic images. 
+These metrics enable the assessment of:
+- Fidelity: the realism of synthetic data;
+- Diversity: the coverage of the real data distribution;
+- Generalizability: the generation of authentic, non-memorized images. 
 
 <p align="center">
-  <img src="Metrics.png" width="400" title="PACGAN">
+  <img src="Images/Metrics.png" width="400" title="PACGAN">
 </p>
 
 
 ## Licenses
-This repository follows the [REUSE Specification](https://reuse.software/). All source files are annotated with SPDX license identifiers, and full license texts are included in the `LICENSES` directory.
+This repository complies with the [REUSE Specification](https://reuse.software/). All source files are annotated with SPDX license identifiers, and full license texts are included in the `LICENSES` directory.
 
 ### Licenses Used
 
-1. **LicenseRef-NVIDIA-1.0**: Applies to code reused from NVIDIA's StyleGAN2 repository: https://github.com/NVlabs/stylegan2-ada-pytorch.
-2. **MIT**:  For code reused from :
+1. **LicenseRef-NVIDIA-1.0**: Applies to code reused from NVIDIA's StyleGAN2 repository: https://github.com/NVlabs/stylegan2-ada-pytorch, under the [NVIDIA Source Code License](https://nvlabs.github.io/stylegan2-ada-pytorch/license.html).
+2. **MIT**:  For code reused from:
     - https://github.com/vanderschaarlab/evaluating-generative-models; 
     - https://github.com/clovaai/generative-evaluation-prdc.
 3. **NPOSL-3.0**: Applies to the code developed specifically for this repository.
@@ -25,13 +33,82 @@ This repository follows the [REUSE Specification](https://reuse.software/). All 
 For detailed license texts, see the `LICENSES` directory.
 
 ## Installation
+Before proceeding, ensure [CUDA](https://developer.nvidia.com/cuda-downloads) is installed. Recommended CUDA 11.0 or later is recommended, though newer versions may produce warnings.
+
+### Installation with Anaconda
 🚧 Work in progress...
+
+### Installation with Docker
+1. Install [Docker](https://docs.docker.com/get-docker/) for your operating system.
+
+2. Pull the Docker image
+    ```
+    docker pull aiformedresearch/metrics_toolkit
+    ```
+
+3. Run the Docker container
+    ```
+    docker run -it --gpus all aiformedresearch/pacgan \
+      -v /absolute/path/to/real_data.nii.gz:/Metrics_Toolkit/data \
+      -v /absolute/path/to/pretrained_network_file:/Metrics_Toolkit/data \
+      -v /absolute/path/to/local_output_directory:/Metrics_Tool/outputs \
+      aiformedresearch/metrics_toolkit
+    ```
+      - The `--gpus all` flag enables GPU support. Specify a GPU if needed, e.g., `--gpus 0`.
+      - The `-v` flag is used to mount the local directories to the respective directories inside the container. 
+
+Refer to the [Usage](#usage) section for detailed instructions about executing the main script. Type `exit` to exit from the Docker container.
 
 ## Usage
-🚧 Work in progress...
+### Customize for your use case
+To evaluate your generative model, you need to modify the `calc_metrics_demo.py` script in the three points underlined by the "Demo" comment. Specifically:
+1. Import the generator class
+    ```
+    # Example:
 
-## Quantitative metrics
-🚧 Work in progress...
+    from utils_networks.model import Generator
+    ```
+2. Define the generative model
+    ```
+    # Example:
+
+    args.G = Generator(args.z_dim, embedding_dim, args.c_dim, img_channels, in_channels, factors)
+    args.G.load_state_dict(network_dict)
+    ```
+3. Specify the dataset class. Replace `XXXXX_to_be_replaced_XXXXX` with the actual class name:
+    ```
+    # Example:
+
+    args.dataset_kwargs = dnnlib.EasyDict(class_name='XXXXX_to_be_replaced_XXXXX', path=data, path_labels=labels)
+    ```
+    
+    For the dataset class definition, provided script include:
+    - [dataset.py](training/dataset.py): original version of the dataset from the [StyleGAN2-ADA repository](https://github.com/NVlabs/stylegan2-ada-pytorch), handling PNG images;
+    - [dataset_NIfTI.py](training/dataset_NIfTI.py): adapted for NIfTI files with shape `[img_res, img_res, #channels, #images]`. `img_res` is the image resolution, `#channels` is the number of channels (1 for grayscale images), and `#images` is the number of real images in the NIfTI file.
+
+This system has been tested on:
+- [PACGAN](https://github.com/MatteoLai/PACGAN), a custom generative adversarial network  (`calc_metrics_PACGAN.py`) 
+- [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch) (`calc_metrics_StyleGAN.py`)
+
+*Future releases will simplify customization through a JSON configuration file.*
+
+#### Running the script
+Once customized, execute the main script with:
+```
+python calc_metrics.py \
+  --network /path_to/pretrained_network.pkl \
+  --metrics fid50k_full,kid50k_full,pr50k3_full,ppl_zfull,pr_auth,prdc50k,knn \
+  --data /path_to/real_data.nii.gz" \
+  --run_dir /path_to/output_dir/
+```
+
+This command evaluates the synthetic images generated by the pre-trained generative model indicated in `--network`, against the real images indicated in `--data`. Metrics results are saved in the `--run_dir` directory. The complete set of metrics that you can indicate in the `--metrics` flag is listed in the following sections: [Quantitative metrics](#quantitative-metrics) and [Qualitative metrics](#qualitative-metrics).
+
+By default the script will compute the metrics between all the real images and 50,000 synthetic ones, but it is possible to set the number of generated images with the `--num_gen` flag.
+
+## Metrics overview
+### Quantitative metrics
+The following quantitative metrics are available:
 
 | Metric        | Description | Original implementation |
 | :-----        | :-----: | :---------- |
@@ -57,6 +134,20 @@ References:
 7. [How Faithful is your Synthetic Data?
 Sample-level Metrics for Evaluating and Auditing Generative Models](https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf), Alaa et al., 2022
 
-## Qualitative metrics
-🚧 Work in progress...
+### Qualitative metrics
+Evaluate potential memorization of the model through k-nearest neighbors (k-NN) analysis:
+<p align="center">
+  <img src="Images/knn_analysis.png" width="600" title="PACGAN">
+</p>
 
+The k-NN analysis visualizes the `top_n` real images that exhibit the highest cosine similarity with any synthetic sample (out of 50,000 generated samples). For each real image shows the top `k` synthetic images.
+
+By default, `k=5` and `top_n=3`, but it is possible to adjust their value from [metric_main.py](metrics/metric_main.py), in the `knn` function.
+
+## To do list
+☐ Test metrics on diffusion models
+
+☐ Enable parameter configuration via JSON file 
+
+## Aknowledgments
+This repository builds on NVIDIA's StyleGAN2-ADA repository: https://github.com/NVlabs/stylegan2-ada-pytorch.

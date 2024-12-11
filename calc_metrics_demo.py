@@ -1,7 +1,9 @@
+# SPDX-FileCopyrightText: 2024 NVIDIA CORPORATION
 # SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
 # SPDX-License-Identifier: LicenseRef-NVIDIA-1.0
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved. 
+# Modifications copyright (c) 2024, Matteo Lai
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -10,23 +12,6 @@
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
 """Calculate quality metrics for previous training run or pretrained network pickle."""
-
-"""
-To run the script:
-
-CUDA_VISIBLE_DEVICES=0, python /home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/calc_metrics_PACGAN.py \
-    --network /home/matteolai/diciotti/matteo/GAN_metrics/utils_networks/generator_best.pt \
-    --json_path /home/matteolai/diciotti/matteo/GAN_metrics/utils_networks/config.json \
-    --metrics fid50k,kid50k,pr50k3 \
-    --data /home/matteolai/diciotti/data/ADNI/ADNI_train/PACGAN/Real256x256.nii.gz \
-    --labels /home/matteolai/diciotti/data/ADNI/ADNI_train/PACGAN/labels.csv \
-    --gpus 1 \
-    --verbose True
-    --run_dir "/home/matteolai/diciotti/matteo/Synthetic_Images_Metrics_Toolkit/outputs" 
-
-
-fid50k,kid50k,pr50k3,ppl_zfull,pr_auth,prdc50k
-"""
 
 
 import os
@@ -174,6 +159,8 @@ def calc_metrics(ctx, network_pkl, metrics, data, labels, mirror, gpus, verbose,
     \b 
       Extra metrics:
         pr_auth    alpha-Precision, beta-Recall and authenticity 
+        prdc50k    Precision, Recall, Density and Coverage against the full dataset.
+        knn        K-Nearest Neighbors analysis
     
     """
     dnnlib.util.Logger(should_flush=True)
