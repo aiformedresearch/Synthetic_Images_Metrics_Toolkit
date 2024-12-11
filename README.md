@@ -135,14 +135,14 @@ References:
 Sample-level Metrics for Evaluating and Auditing Generative Models](https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf), Alaa et al., 2022
 
 ### Qualitative metrics
-Evaluate potential memorization of the model through k-nearest neighbors (k-NN) analysis:
+Assess potential memorization of the model through k-nearest neighbors (k-NN) analysis:
 <p align="center">
   <img src="Images/knn_analysis.png" width="600" title="PACGAN">
 </p>
 
-The k-NN analysis visualizes the `top_n` real images that exhibit the highest cosine similarity with any synthetic sample (out of 50,000 generated samples). For each real image shows the top `k` synthetic images.
+The k-NN analysis identifies and visualizes the `top_n` real images most similar to any synthetic sample (from a set of 50,000 generated samples). For each real image, the visualization displays the top `k` synthetic images ranked by their cosine similarity to the corresponding real image.
 
-By default, `k=5` and `top_n=3`, but it is possible to adjust their value from [metric_main.py](metrics/metric_main.py), in the `knn` function.
+By default, `k=5` and `top_n=3`. These parameters can be adjusted in the `knn` function within the [metric_main.py](metrics/metric_main.py) file.
 
 ## To do list
 ☐ Test metrics on diffusion models
