@@ -33,20 +33,26 @@ This repository complies with the [REUSE Specification](https://reuse.software/)
 For detailed license texts, see the `LICENSES` directory.
 
 ## Installation
-Before proceeding, ensure [CUDA](https://developer.nvidia.com/cuda-downloads) is installed. Recommended CUDA 11.0 or later is recommended, though newer versions may produce warnings.
+Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-downloads) is installed. CUDA 11.0 or later is recommended, though newer versions may produce warnings.
 
 ### Installation with Anaconda
-🚧 Work in progress...
+0. Install [Anaconda](https://docs.anaconda.com/free/anaconda/install/index.html) for your operating system.
+1. Create a Conda environment and install the required dependencies using the following commands:
+    ```
+    conda create -n metrics_toolkit python=3.7 -y
+    conda activate metrics_toolkit
+    pip install -r requirements.txt
+    ```
 
 ### Installation with Docker
-1. Install [Docker](https://docs.docker.com/get-docker/) for your operating system.
+0. Install [Docker](https://docs.docker.com/get-docker/) for your operating system.
 
-2. Pull the Docker image
+1. Pull the Docker image
     ```
     docker pull aiformedresearch/metrics_toolkit
     ```
 
-3. Run the Docker container
+2. Run the Docker container
     ```
     docker run -it --gpus all aiformedresearch/pacgan \
       -v /absolute/path/to/real_data.nii.gz:/Metrics_Toolkit/data \
@@ -56,8 +62,10 @@ Before proceeding, ensure [CUDA](https://developer.nvidia.com/cuda-downloads) is
     ```
       - The `--gpus all` flag enables GPU support. Specify a GPU if needed, e.g., `--gpus 0`.
       - The `-v` flag is used to mount the local directories to the respective directories inside the container. 
+      > Note: To exit from the Docker container, type: `exit`.
 
-Refer to the [Usage](#usage) section for detailed instructions about executing the main script. Type `exit` to exit from the Docker container.
+Refer to the [Usage](#usage) section for detailed instructions about running the main script. 
+
 
 ## Usage
 ### Customize for your use case
