@@ -15,7 +15,7 @@ These metrics enable the assessment of:
 - Generalizability: the generation of authentic, non-memorized images. 
 
 <p align="center">
-  <img src="Images/Metrics.png" width="400" title="PACGAN">
+  <img src="Images/Metrics.png" width="400" title="metrics">
 </p>
 
 
@@ -118,7 +118,7 @@ By default the script will compute the metrics between all the real images and 5
 ### Quantitative metrics
 The following quantitative metrics are available:
 
-| Metric        | Description | Original implementation |
+| Metric flag      | Description | Original implementation |
 | :-----        | :-----: | :---------- |
 | `fid50k_full` | Fr&eacute;chet inception distance<sup>[1]</sup> against the full dataset | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
 | `kid50k_full` | Kernel inception distance<sup>[2]</sup> against the full dataset         | [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch)
@@ -143,9 +143,12 @@ References:
 Sample-level Metrics for Evaluating and Auditing Generative Models](https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf), Alaa et al., 2022
 
 ### Qualitative metrics
-Assess potential memorization of the model through k-nearest neighbors (k-NN) analysis:
+| Metric flag      | Description | Original implementation |
+| :-----        | :-----: | :---------- |
+| `knn` | k-nearest neighbors (k-NN) analysis, to assess potential memorization of the model | Custom implementation |
+
 <p align="center">
-  <img src="Images/knn_analysis.png" width="600" title="PACGAN">
+  <img src="Images/knn_analysis.png" width="600" title="knn-analysis">
 </p>
 
 The k-NN analysis identifies and visualizes the `top_n` real images most similar to any synthetic sample (from a set of 50,000 generated samples). For each real image, the visualization displays the top `k` synthetic images ranked by their cosine similarity to the corresponding real image.
