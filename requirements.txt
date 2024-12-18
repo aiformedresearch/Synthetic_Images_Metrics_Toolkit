@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+# SPDX-License-Identifier: NPOSL-3.0
+
 torch==1.7.1
 torchvision==0.8.2
 scipy==1.5.2
