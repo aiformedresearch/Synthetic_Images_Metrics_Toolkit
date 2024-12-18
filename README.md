@@ -28,7 +28,8 @@ This repository complies with the [REUSE Specification](https://reuse.software/)
 2. **MIT**:  For code reused from:
     - https://github.com/vanderschaarlab/evaluating-generative-models; 
     - https://github.com/clovaai/generative-evaluation-prdc.
-3. **NPOSL-3.0**: Applies to the code developed specifically for this repository.
+3. **BSD-3-Clause**: Applies to two scripts reused from https://github.com/vanderschaarlab/evaluating-generative-models;
+4. **NPOSL-3.0**: Applies to the code developed specifically for this repository.
 
 For detailed license texts, see the `LICENSES` directory.
 
