@@ -58,18 +58,18 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
     docker run -it --gpus all aiformedresearch/pacgan \
       -v /absolute/path/to/real_data.nii.gz:/Metrics_Toolkit/data \
       -v /absolute/path/to/pretrained_network_file:/Metrics_Toolkit/data \
-      -v /absolute/path/to/local_output_directory:/Metrics_Tool/outputs \
+      -v /absolute/path/to/local_output_directory:/Metrics_Toolkit/outputs \
       aiformedresearch/metrics_toolkit
     ```
       - The `--gpus all` flag enables GPU support. Specify a GPU if needed, e.g., `--gpus 0`.
-      - The `-v` flag is used to mount the local directories to the respective directories inside the container. 
+      - The `-v` flag is used to mount the local directories to the working directory `Metrics_Toolkit` inside the container. 
       > Note: To exit from the Docker container, type: `exit`.
 
 Refer to the [Usage](#usage) section for detailed instructions about running the main script. 
 
 
 ## Usage
-### Customize for your use case
+### 1. Customize for your use case
 To evaluate your generative model, you need to modify the `calc_metrics_demo.py` script in the three points underlined by the "Demo" comment. Specifically:
 1. Import the generator class
     ```
@@ -101,7 +101,7 @@ This system has been tested on:
 
 *Future releases will simplify customization through a JSON configuration file.*
 
-#### Running the script
+### 2. Run the script
 Once customized, execute the main script with:
 ```
 python calc_metrics.py \
