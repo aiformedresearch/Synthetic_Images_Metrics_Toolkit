@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
 SPDX-License-Identifier: NPOSL-3.0
 -->
 
-[<img src="https://img.shields.io/badge/  -Dockerhub-blue.svg?logo=docker&logoColor=white">](<https://hub.docker.com/r/matteolai/metrics_toolkit>) 
+[<img src="https://img.shields.io/badge/  -Dockerhub-blue.svg?logo=docker&logoColor=white">](<https://hub.docker.com/r/aiformedresearch/metrics_toolkit>) 
 
 # Synthetic_Images_Metrics_Toolkit
 
