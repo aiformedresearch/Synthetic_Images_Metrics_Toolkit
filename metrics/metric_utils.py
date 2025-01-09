@@ -240,18 +240,18 @@ def visualize_ex_samples(args, device, rank=0, verbose=True):
     label = label.to(device)
     z = torch.from_numpy(np.random.RandomState(42).randn(1, args.G.z_dim)).to(device)
     img = args.G(z, label)
-    img_synth = (img.permute(0, 1, 2, 3) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+    img_synth = (img.permute(0, 1, 2, 3) * 127.5 + 128).clamp(0, 255)#.to(torch.uint8)
     synth_sample = img_synth[0,0,:,:].cpu()
 
     # Plot the images in a 2x1 subplot
     fig, axs = plt.subplots(1, 2, figsize=(20, 12))
 
     axs[0].imshow(real_sample, cmap='gray')
-    axs[0].set_title('Real Sample', fontsize=25)
+    axs[0].set_title(f'Real Sample\n∈ [{real_sample.min()}, {real_sample.max()}]\ndtype: {real_sample.dtype}', fontsize=25)
     axs[0].axis('off')
 
     axs[1].imshow(synth_sample, cmap='gray')
-    axs[1].set_title('Synthetic Sample', fontsize=25)
+    axs[1].set_title(f'Synthetic Sample\n∈ [{synth_sample.min()}, {synth_sample.max()}]\ndtype: {synth_sample.dtype}', fontsize=25)
     axs[1].axis('off')
 
     plt.tight_layout()
@@ -415,7 +415,7 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
                 c.append(torch.tensor([1, 0]) if torch.randint(0, 2, (1,)).item() == 1 else torch.tensor([0, 1]))
             c = torch.from_numpy(np.stack(c)).pin_memory().to(opts.device)
             batch = G(z=z, c=c, **{}).to(opts.device)
-            batch = (batch * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+            batch = (batch * 127.5 + 128).clamp(0, 255)#.to(torch.uint8)
             batch = batch.cpu().detach().numpy()
             n_generated += n_to_generate
             print(f'\rGenerated {n_generated}/{n_imgs} images')
@@ -546,6 +546,7 @@ def compute_feature_stats_for_dataset(opts, detector_url, detector_kwargs, rel_l
     if max_items is not None:
         num_items = min(num_items, max_items)
     stats = FeatureStats(max_items=num_items, **stats_kwargs)
+    print('Extracting features from real data...')
     progress = opts.progress.sub(tag='dataset features', num_items=num_items, rel_lo=rel_lo, rel_hi=rel_hi)
     detector = define_detector(opts, detector_url, progress)
 
@@ -580,7 +581,7 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
     # Image generation func.
     def run_generator(z, c):
         img = G(z=z, c=c, **opts.G_kwargs)
-        img = (img * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+        img = (img * 127.5 + 128).clamp(0, 255)#.to(torch.uint8)
         return img
 
     # JIT.
