@@ -55,7 +55,7 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
 
 2. Run the Docker container
     ```
-    docker run -it --gpus all aiformedresearch/pacgan \
+    docker run -it --gpus all aiformedresearch/metrics_toolkit \
       -v /absolute/path/to/real_data.nii.gz:/Metrics_Toolkit/data \
       -v /absolute/path/to/pretrained_network_file:/Metrics_Toolkit/data \
       -v /absolute/path/to/local_output_directory:/Metrics_Toolkit/outputs \
