@@ -1,33 +1,21 @@
-﻿# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
-# SPDX-License-Identifier: LicenseRef-NVIDIA-1.0
-#
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
-#
-# NVIDIA CORPORATION and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA CORPORATION is strictly prohibited.
+# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+# SPDX-License-Identifier: NPOSL-3.0
 
 import os
 import numpy as np
-import json
-import torch
-import dnnlib
-
 import pandas as pd
 import nibabel as nib
+import torch
+import torch.utils.data as data
 
-#------------------------------------------------------------------------
-
-class Dataset(torch.utils.data.Dataset):
+class Dataset(data.Dataset):
     def __init__(self,
         name,                   # Name of the dataset.
         raw_shape,              # Shape of the raw image data (NCHW).
-        max_size    = None,     # Artificially limit the size of the dataset. None = no limit. Applied before xflip.
-        use_labels  = False,    # Enable conditioning labels? False = label dimension is zero.
-        xflip       = False,    # Artificially double the size of the dataset via x-flips. Applied after max_size.
-        random_seed = 0,        # Random seed to use when applying max_size.
+        max_size=None,          # Artificially limit the size of the dataset. None = no limit.
+        use_labels=False,       # Enable conditioning labels? False = label dimension is zero.
+        xflip=False,            # Artificially double the size of the dataset via x-flips.
+        random_seed=0,          # Random seed to use when applying max_size.
     ):
         self._name = name
         self._raw_shape = list(raw_shape)
@@ -42,7 +30,7 @@ class Dataset(torch.utils.data.Dataset):
             self._raw_idx = np.sort(self._raw_idx[:max_size])
 
         # Apply xflip.
-        self._xflip = np.zeros(self._raw_idx.size)#, dtype=np.uint8)
+        self._xflip = np.zeros(self._raw_idx.size, dtype=np.uint8)
         if xflip:
             self._raw_idx = np.tile(self._raw_idx, 2)
             self._xflip = np.concatenate([self._xflip, np.ones_like(self._xflip)])
@@ -60,14 +48,11 @@ class Dataset(torch.utils.data.Dataset):
                 assert np.all(self._raw_labels >= 0)
         return self._raw_labels
 
-    def close(self): # to be overridden by subclass
-        pass
+    def _load_raw_image(self, raw_idx):
+        raise NotImplementedError  # To be implemented in subclasses.
 
-    def _load_raw_image(self, root, raw_idx): # to be overridden by subclass
-        raise NotImplementedError
-
-    def _load_raw_labels(self): # to be overridden by subclass
-        raise NotImplementedError
+    def _load_raw_labels(self):
+        raise NotImplementedError  # To be implemented in subclasses.
 
     def __getstate__(self):
         return dict(self.__dict__, _raw_labels=None)
@@ -85,9 +70,8 @@ class Dataset(torch.utils.data.Dataset):
         image = self._load_raw_image(self._raw_idx[idx])
         assert isinstance(image, np.ndarray)
         assert list(image.shape) == self.image_shape
-        #assert image.dtype == np.uint8
         if self._xflip[idx]:
-            assert image.ndim == 3 # CHW
+            assert image.ndim == 3  # CHW
             image = image[:, :, ::-1]
         return image.copy(), self.get_label(idx)
 
@@ -98,13 +82,6 @@ class Dataset(torch.utils.data.Dataset):
             onehot[label] = 1
             label = onehot
         return label.copy()
-
-    def get_details(self, idx):
-        d = dnnlib.EasyDict()
-        d.raw_idx = int(self._raw_idx[idx])
-        d.xflip = (int(self._xflip[idx]) != 0)
-        d.raw_label = self._get_raw_labels()[d.raw_idx].copy()
-        return d
 
     @property
     def name(self):
@@ -124,7 +101,7 @@ class Dataset(torch.utils.data.Dataset):
         assert len(self.image_shape) == 3 # CHW
         assert self.image_shape[1] == self.image_shape[2]
         return self.image_shape[1]
-
+    
     @property
     def label_shape(self):
         if self._label_shape is None:
@@ -150,21 +127,23 @@ class Dataset(torch.utils.data.Dataset):
 
 #----------------------------------------------------------------------------
 
-class ImageFolderDataset(Dataset):
+class NiftiDataset(Dataset):
     def __init__(self,
-        path,                   # Path to nifti file
-        path_labels     = None,      # Path to csv file with labels
-        resolution      = None, # Ensure specific resolution, None = highest available.
+        path_data,                   # Path to nifti file.
+        path_labels=None,       # Path to labels file (CSV).
+        sel_ids=None,           # Selected indices for training/validation split.
         **super_kwargs,         # Additional arguments for the Dataset base class.
     ):
-        self._path_d = path
+        self._path_d = path_data
         self._path_l = path_labels
+        self._sel_ids = sel_ids if sel_ids else []
 
-        name = os.path.normpath(self._path_d).split(os.sep)[-2]
-        raw_shape = list(self._load_nifti_file().shape)
-        if resolution is not None and (raw_shape[2] != resolution or raw_shape[3] != resolution):
-            raise IOError('Image files do not match the specified resolution')
-        super().__init__(name=name, raw_shape=raw_shape, **super_kwargs)
+        # Load data and determine raw shape.
+        data = self._load_nifti_file()
+        raw_shape = list(data.shape)
+
+        # Initialize the base Dataset class.
+        super().__init__(name=os.path.basename(path_data), raw_shape=raw_shape, **super_kwargs)
 
     @staticmethod
     def _file_ext(fname):
@@ -181,7 +160,7 @@ class ImageFolderDataset(Dataset):
         return dict(super().__getstate__(), _zipfile=None)
 
     def _load_nifti_file(self):
-       # Load nifti data
+        # Load nifti data.
         data = nib.load(self._path_d)
         data = np.asanyarray(data.dataobj) # numpy array of shape (W,H,C,N)
         data = np.float64(data)
@@ -192,24 +171,8 @@ class ImageFolderDataset(Dataset):
         # Swap axes to have the format (N,C,W,H)
         data = np.swapaxes(data, 0,3)
         data = np.swapaxes(data, 1,2)   # after swapping axes, array shape (N,C,H,W)
-
-        # Select only subjects of the training set
-        if self._path_l is not None:
-            labels = pd.read_csv(self._path_l, delimiter=',')
-            train_idx = labels['ID'].values.astype(int)
-            data = data[train_idx,:,:,:] # Select only subjects of the training set
-
-        # # Select only HC
-        # labels = pd.read_csv(self._path_l, delimiter=',')
-        # HC_idx = labels[labels['Label']==0].index.values.astype(int)
-        # data = data[HC_idx,:,:,:]
-
-        # Select only AD
-        # HC_idx = labels[labels['Group']=='AD'].index.values.astype(int)
-        # data = data[HC_idx,:,:,:]
-
         return data
-    
+
     def _load_raw_image(self, raw_idx):
         data = self._load_nifti_file()
         image = data[raw_idx,:,:,:]
@@ -235,5 +198,3 @@ class ImageFolderDataset(Dataset):
         labels = np.array(labels)
         labels = labels.astype({1: np.int64, 2: np.float32}[labels.ndim])
         return labels
-
-#----------------------------------------------------------------------------

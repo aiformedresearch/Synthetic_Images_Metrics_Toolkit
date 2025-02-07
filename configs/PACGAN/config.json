@@ -1,0 +1,72 @@
+{
+"//Comment1" : 
+"Set the path to data directories",
+"DATA_TRAIN_DIRECTORY" : "diciotti/data/ADNI/ADNI_train",
+"LABEL_TRAIN_DIRECTORY" : "diciotti/data/ADNI/ADNI_train/labels.csv",
+"DATA_TEST_DIRECTORY" : "diciotti/data/ADNI/ADNI_test",
+"LABEL_TEST_DIRECTORY" : "diciotti/data/ADNI/ADNI_test/labels.csv",
+
+"//Comment2" : 
+"Set the path to saving directories",
+"IMAGE_DIRECTORY" : "diciotti/PACGAN/saved_images/PACGAN_distributed",
+"MODEL_DIRECTORY" : "diciotti/PACGAN/saved_models/PACGAN_distributed",
+
+"//Comment3" : 
+"Set if you want to work with grayscale or RGB images",
+"IMAGE_CHANNELS" : 1,
+
+"//Comment4" : 
+"Set the number of classes of the labeled images",
+"CLASS_SIZE" : 2,
+
+"//Comment5" : 
+"Set the device to use for the training",
+"DEVICE" : "'cuda' if torch.cuda.is_available() else 'cpu'",
+"//Comment6" : 
+"If cuda is available, set which GPUs use:",
+"GPUS_N" : "[0,1]",
+
+"//Comment7" : 
+"Set the architechture of the progressive growing network",
+"IN_CHANNELS" : 512,
+"FACTORS" : "[1, 1, 1/2, 1/4, 1/8, 1/16, 1/32]",
+
+"//Comment8" : 
+"Set training hyperparameters",
+"LEARNING_RATE" : 1e-3,
+"BATCH_SIZES" : "[32, 32, 32, 16, 16, 16, 16]",
+"EMBEDDING_DIM" : 3,
+"Z_DIM" : 512,
+"CRITIC_ITERATIONS" : "[1, 1, 1, 1, 1, 2, 2]",
+"LAMBDA_GP" : 10,
+"LAMBDA_CLS_1" :4,
+"LAMBDA_CLS_2" : "L_cls1/2",
+
+"//Comment9" : 
+"Set the number of epoch at each resolution level",
+"PROGRESSIVE_EPOCHS" : "[1] * len(factors)",
+
+"//Comment10" : 
+"Set how often do you want to save the images during the training",
+"DISP_EVERY_N_EPOCHS" : 50,
+
+"//Comment12" : 
+"Set if you want to measure the performances on validation set and, in case, from which epoch you want to start ckecking the performance (expressed on percentage of PROGRESSIVE_EPOCHS)",
+"VALIDATE": "True",
+"START_CHECK_AT": 0.6,
+
+"//Comment13" : 
+"Set if you want to measure the performances on test set and, in case, if you want to exploit the best_model found during validation or if you want to train for PROGRESSIVE_EPOCHS",
+"TESTING" : "False",
+"TEST_USING_BEST_MODEL": "True",
+
+"//Comment14" : 
+"Set if you want to generate images, and the number of images you want to generate",
+"GENERATE" : "True",
+"N_IMAGES_GENERATED" :  "[200]",
+
+"//Comment15" : 
+"Set if you want to start the training with a pre-trained model",
+"LOAD_MODEL" : "False",
+"START_TRAIN_AT_IMG_SIZE" : 4
+}

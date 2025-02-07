@@ -1,6 +1,4 @@
-﻿# SPDX-License-Identifier: LicenseRef-NVIDIA-1.0
-#
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+﻿# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -10,17 +8,19 @@
 
 import os
 import numpy as np
-import zipfile
-import PIL.Image
 import json
 import torch
 import dnnlib
 
-try:
-    import pyspng
-except ImportError:
-    pyspng = None
+import pandas as pd
+import nibabel as nib
+'''
+To consider only HC subjects, uncomment from row 206
 
+--> line 202 select only subjects of the training set
+
+If you are performing transfer learning, uncomment line 195 to transform images to RGB
+'''
 #----------------------------------------------------------------------------
 
 class Dataset(torch.utils.data.Dataset):
@@ -45,7 +45,7 @@ class Dataset(torch.utils.data.Dataset):
             self._raw_idx = np.sort(self._raw_idx[:max_size])
 
         # Apply xflip.
-        self._xflip = np.zeros(self._raw_idx.size, dtype=np.uint8)
+        self._xflip = np.zeros(self._raw_idx.size)
         if xflip:
             self._raw_idx = np.tile(self._raw_idx, 2)
             self._xflip = np.concatenate([self._xflip, np.ones_like(self._xflip)])
@@ -66,7 +66,7 @@ class Dataset(torch.utils.data.Dataset):
     def close(self): # to be overridden by subclass
         pass
 
-    def _load_raw_image(self, raw_idx): # to be overridden by subclass
+    def _load_raw_image(self, root, raw_idx): # to be overridden by subclass
         raise NotImplementedError
 
     def _load_raw_labels(self): # to be overridden by subclass
@@ -88,7 +88,6 @@ class Dataset(torch.utils.data.Dataset):
         image = self._load_raw_image(self._raw_idx[idx])
         assert isinstance(image, np.ndarray)
         assert list(image.shape) == self.image_shape
-        assert image.dtype == np.uint8
         if self._xflip[idx]:
             assert image.ndim == 3 # CHW
             image = image[:, :, ::-1]
@@ -153,31 +152,18 @@ class Dataset(torch.utils.data.Dataset):
 
 #----------------------------------------------------------------------------
 
-class ImageFolderDataset(Dataset):
+class NiftiDataset(Dataset):
     def __init__(self,
-        path,                   # Path to directory or zip.
+        path_data,                   # Path to nifti file
+        path_labels     = None,      # Path to csv file with labels
         resolution      = None, # Ensure specific resolution, None = highest available.
         **super_kwargs,         # Additional arguments for the Dataset base class.
     ):
-        self._path = path
-        self._zipfile = None
+        self._path_d = path_data
+        self._path_l = path_labels
 
-        if os.path.isdir(self._path):
-            self._type = 'dir'
-            self._all_fnames = {os.path.relpath(os.path.join(root, fname), start=self._path) for root, _dirs, files in os.walk(self._path) for fname in files}
-        elif self._file_ext(self._path) == '.zip':
-            self._type = 'zip'
-            self._all_fnames = set(self._get_zipfile().namelist())
-        else:
-            raise IOError('Path must point to a directory or zip')
-
-        PIL.Image.init()
-        self._image_fnames = sorted(fname for fname in self._all_fnames if self._file_ext(fname) in PIL.Image.EXTENSION)
-        if len(self._image_fnames) == 0:
-            raise IOError('No image files found in the specified path')
-
-        name = os.path.splitext(os.path.basename(self._path))[0]
-        raw_shape = [len(self._image_fnames)] + list(self._load_raw_image(0).shape)
+        name = os.path.normpath(self._path_d).split(os.sep)[-2]
+        raw_shape = list(self._load_nifti_file().shape)
         if resolution is not None and (raw_shape[2] != resolution or raw_shape[3] != resolution):
             raise IOError('Image files do not match the specified resolution')
         super().__init__(name=name, raw_shape=raw_shape, **super_kwargs)
@@ -185,19 +171,6 @@ class ImageFolderDataset(Dataset):
     @staticmethod
     def _file_ext(fname):
         return os.path.splitext(fname)[1].lower()
-
-    def _get_zipfile(self):
-        assert self._type == 'zip'
-        if self._zipfile is None:
-            self._zipfile = zipfile.ZipFile(self._path)
-        return self._zipfile
-
-    def _open_file(self, fname):
-        if self._type == 'dir':
-            return open(os.path.join(self._path, fname), 'rb')
-        if self._type == 'zip':
-            return self._get_zipfile().open(fname, 'r')
-        return None
 
     def close(self):
         try:
@@ -209,28 +182,57 @@ class ImageFolderDataset(Dataset):
     def __getstate__(self):
         return dict(super().__getstate__(), _zipfile=None)
 
+    def _load_nifti_file(self):
+       # Load nifti data
+        data = nib.load(self._path_d)
+        data = np.asanyarray(data.dataobj) # numpy array of shape (W,H,C,N)
+        data = np.float64(data)
+
+        if data.shape[2] !=  data.shape[3]:
+            data = np.swapaxes(data, 0,3)
+            data = np.swapaxes(data, 1,2)   # after swapping axes, array shape (N,C,H,W)
+            data = np.swapaxes(data, 2,3)   # after swapping axes, array shape (N,C,W,H)
+        
+        # # FOR TRANSFER LEARNING
+        # # Replicate the data to have 3 channels
+        # data = np.repeat(data, 3, axis=1)
+
+        # data = data[sel_ids,:,:,:]
+
+        # # Select only subjects of the training set
+        # labels = pd.read_csv(self._path_l, delimiter=',')
+        # train_idx = labels['ID'].values.astype(int)
+        # data = data[train_idx,:,:,:]
+
+        # # Select only HC
+        # labels = pd.read_csv(self._path_l, delimiter=',')
+        # HC_idx = labels[labels['Label']==0].index.values.astype(int)
+        # data = data[HC_idx,:,:,:]
+
+        # Select only AD
+        # HC_idx = labels[labels['Group']=='AD'].index.values.astype(int)
+        # data = data[HC_idx,:,:,:]
+
+        return data
+    
     def _load_raw_image(self, raw_idx):
-        fname = self._image_fnames[raw_idx]
-        with self._open_file(fname) as f:
-            if pyspng is not None and self._file_ext(fname) == '.png':
-                image = pyspng.load(f.read())
-            else:
-                image = np.array(PIL.Image.open(f))
-        if image.ndim == 2:
-            image = image[:, :, np.newaxis] # HW => HWC
-        image = image.transpose(2, 0, 1) # HWC => CHW
+        data = self._load_nifti_file()
+        image = data[raw_idx,:,:,:]
+
+        # If the image values are in the range [-1, 1], convert the image data in the range [0, 255]
+        if np.min(image) >= -1.0 and np.max(image) <= 1.0:
+            image = (image + 1.0) * 127.5
         return image
 
     def _load_raw_labels(self):
-        fname = 'dataset.json'
-        if fname not in self._all_fnames:
-            return None
-        with self._open_file(fname) as f:
-            labels = json.load(f)['labels']
-        if labels is None:
-            return None
-        labels = dict(labels)
-        labels = [labels[fname.replace('\\', '/')] for fname in self._image_fnames]
+        # Load labels from file csv
+        labels = pd.read_csv(self._path_l, delimiter=',')
+        # if sel_ids==[]:
+        #     # If sel_ids (selected indexes) are not inserted as input, consider all the indexes
+        #     sel_ids = labels['ID'].values.astype(np.int)
+        #sel_ids = labels['ID'].values.astype(int)
+        labels = labels['Group'].map({'CN':0, 'AD':1}).values.astype(int)#[sel_ids]
+        # labels = labels['Label'].values.astype(int)[sel_ids]
         labels = np.array(labels)
         labels = labels.astype({1: np.int64, 2: np.float32}[labels.ndim])
         return labels

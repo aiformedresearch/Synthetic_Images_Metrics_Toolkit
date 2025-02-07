@@ -28,10 +28,11 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.python.keras import backend 
 import matplotlib.pyplot as plt
+
 #----------------------------------------------------------------------------
 
 class MetricOptions:
-    def __init__(self, run_dir, network_pkl, num_gen, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
+    def __init__(self, run_dir, run_generator, network_pkl, num_gen, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
         assert 0 <= rank < num_gpus
         self.G              = G
         self.G_kwargs       = dnnlib.EasyDict(G_kwargs)
@@ -43,10 +44,11 @@ class MetricOptions:
         self.cache          = cache
         self.run_dir        = run_dir
         self.gen_path       = network_pkl
-        self.data_path      = dataset_kwargs.path
+        self.data_path      = dataset_kwargs.path_data
         self.num_gen        = num_gen
         self.oc_detector_path = oc_detector_path
         self.train_OC       = train_OC
+        self.run_generator  = run_generator
 
 #----------------------------------------------------------------------------
 
@@ -132,7 +134,7 @@ class FeatureStats:
                 torch.distributed.broadcast(y, src=src)
                 ys.append(y)
             x = torch.stack(ys, dim=1).flatten(0, 1) # interleave samples
-        self.append(x.cpu().numpy())
+        self.append(x.cpu().detach().numpy())
 
     def get_all(self):
         assert self.capture_all
@@ -237,11 +239,17 @@ def visualize_ex_samples(args, device, rank=0, verbose=True):
 
     # Generate a synthetic image
     args.G.to(device)
-    label = label.to(device)
-    z = torch.from_numpy(np.random.RandomState(42).randn(1, args.G.z_dim)).to(device)
-    img = args.G(z, label)
-    img_synth = (img.permute(0, 1, 2, 3) * 127.5 + 128).clamp(0, 255)#.to(torch.uint8)
-    synth_sample = img_synth[0,0,:,:].cpu()
+    c = label.to(device)
+    z = torch.from_numpy(np.random.RandomState(42).randn(1, *(args.G.z_dim if isinstance(args.G.z_dim, (list, tuple)) else [args.G.z_dim]))).to(device)
+    if dataset._use_labels:
+        img_synth = args.run_generator(z, c, args).to(device)
+    else:
+        img_synth = args.run_generator(z, args).to(device)
+    synth_sample = img_synth[0,0,:,:].cpu().detach().numpy()
+
+    # #POI RIMUOVI
+    # real_sample = np.rot90(real_sample, k=3)
+    # synth_sample = np.rot90(synth_sample, k=3)
 
     # Plot the images in a 2x1 subplot
     fig, axs = plt.subplots(1, 2, figsize=(20, 12))
@@ -364,15 +372,11 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
         n_imgs = img_data.shape[0]
         print(f"Number of images: {n_imgs}")
 
-    elif synth_file.endswith('.pkl'):
+    else:
         # Define the generator model
-        network_pkl = synth_file
-        print(f'Loading network from "{network_pkl}"...')
-        with dnnlib.util.open_url(network_pkl, verbose=True) as f:
-            network_dict = legacy.load_network_pkl(f)
-            G = network_dict['G_ema'] # subclass of torch.nn.Module
-        G = copy.deepcopy(G).eval().requires_grad_(False).to(opts.device)
-        
+        G = copy.deepcopy(opts.G).eval().requires_grad_(False).to(opts.device)
+        dataset = dnnlib.util.construct_class_by_name(**opts.dataset_kwargs)
+
         n_imgs = opts.num_gen 
         print(f"Generating {n_imgs} synthetic images...")
         n_generated = 0
@@ -405,17 +409,19 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
             pred_arr[start:end] = np.stack(list(batch_embedding))
             del batch #clean up memory
 
-        elif synth_file.endswith('.pkl'):
+        else:
             n_to_generate = end-start
-            z = torch.randn([n_to_generate, G.z_dim], device=opts.device)
+            z = torch.randn([n_to_generate, *(G.z_dim if isinstance(G.z_dim, (list, tuple)) else [G.z_dim])], device=opts.device)
             # define c as a vector with batch_size elements sampled from 0 and 1:
             half_n = n_to_generate // 2
             c = [torch.tensor([1, 0]) for _ in range(half_n)] + [torch.tensor([0, 1]) for _ in range(half_n)]       
             if n_to_generate % 2 != 0:
                 c.append(torch.tensor([1, 0]) if torch.randint(0, 2, (1,)).item() == 1 else torch.tensor([0, 1]))
             c = torch.from_numpy(np.stack(c)).pin_memory().to(opts.device)
-            batch = G(z=z, c=c, **{}).to(opts.device)
-            batch = (batch * 127.5 + 128).clamp(0, 255)#.to(torch.uint8)
+            if dataset._use_labels:
+                batch = opts.run_generator(z, c, opts).to(opts.device)
+            else:
+                batch = opts.run_generator(z, opts).to(opts.device)
             batch = batch.cpu().detach().numpy()
             n_generated += n_to_generate
             print(f'\rGenerated {n_generated}/{n_imgs} images')
@@ -578,18 +584,15 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
     G = copy.deepcopy(opts.G).eval().requires_grad_(False).to(opts.device)
     dataset = dnnlib.util.construct_class_by_name(**opts.dataset_kwargs)
 
-    # Image generation func.
-    def run_generator(z, c):
-        img = G(z=z, c=c, **opts.G_kwargs)
-        img = (img * 127.5 + 128).clamp(0, 255)#.to(torch.uint8)
-        return img
-
     # JIT.
     if jit:
-        z = torch.zeros([batch_gen, G.z_dim], device=opts.device)
-        c = torch.zeros([batch_gen, G.c_dim], device=opts.device)
-        run_generator = torch.jit.trace(run_generator, [z, c], check_trace=False)
-
+        z = torch.zeros([batch_gen, *(G.z_dim if isinstance(G.z_dim, (list, tuple)) else [G.z_dim])], device=opts.device)
+        if dataset._use_labels:
+            c = torch.zeros([batch_gen, *G.c_dim], device=opts.device)
+            run_generator = torch.jit.trace(opts.run_generator, [z, c, opts], check_trace=False)
+        else:
+            run_generator = torch.jit.trace(opts.run_generator, [z, opts], check_trace=False)
+        
     # Initialize.
     stats = FeatureStats(**stats_kwargs)
     assert stats.max_items is not None
@@ -600,10 +603,13 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
     while not stats.is_full():
         images = []
         for _i in range(batch_size // batch_gen):
-            z = torch.randn([batch_gen, G.z_dim], device=opts.device)
-            c = [dataset.get_label(np.random.randint(len(dataset))) for _i in range(batch_gen)]
-            c = torch.from_numpy(np.stack(c)).pin_memory().to(opts.device)
-            images.append(run_generator(z, c))
+            z = torch.randn([batch_gen, *(G.z_dim if isinstance(G.z_dim, (list, tuple)) else [G.z_dim])], device=opts.device)
+            if dataset._use_labels:
+                c = [dataset.get_label(np.random.randint(len(dataset))) for _i in range(batch_gen)]
+                c = torch.from_numpy(np.stack(c)).pin_memory().to(opts.device)
+                images.append(opts.run_generator(z, c, opts))
+            else:
+                images.append(opts.run_generator(z, opts))
         images = torch.cat(images)
         if images.shape[1] == 1:
             images = images.repeat([1, 3, 1, 1])

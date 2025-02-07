@@ -44,10 +44,10 @@ def list_valid_metrics():
 
 #----------------------------------------------------------------------------
 
-def calc_metric(metric, num_gen, oc_detector_path, train_OC, snapshot_pkl, run_dir, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
+def calc_metric(metric, run_generator, num_gen, oc_detector_path, train_OC, snapshot_pkl, run_dir, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
     
     assert is_valid_metric(metric)
-    opts = metric_utils.MetricOptions(run_dir, snapshot_pkl, num_gen, oc_detector_path, train_OC, **kwargs)
+    opts = metric_utils.MetricOptions(run_dir, run_generator, snapshot_pkl, num_gen, oc_detector_path, train_OC, **kwargs)
 
     # Calculate.
     start_time = time.time()
@@ -87,54 +87,28 @@ def report_metric(result_dict, run_dir=None, snapshot_pkl=None):
             f.write(jsonl_line + '\n')
 
 #----------------------------------------------------------------------------
-# Primary metrics.
+# Legacy metrics, from Karras et al.
 
 @register_metric
-def fid50k_full(opts):
-    opts.dataset_kwargs.update(max_size=None, xflip=False)
-    fid = frechet_inception_distance.compute_fid(opts, max_real=None, num_gen=opts.num_gen)
-    return dict(fid50k_full=fid)
-
-@register_metric
-def kid50k_full(opts):
-    opts.dataset_kwargs.update(max_size=None, xflip=False)
-    kid = kernel_inception_distance.compute_kid(opts, max_real=1000000, num_gen=opts.num_gen, num_subsets=100, max_subset_size=1000)
-    return dict(kid50k_full=kid)
-
-@register_metric
-def pr50k3_full(opts):
-    opts.dataset_kwargs.update(max_size=None, xflip=False)
-    precision, recall = precision_recall.compute_pr(opts, max_real=200000, num_gen=opts.num_gen, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
-    return dict(pr50k3_full_precision=precision, pr50k3_full_recall=recall)
-
-@register_metric
-def ppl2_wend(opts):
-    ppl = perceptual_path_length.compute_ppl(opts, num_samples=opts.num_gen, epsilon=1e-4, space='w', sampling='end', crop=False, batch_size=2)
-    return dict(ppl2_wend=ppl)
-
-@register_metric
-def is50k(opts):
+def is_(opts):
     opts.dataset_kwargs.update(max_size=None, xflip=False)
     mean, std = inception_score.compute_is(opts, num_gen=opts.num_gen, num_splits=10)
     return dict(is50k_mean=mean, is50k_std=std)
 
-#----------------------------------------------------------------------------
-# Legacy metrics.
-
 @register_metric
-def fid50k(opts):
+def fid(opts):
     opts.dataset_kwargs.update(max_size=None)
     fid = frechet_inception_distance.compute_fid(opts, max_real=50000, num_gen=opts.num_gen)
     return dict(fid50k=fid)
 
 @register_metric
-def kid50k(opts):
+def kid(opts):
     opts.dataset_kwargs.update(max_size=None)
     kid = kernel_inception_distance.compute_kid(opts, max_real=50000, num_gen=opts.num_gen, num_subsets=100, max_subset_size=1000)
     return dict(kid50k=kid)
 
 @register_metric
-def pr50k3(opts):
+def pr(opts):
     opts.dataset_kwargs.update(max_size=None)
     precision, recall = precision_recall.compute_pr(opts, max_real=50000, num_gen=opts.num_gen, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
     return dict(pr50k3_precision=precision, pr50k3_recall=recall)
@@ -160,7 +134,7 @@ def ppl_wend(opts):
     return dict(ppl_wend=ppl)
 
 #----------------------------------------------------------------------------
-# Extra metrics.
+# Extra metrics, from Lai et al.
 
 @register_metric
 def pr_auth(opts):
@@ -169,7 +143,7 @@ def pr_auth(opts):
     return dict(a_precision_c=a_precision_c, b_recall_c=b_recall_c, authenticity_c=authenticity_c)
 
 @register_metric
-def prdc50k(opts):
+def prdc(opts):
     opts.dataset_kwargs.update(max_size=None)
     precision, recall, density, coverage  = density_coverage.compute_prdc(opts, max_real=50000, num_gen=opts.num_gen, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
     return dict(precision=precision, recall=recall, density=density, coverage=coverage)

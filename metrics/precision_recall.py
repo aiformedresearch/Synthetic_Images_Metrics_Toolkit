@@ -41,11 +41,11 @@ def compute_pr(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_si
 
     real_features = metric_utils.compute_feature_stats_for_dataset(
         opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
-        rel_lo=0, rel_hi=0, capture_all=True, max_items=max_real).get_all_torch().to(torch.float16).to(opts.device)
+        rel_lo=0, rel_hi=0, capture_all=True, max_items=max_real).get_all_torch().to(torch.float32).to(opts.device)
 
     gen_features = metric_utils.compute_feature_stats_for_generator(
         opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
-        rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all_torch().to(torch.float16).to(opts.device)
+        rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all_torch().to(torch.float32).to(opts.device)
 
     results = dict()
     for name, manifold, probes in [('precision', real_features, gen_features), ('recall', gen_features, real_features)]:
