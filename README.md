@@ -56,9 +56,9 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
 2. Run the Docker container
     ```
     docker run -it --gpus all \
-      -v /absolute/path/to/real_data.nii.gz:/Metrics_Toolkit/data \
-      -v /absolute/path/to/pretrained_network_file:/Metrics_Toolkit/data \
-      -v /absolute/path/to/local_output_directory:/Metrics_Toolkit/outputs \
+      -v /absolute/path/to/real_data.nii.gz:/Synthetic_Images_Metrics_Toolkit/data \
+      -v /absolute/path/to/config_file:/Synthetic_Images_Metrics_Toolkit/configs \
+      -v /absolute/path/to/local_output_directory:/Synthetic_Images_Metrics_Toolkit/outputs \
       aiformedresearch/metrics_toolkit
     ```
       - The `--gpus all` flag enables GPU support. Specify a GPU if needed, e.g., `--gpus 0`.
