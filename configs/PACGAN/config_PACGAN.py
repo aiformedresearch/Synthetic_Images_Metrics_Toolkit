@@ -33,7 +33,7 @@ CONFIGS = {
 
     # Define the number of synthetic images to generate for computing the metrics.
     # Default: 50,000
-    "NUM_SYNTH": 8,
+    "NUM_SYNTH": 50000,
 
     # Define the number of GPUs to use for computation.
     "NUM_GPUS": 1,
@@ -42,7 +42,7 @@ CONFIGS = {
     # If True, the script will print logs and progress updates.
     "VERBOSE": True,
 
-    # Path to an optional Outlier Classifier (OC) detector model.
+    # Path to an optional Outlier Classifier (OC) detector model, for the computation of pr_auth.
     # If None, the OC detector will be trained during metric computation.
     "OC_DETECTOR_PATH": None
 }
@@ -80,7 +80,7 @@ import torch
 import json
 
 # 1. Define the path to the pre-trained generator
-network_path = "Synthetic_Images_Metrics_Toolkit/configs/PACGAN/generator_best.pt"
+network_path = "Synthetic_Images_Metrics_Toolkit/configs/PACGAN/pre-trained_generator.pt"
 
 # 2. Define a function to load the generator network.
 json_path= "Synthetic_Images_Metrics_Toolkit/configs/PACGAN/config.json"

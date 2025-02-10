@@ -33,7 +33,7 @@ CONFIGS = {
 
     # Define the number of synthetic images to generate for computing the metrics.
     # Default: 50,000
-    "NUM_SYNTH": 8,
+    "NUM_SYNTH": 50000,
 
     # Define the number of GPUs to use for computation.
     "NUM_GPUS": 1,
@@ -42,7 +42,7 @@ CONFIGS = {
     # If True, the script will print logs and progress updates.
     "VERBOSE": True,
 
-    # Path to an optional Outlier Classifier (OC) detector model.
+    # Path to an optional Outlier Classifier (OC) detector model, for the computation of pr_auth.
     # If None, the OC detector will be trained during metric computation.
     "OC_DETECTOR_PATH": None
 }
@@ -78,7 +78,10 @@ DATASET = {
 import dnnlib
 import legacy
 
-# 1. Define a function to load the generator network.
+# 1. Define the path to the pre-trained generator
+network_path = "Synthetic_Images_Metrics_Toolkit/configs/StyleGAN2ADA/pre-trained_generator"
+
+# 2. Define a function to load the generator network.
 def load_network(network_path):
     with dnnlib.util.open_url(network_path, verbose=CONFIGS["VERBOSE"]) as f:
         network_dict = legacy.load_network_pkl(f)
@@ -86,7 +89,7 @@ def load_network(network_path):
     
     return G
 
-# 2. Define a custom function to generate images using the generator.
+# 3. Define a custom function to generate images using the generator.
 def run_generator(z, opts):
     img = opts.G(z=z, c=None)
 
@@ -95,10 +98,7 @@ def run_generator(z, opts):
     
     return img # [batch_size, n_channels, img_resolution, img_resolution]
 
-# 3. Define the path to the pre-trained generator
-network_path = "Synthetic_Images_Metrics_Toolkit/configs/StyleGAN2ADA/network-snapshot-002200.pkl"
-
-
+# 4. Generator configuration dictionary
 GENERATOR = {
     "network_path": network_path,
 

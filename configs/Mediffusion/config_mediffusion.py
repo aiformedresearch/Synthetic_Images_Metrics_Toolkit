@@ -33,7 +33,7 @@ CONFIGS = {
 
     # Define the number of synthetic images to generate for computing the metrics.
     # Default: 50,000
-    "NUM_SYNTH": 8,
+    "NUM_SYNTH": 50000,
 
     # Define the number of GPUs to use for computation.
     "NUM_GPUS": 1,
@@ -42,7 +42,7 @@ CONFIGS = {
     # If True, the script will print logs and progress updates.
     "VERBOSE": True,
 
-    # Path to an optional Outlier Classifier (OC) detector model.
+    # Path to an optional Outlier Classifier (OC) detector model, for the computation of pr_auth.
     # If None, the OC detector will be trained during metric computation.
     "OC_DETECTOR_PATH": None
 }
@@ -79,7 +79,7 @@ import torch
 from mediffusion import DiffusionModule
 
 # 1. Define the path to the pre-trained generator
-network_path = "Synthetic_Images_Metrics_Toolkit/configs/Mediffusion/epoch=0-step=75000-val_loss=0.0100.ckpt"
+network_path = "Synthetic_Images_Metrics_Toolkit/configs/Mediffusion/pre-trained_generator.ckpt"
 
 # 2. Define a function to load the generator network.
 config_path= "Synthetic_Images_Metrics_Toolkit/configs/Mediffusion/config.yaml"
