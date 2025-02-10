@@ -61,7 +61,7 @@ DATASET = {
     "params": 
     {
         # Path to the dataset file containing the medical images (in NIfTI format).
-        "path_data": "data/OpenBHB/OpenBHB_val.nii.gz",
+        "path_data": "data/real_images_simulation.nii.gz",
 
         # Path to an optional labels file.
         # If None, the dataset will be treated as unlabelled.
@@ -79,7 +79,7 @@ import dnnlib
 import legacy
 
 # 1. Define the path to the pre-trained generator
-network_path = "Synthetic_Images_Metrics_Toolkit/configs/StyleGAN2ADA/pre-trained_generator"
+network_path = "Synthetic_Images_Metrics_Toolkit/configs/StyleGAN2ADA/pre-trained_generator.pkl"
 
 # 2. Define a function to load the generator network.
 def load_network(network_path):

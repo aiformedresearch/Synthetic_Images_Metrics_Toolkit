@@ -61,11 +61,11 @@ DATASET = {
     "params": 
     {
         # Path to the dataset file containing the medical images (in NIfTI format).
-        "path_data": "data/ADNI/ADNI_baseline/ADNI.nii.gz",
+        "path_data": "data/real_images_simulation.nii.gz",
 
         # Path to an optional labels file.
         # If None, the dataset will be treated as unlabelled.
-        "path_labels": "data/ADNI/ADNI_baseline/ADNI_labels.csv",
+        "path_labels": "data/labels.csv",
 
         # Flag to enable label usage.
         "use_labels": True

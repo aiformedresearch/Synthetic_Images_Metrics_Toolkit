@@ -61,7 +61,7 @@ DATASET = {
     "params": 
     {
         # Path to the dataset file containing the medical images (in NIfTI format).
-        "path_data": "data/OpenBHB/OpenBHB_val.nii.gz",
+        "path_data": "data/real_images_simulation.nii.gz",
 
         # Path to an optional labels file.
         # If None, the dataset will be treated as unlabelled.
