@@ -192,7 +192,6 @@ class NiftiDataset(Dataset):
         # Swap axes to have the format (N,C,W,H)
         data = np.swapaxes(data, 0,3)
         data = np.swapaxes(data, 1,2)   # after swapping axes, array shape (N,C,H,W)
-        data = np.swapaxes(data, 2,3)   # after swapping axes, array shape (N,C,W,H)
 
         # Select only subjects of the training set
         if self._path_l is not None:
