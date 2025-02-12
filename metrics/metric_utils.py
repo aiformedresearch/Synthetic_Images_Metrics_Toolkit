@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 
 class MetricOptions:
     def __init__(self, run_dir, run_generator, network_pkl, num_gen, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
-        assert 0 <= rank < num_gpus
+        assert 0 <= rank <= num_gpus
         self.G              = G
         self.G_kwargs       = dnnlib.EasyDict(G_kwargs)
         self.dataset_kwargs = dnnlib.EasyDict(dataset_kwargs)
@@ -70,7 +70,7 @@ def get_feature_detector_name(url):
     return detector_name
 
 def get_feature_detector(url, device=torch.device('cpu'), num_gpus=1, rank=0, verbose=False):
-    assert 0 <= rank < num_gpus
+    assert 0 <= rank <= num_gpus
     key = (url, device)
     if key not in _feature_detector_cache:
         is_leader = (rank == 0)
@@ -126,7 +126,7 @@ class FeatureStats:
 
     def append_torch(self, x, num_gpus=1, rank=0):
         assert isinstance(x, torch.Tensor) and x.ndim == 2
-        assert 0 <= rank < num_gpus
+        assert 0 <= rank <= num_gpus
         if num_gpus > 1:
             ys = []
             for src in range(num_gpus):
@@ -557,7 +557,11 @@ def compute_feature_stats_for_dataset(opts, detector_url, detector_kwargs, rel_l
     detector = define_detector(opts, detector_url, progress)
 
     # Main loop.
-    item_subset = [(i * opts.num_gpus + opts.rank) % num_items for i in range((num_items - 1) // opts.num_gpus + 1)]
+    if opts.num_gpus>0:
+        item_subset = [(i * opts.num_gpus + opts.rank) % num_items for i in range((num_items - 1) // opts.num_gpus + 1)]
+    else:
+        item_subset = list(range(num_items))
+        
     for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs):
         if images.shape[1] == 1:
             images = images.repeat([1, 3, 1, 1])

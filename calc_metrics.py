@@ -64,8 +64,8 @@ def validate_config(config):
     if not isinstance(config.CONFIGS["NUM_SYNTH"], int) or config.CONFIGS["NUM_SYNTH"] <= 0:
         errors.append("NUM_SYNTH must be a positive integer.")
 
-    if not isinstance(config.CONFIGS["NUM_GPUS"], int) or config.CONFIGS["NUM_GPUS"] < 1:
-        errors.append("NUM_GPUS must be an integer greater than or equal to 1.")
+    if not isinstance(config.CONFIGS["NUM_GPUS"], int) or config.CONFIGS["NUM_GPUS"] < 0:
+        errors.append("NUM_GPUS must be an integer greater than or equal to 0.")
 
     if not isinstance(config.CONFIGS["VERBOSE"], bool):
         errors.append("VERBOSE must be a boolean (True/False).")
@@ -134,9 +134,11 @@ def print_config(config):
 
 def subprocess_fn(rank, args, temp_dir):
     dnnlib.util.Logger(should_flush=True)
-
+    # define device
+    device = torch.device(f'cuda:{rank}' if torch.cuda.is_available() and args.num_gpus > 0 else 'cpu')
+    
     # Init torch.distributed.
-    if args.num_gpus > 1:
+    if args.num_gpus > 1 and torch.cuda.is_available():
         init_file = os.path.abspath(os.path.join(temp_dir, '.torch_distributed_init'))
         if os.name == 'nt':
             init_method = 'file:///' + init_file.replace('\\', '/')
@@ -151,10 +153,10 @@ def subprocess_fn(rank, args, temp_dir):
     if rank != 0 or not args.verbose:
         custom_ops.verbosity = 'none'
 
-    device = torch.device('cuda', rank)
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cuda.matmul.allow_tf32 = False
-    torch.backends.cudnn.allow_tf32 = False
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
 
     # Visualize one sample for real and generated data
     if rank == 0:
@@ -267,11 +269,16 @@ def calc_metrics(ctx, config):
     # Launch processes.
     if args.verbose:
         print('Launching processes...')
-    torch.multiprocessing.set_start_method('spawn')
+    torch.multiprocessing.set_start_method('spawn', force=True)
     with tempfile.TemporaryDirectory() as temp_dir:
-        if args.num_gpus == 1:
+        if args.num_gpus <= 1:
+            if args.num_gpus==0:
+                print("Running subprocess_fn in CPU mode...")
+            else:
+                print("Running subprocess_fn in single GPU mode)...")
             subprocess_fn(rank=0, args=args, temp_dir=temp_dir)
         else:
+            print(f"Spawning {args.num_gpus} processes...")
             torch.multiprocessing.spawn(fn=subprocess_fn, args=(args, temp_dir), nprocs=args.num_gpus)
 
 #----------------------------------------------------------------------------

@@ -36,7 +36,8 @@ CONFIGS = {
     "NUM_SYNTH": 50000,
 
     # Define the number of GPUs to use for computation.
-    "NUM_GPUS": 1,
+    # Set 0 for CPU mode.
+    "NUM_GPUS": 0,
 
     # Set verbosity for logging and debugging.
     # If True, the script will print logs and progress updates.
