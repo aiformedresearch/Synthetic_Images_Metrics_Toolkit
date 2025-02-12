@@ -33,7 +33,7 @@ CONFIGS = {
 
     # Define the number of synthetic images to generate for computing the metrics.
     # Default: 50,000
-    "NUM_SYNTH": 50000,
+    "NUM_SYNTH": 500,
 
     # Define the number of GPUs to use for computation.
     # Set 0 for CPU mode.
