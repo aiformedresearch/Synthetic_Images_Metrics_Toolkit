@@ -1,4 +1,7 @@
-﻿# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+﻿# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+# SPDX-License-Identifier: LicenseRef-NVIDIA-1.0
+#
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -192,26 +195,6 @@ class NiftiDataset(Dataset):
             data = np.swapaxes(data, 0,3)
             data = np.swapaxes(data, 1,2)   # after swapping axes, array shape (N,C,H,W)
             data = np.swapaxes(data, 2,3)   # after swapping axes, array shape (N,C,W,H)
-        
-        # # FOR TRANSFER LEARNING
-        # # Replicate the data to have 3 channels
-        # data = np.repeat(data, 3, axis=1)
-
-        # data = data[sel_ids,:,:,:]
-
-        # # Select only subjects of the training set
-        # labels = pd.read_csv(self._path_l, delimiter=',')
-        # train_idx = labels['ID'].values.astype(int)
-        # data = data[train_idx,:,:,:]
-
-        # # Select only HC
-        # labels = pd.read_csv(self._path_l, delimiter=',')
-        # HC_idx = labels[labels['Label']==0].index.values.astype(int)
-        # data = data[HC_idx,:,:,:]
-
-        # Select only AD
-        # HC_idx = labels[labels['Group']=='AD'].index.values.astype(int)
-        # data = data[HC_idx,:,:,:]
 
         return data
     

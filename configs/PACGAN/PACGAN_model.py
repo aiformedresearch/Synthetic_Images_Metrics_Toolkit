@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
+# SPDX-License-Identifier: NPOSL-3.0
 """
 Non-Profit Open Software License 3.0 (NPOSL-3.0)
 Copyright (c) 2023 Matteo Lai

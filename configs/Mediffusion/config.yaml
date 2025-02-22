@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 2023 Bardia Khosravi
+#
+# SPDX-License-Identifier: NPOSL-3.0
+
 diffusion:
   timesteps: 1000
   schedule_name: cosine
