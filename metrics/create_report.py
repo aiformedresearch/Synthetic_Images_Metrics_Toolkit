@@ -193,10 +193,10 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         value = metrics.get(key, None)
         if value is not None and label not in ['FID', 'KID', 'IS']:
             data.append([label, f"{value:.4f}", "[0, 1]  ↑"])
-        elif label == "IS":
+        elif label == "IS" and value is not None:
             mean, std = metrics.get("is50k_mean"), metrics.get("is50k_std")
             data.append([label, f"{mean:.4f} ± {std:.4f}", "[0, ∞]  ↑"])
-        elif label == "FID" or label=="KID":
+        elif label == "FID" or label=="KID" and value is not None:
             data.append([label, f"{value:.4f}", "[0, ∞]  ↓"])
 
     table = Table(data)
@@ -289,6 +289,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     ('VALIGN', (0, 0), (-1, -1), 'TOP')]))
     
     if metrics.get("a_precision_c", None) is not None:
+        elements.append(PageBreak())
         subtitle_knn = Paragraph("A closer look: α-precision, β-recall, and authenticity", styles['Heading3'])
         elements.append(subtitle_knn)   
 
