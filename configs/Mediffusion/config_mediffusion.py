@@ -35,6 +35,16 @@ CONFIGS = {
     # Default: 50,000
     "NUM_SYNTH": 500,
 
+    # If you are perfroming the k-NN analysis, set the number of images to visualize in the grid.
+    "K-NN_configs":
+        {
+            # Number of real images to visualize (the closest to any synthetic images).
+            "num_real": 2,
+
+            # Number of synthetic images to visualize, ranked by similarity, next to each real image.
+            "num_synth": 4
+        },
+
     # Define the number of GPUs to use for computation.
     # Set 0 for CPU mode.
     "NUM_GPUS": 0,
@@ -51,7 +61,7 @@ CONFIGS = {
 # ----------------------------- Real dataset configuration ----------------------------
 
 DATASET = {
-    # The module where the dataset class is implemented (./training/dataset_mediffusion.py).
+    # The module where the dataset class is implemented (./configs/Mediffusion/dataset_mediffusion.py).
     "module": "configs.Mediffusion.dataset_mediffusion",
 
     # The class name of the dataset.

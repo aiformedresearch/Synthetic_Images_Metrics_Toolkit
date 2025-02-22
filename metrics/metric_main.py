@@ -44,10 +44,10 @@ def list_valid_metrics():
 
 #----------------------------------------------------------------------------
 
-def calc_metric(metric, run_generator, num_gen, oc_detector_path, train_OC, snapshot_pkl, run_dir, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
+def calc_metric(metric, run_generator, num_gen, knn_configs, oc_detector_path, train_OC, snapshot_pkl, run_dir, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
     
     assert is_valid_metric(metric)
-    opts = metric_utils.MetricOptions(run_dir, run_generator, snapshot_pkl, num_gen, oc_detector_path, train_OC, **kwargs)
+    opts = metric_utils.MetricOptions(run_dir, run_generator, snapshot_pkl, num_gen, knn_configs, oc_detector_path, train_OC, **kwargs)
 
     # Calculate.
     start_time = time.time()
@@ -151,5 +151,5 @@ def prdc(opts):
 @register_metric
 def knn(opts):
     opts.dataset_kwargs.update(max_size=None)
-    path_to_img = knn_analysis.plot_knn(opts, max_real=50000, num_gen=opts.num_gen, batch_size=64, k=5, top_n=3)
+    path_to_img = knn_analysis.plot_knn(opts, max_real=50000, num_gen=opts.num_gen, batch_size=64, k=opts.knn_config["num_synth"], top_n=opts.knn_config["num_real"])
     return dict(path_to_knn=path_to_img)
