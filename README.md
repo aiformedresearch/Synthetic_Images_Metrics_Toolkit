@@ -19,6 +19,10 @@ These metrics enable the assessment of:
   <img src="Images/Metrics.png" width="400" title="metrics">
 </p>
 
+### 📊 Automated Report Generation
+This repository produces a comprehensive report as output, summarizing key findings and visualizations in a structured format.
+
+Check out an **example report** here: 📄 [report_metrics_toolkit.pdf](https://drive.google.com/file/d/1K_H0KCjjqr6rfi1tHYk03Gy3WhdcyKjk/view?usp=sharing)
 
 ## Licenses
 This repository complies with the [REUSE Specification](https://reuse.software/). All source files are annotated with SPDX license identifiers, and full license texts are included in the `LICENSES` directory.
