@@ -28,11 +28,12 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.python.keras import backend 
 import matplotlib.pyplot as plt
+import re
 
 #----------------------------------------------------------------------------
 
 class MetricOptions:
-    def __init__(self, run_dir, run_generator, network_pkl, num_gen, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
+    def __init__(self, run_dir, run_generator, network_pkl, num_gen, knn_config, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
         assert 0 <= rank <= num_gpus
         self.G              = G
         self.G_kwargs       = dnnlib.EasyDict(G_kwargs)
@@ -46,6 +47,7 @@ class MetricOptions:
         self.gen_path       = network_pkl
         self.data_path      = dataset_kwargs.path_data
         self.num_gen        = num_gen
+        self.knn_config     = knn_config
         self.oc_detector_path = oc_detector_path
         self.train_OC       = train_OC
         self.run_generator  = run_generator
@@ -226,6 +228,32 @@ def get_unique_filename(base_figname):
     
     return f"{filename}_{counter}{ext}"
 
+def get_latest_figure(file_path):
+    """
+    Find the figure most recent in the folder, based on the greater suffix
+    """
+
+    directory, filename = os.path.split(file_path)
+    basename, ext = os.path.splitext(filename)
+    
+    pattern = re.compile(rf"^{re.escape(basename)}(?:_(\d+))?{re.escape(ext)}$")
+    
+    max_index = -1
+    latest_file = None
+    for f in os.listdir(directory):
+        match = pattern.match(f)
+        if match:
+            # No number means index 0
+            index = int(match.group(1)) if match.group(1) is not None else 0
+            if index > max_index:
+                max_index = index
+                latest_file = f
+
+    if latest_file:
+        return os.path.join(directory, latest_file)
+    else:
+        return None
+
 def visualize_ex_samples(args, device, rank=0, verbose=True):
 
     # Load a real image
@@ -246,10 +274,6 @@ def visualize_ex_samples(args, device, rank=0, verbose=True):
     else:
         img_synth = args.run_generator(z, args).to(device)
     synth_sample = img_synth[0,0,:,:].cpu().detach().numpy()
-
-    # #POI RIMUOVI
-    # real_sample = np.rot90(real_sample, k=3)
-    # synth_sample = np.rot90(synth_sample, k=3)
 
     # Plot the images in a 2x1 subplot
     fig, axs = plt.subplots(1, 2, figsize=(20, 12))

@@ -27,7 +27,8 @@ RUN pip install --no-cache-dir \
     requests==2.24 \
     pyspng==0.1.1 \
     imageio-ffmpeg==0.4.3 \
-    psutil==5.7.2
+    psutil==5.7.2 \
+    reportlab==4.3.1
 # Install libraries for data loading (NIfTI and CSV files):
 RUN pip install --no-cache-dir \
     nibabel==4.0.2 \

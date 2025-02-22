@@ -21,19 +21,19 @@ def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authen
     plt.figure(figsize=(10, 6))
     
     # Plot alpha precision curve
-    plt.plot(alphas, alpha_precision_curve, label='Alpha Precision Curve', marker='o')
+    plt.plot(alphas, alpha_precision_curve, label='α-precision curve', marker='o')
     
     # Plot beta coverage curve
-    plt.plot(alphas, beta_coverage_curve, label='Beta Recall Curve', marker='s')
+    plt.plot(alphas, beta_coverage_curve, label='β-recall curve', marker='s')
     plt.plot([0, 1], [0, 1], "k--", label="Optimal performance")
     
     # Add titles and labels
-    plt.title('Alpha Precision and Beta Recall Curves')
-    plt.xlabel('alpha, beta')
-    plt.ylabel('Value')
+    plt.title('α-precision and β-recall curves', fontsize=18)
+    plt.xlabel('α, β', fontsize=15)
+    plt.ylabel('Value', fontsize=15)
     
     # Add legend
-    plt.legend()
+    plt.legend(fontsize=12)
     
     # Display the plot
     plt.grid(True)
@@ -46,11 +46,11 @@ def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authen
     # Plot authenticity
     plt.figure(figsize=(10, 6))
     plt.hist(authenticity_values, bins=30, alpha=0.75)
-    plt.axvline(x=authen, color='r', linestyle='--', label='Authenticity')
-    plt.title("Distribution of Authenticity Values")
-    plt.xlabel("Authenticity")
-    plt.ylabel("Frequency")
-    plt.legend()
+    plt.axvline(x=authen, color='r', linestyle='--', label='Authenticity score')
+    plt.title("Distribution of Authenticity Values", fontsize=18)
+    plt.xlabel("Authenticity for each batch", fontsize=15)
+    plt.ylabel("Frequency", fontsize=15)
+    plt.legend(fontsize=12)
     base_figname = os.path.join(fig_dir, f'authenticity_distribution{emb}.png')
     figname = metric_utils.get_unique_filename(base_figname)
     plt.savefig(figname)
@@ -61,6 +61,9 @@ def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
 
     # Determine the batch size
     batch_size = min(batch_size, real_data.shape[0], synthetic_data.shape[0])
+    print('batch_size', batch_size)
+    print('real_data.shape[0]', real_data.shape[0])
+    print('synthetic_data.shape[0]', synthetic_data.shape[0])
 
     # Fit the NearestNeighbors model on real data once
     nbrs_real = NearestNeighbors(n_neighbors=2, n_jobs=-1, p=2).fit(real_data)
@@ -70,6 +73,7 @@ def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
     # Shuffle synthetic data once and split into batches without replacement
     np.random.shuffle(synthetic_data)  # Shuffle synthetic data to ensure randomness
     num_batches = int(np.ceil(synthetic_data.shape[0] / batch_size))
+    print('num_batches = int(np.ceil(synthetic_data.shape[0] / batch_size))', num_batches)
 
     for i in range(num_batches):
         # Select batch of synthetic images without replacement

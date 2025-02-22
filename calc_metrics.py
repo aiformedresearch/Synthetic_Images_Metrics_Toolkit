@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-NVIDIA-1.0
+#
 # Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -19,6 +21,7 @@ from torch_utils import training_stats
 from torch_utils import custom_ops
 
 import importlib 
+from metrics.create_report import generate_metrics_report
 
 import sys
 if not sys.warnoptions:
@@ -176,6 +179,7 @@ def subprocess_fn(rank, args, temp_dir):
             metric=metric,
             run_generator=args.generator["run_generator"], 
             num_gen=args.num_gen, 
+            knn_configs = args.knn_configs,
             oc_detector_path=oc_detector_path, 
             train_OC=train_OC, 
             snapshot_pkl=args.generator['network_path'], 
@@ -190,6 +194,9 @@ def subprocess_fn(rank, args, temp_dir):
             metric_main.report_metric(result_dict, run_dir=args.run_dir, snapshot_pkl=args.generator['network_path'])
         if rank == 0 and args.verbose:
             print()
+
+    # Create the final report.
+    generate_metrics_report(args)
 
     # Done.
     if rank == 0 and args.verbose:
@@ -226,6 +233,7 @@ def calc_metrics(ctx, config):
     args = dnnlib.EasyDict({
         'metrics': config.METRICS,
         'run_dir': config.CONFIGS["RUN_DIR"],
+        'knn_configs': config.CONFIGS["K-NN_configs"],
         'num_gpus': config.CONFIGS["NUM_GPUS"],
         'verbose': config.CONFIGS["VERBOSE"],
         'num_gen': config.CONFIGS["NUM_SYNTH"],
@@ -253,29 +261,15 @@ def calc_metrics(ctx, config):
     else:
         ctx.fail('Could not look up dataset options; please specify --data')
 
-    # Finalize dataset options.
-    #args.dataset_kwargs.resolution = args.G.img_resolution
-    #args.dataset_kwargs.use_labels = (args.G.c_dim != 0)
-
-    # Locate run dir.
-    args.run_dir = args.run_dir
-
-    # Set the number of synthetic images to generate to compute the metrics.
-    args.num_gen = args.num_gen
-
-    # Set the paths to the outputs:
-    args.oc_detector_path = args.oc_detector_path
-
-    # Launch processes.
     if args.verbose:
         print('Launching processes...')
     torch.multiprocessing.set_start_method('spawn', force=True)
     with tempfile.TemporaryDirectory() as temp_dir:
         if args.num_gpus <= 1:
             if args.num_gpus==0:
-                print("Running subprocess_fn in CPU mode...")
+                print("Running in CPU mode...")
             else:
-                print("Running subprocess_fn in single GPU mode)...")
+                print("Running in single GPU mode...")
             subprocess_fn(rank=0, args=args, temp_dir=temp_dir)
         else:
             print(f"Spawning {args.num_gpus} processes...")
