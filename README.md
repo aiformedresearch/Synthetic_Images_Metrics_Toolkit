@@ -136,7 +136,9 @@ By default, `k=5` and `top_n=3`. These parameters can be adjusted in the `knn` f
 
 ## 🚧To-do list:
 ✅ Simplify the procedure for data loading;
+
 🔲 Allow to load synthetic images from files (as well as from a pre-trained generator);
+
 🔲 Implement t-SNE to qualitatively assess diversity.
 
 ## Aknowledgments
