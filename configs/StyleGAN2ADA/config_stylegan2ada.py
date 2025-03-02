@@ -5,6 +5,7 @@
 Configuration file for Synthetic Image Metrics Toolkit.
 Defines metrics, dataset, and generator configurations.
 """
+from dataset import BaseDataset
 
 # -------------------------------- Metrics --------------------------------
 
@@ -60,13 +61,38 @@ CONFIGS = {
 
 # ----------------------------- Real dataset configuration ----------------------------
 
-DATASET = {
-    # The module where the dataset class is implemented (./configs/StyleGAN2ADA/dataset_stylegan2ada.py).
-    "module": "configs.StyleGAN2ADA.dataset_stylegan2ada",
+# 0. Import necessary packages for data loading.
+import nibabel as nib
+import numpy as np
 
-    # The class name of the dataset.
-    # The script will dynamically import and instantiate this class.
-    "class_name": "NiftiDataset",
+# 1. Define the function(s) to load data and, optionally, labels.
+class NiftiDataset(BaseDataset):
+    def _load_files(self):
+        """
+        Load a NIfTI file and return a NumPy array.
+        Expects images to be in (N, C, H, W) format.
+        """
+        data = nib.load(self.path_data)
+        data = np.asanyarray(data.dataobj) # numpy array of shape (W,H,C,N)
+        data = np.float64(data)
+
+        W, H, C, N = data.shape
+        assert W==H
+
+        # Swap axes to have the format (N,C,W,H)
+        data = np.swapaxes(data, 0,3)
+        data = np.swapaxes(data, 1,2)   # after swapping axes, array shape (N,C,H,W)
+
+        return data # [batch_size, n_channels, img_resolution, img_resolution]
+
+    def _load_raw_labels(self):
+        pass
+
+# 2. Define the path(s) to the data file and, optionally, path to the label file and additional settings.
+DATASET = {
+
+    # Class definition, to load your data
+    "class": NiftiDataset,
 
     # Additional parameters required for loading the dataset.
     "params": 
@@ -79,7 +105,11 @@ DATASET = {
         "path_labels": None,
 
         # Flag to enable label usage.
-        "use_labels": False
+        "use_labels": False,
+
+        # Set if you want to upload a subset of data from the dataset.
+        # If None, the whole dataset will be loaded
+        "size_dataset": None
     }
 }
 

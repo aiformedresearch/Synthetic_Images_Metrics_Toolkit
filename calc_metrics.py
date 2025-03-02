@@ -21,6 +21,7 @@ from torch_utils import training_stats
 from torch_utils import custom_ops
 
 import importlib 
+import inspect
 from metrics.create_report import generate_metrics_report
 
 import sys
@@ -78,13 +79,13 @@ def validate_config(config):
     if not isinstance(dataset, dict):
         errors.append("DATASET must be a dictionary.")
     else:
-        required_dataset_keys = ["module", "class_name", "params"]
+        required_dataset_keys = ["class", "params"]
         for key in required_dataset_keys:
             if key not in dataset:
                 errors.append(f"Missing key in DATASET: {key}")
 
-        if not isinstance(dataset["module"], str) or not isinstance(dataset["class_name"], str):
-            errors.append("DATASET module and class_name must be strings.")
+        if not inspect.isclass(dataset["class"]):
+            errors.append("DATASET 'class' must be a class.")
 
         if not isinstance(dataset["params"], dict):
             errors.append("DATASET params must be a dictionary.")
@@ -103,7 +104,7 @@ def validate_config(config):
             if key not in generator:
                 errors.append(f"Missing key in GENERATOR: {key}")
 
-        if not isinstance(generator["network_path"], str) or not os.path.exists(generator["network_path"]):
+        if not os.path.exists(generator["network_path"]):
             errors.append(f"Generator checkpoint file not found: {generator['network_path']}")
 
         if not callable(generator["load_network"]):
@@ -132,6 +133,24 @@ def print_config(config):
     for key, value in config.DATASET.items():
         print(f"    {key}: {value}")
     print()
+
+#----------------------------------------------------------------------------
+
+def get_module_path(file_path):
+    # Normalize the path
+    normalized_path = os.path.normpath(file_path)
+    base_dir = os.path.normpath(os.getcwd())
+
+    # Find the relative path
+    normalized_path = os.path.relpath(normalized_path, base_dir)
+
+    # Remove the file extension
+    root, _ = os.path.splitext(normalized_path)
+
+    # Replace directory separators with dots
+    module_path = root.replace(os.sep, '.')
+
+    return module_path
 
 #----------------------------------------------------------------------------
 
@@ -224,8 +243,9 @@ def calc_metrics(ctx, config):
     dnnlib.util.Logger(should_flush=True)
 
     # Load configuration dynamically
-    print(f"Reading configuration from {config}...")
-    config = load_config_from_path(config)
+    config_path=config
+    print(f"Reading configuration from {config_path}...")
+    config = load_config_from_path(config_path)
 
     # Validate configuration
     validate_config(config)
@@ -241,6 +261,7 @@ def calc_metrics(ctx, config):
         'generator': config.GENERATOR,
         'run_generator': config.GENERATOR["run_generator"],
         'dataset': config.DATASET,
+        'config_path': config_path
     })
 
     # Print configuration values
@@ -255,11 +276,11 @@ def calc_metrics(ctx, config):
     # Initialize dataset options.
     if args.dataset['params']['path_data'] is not None:
         args.dataset_kwargs = dnnlib.EasyDict(
-            class_name=args.dataset["module"] + "." + args.dataset["class_name"],
+            class_name=get_module_path(args.config_path)+"."+config.DATASET["class"].__name__,
             **args.dataset["params"]
                 )
     else:
-        ctx.fail('Could not look up dataset options; please specify --data')
+        ctx.fail('Could not look up dataset options; please specify DATASET configurations from the configuration file.')
 
     if args.verbose:
         print('Launching processes...')

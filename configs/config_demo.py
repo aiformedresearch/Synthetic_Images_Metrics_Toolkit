@@ -5,6 +5,7 @@
 Configuration file for Synthetic Image Metrics Toolkit.
 Defines metrics, dataset, and generator configurations.
 """
+from dataset import BaseDataset
 
 # -------------------------------- Metrics --------------------------------
 
@@ -49,13 +50,30 @@ CONFIGS = {
 
 # ----------------------------- Real dataset configuration ----------------------------
 
-DATASET = {
-    # The module where the dataset class is implemented (./training/dataset_mediffusion.py).
-    "module": "training.dataset",
+# 0. Import necessary packages for data loading.
+import ...
 
-    # The class name of the dataset.
-    # The script will dynamically import and instantiate this class.
-    "class_name": "NiftiDataset",
+# 1. Define the function(s) to load data and, optionally, labels.
+class CustomDataset(BaseDataset):
+    def _load_files(self):
+        """
+        Load input data file(s) and return a NumPy array.
+        Expects images to be in (N, C, H, W) format.
+        """
+        pass
+
+    def _load_raw_labels(self):
+        """
+        (Optional) Function to load the labels, for multi-class datasets.
+        Expects Numpy array of shape: (N,) - e.g.,: array([0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0])
+        """
+        pass
+
+# 2. Define the path(s) to the data file and, optionally, path to the label file and additional settings.
+DATASET = {
+
+    # Class definition, to load your data
+    "class": CustomDataset,
 
     # Additional parameters required for loading the dataset.
     "params": 
@@ -68,7 +86,11 @@ DATASET = {
         "path_labels": "path_to/labels",
 
         # Flag to enable label usage.
-        "use_labels": False
+        "use_labels": False,
+
+        # Set if you want to upload a subset of data from the dataset.
+        # If None, the whole dataset will be loaded
+        "size_dataset": None
     }
 }
 
@@ -84,7 +106,13 @@ def load_network(network_path):
 
     Output: pre-trained generator model
     """
-    pass
+    # Load the pre-trained network
+    G = ...
+
+    # Define latent dimension and number of classes
+    G.z_dim = ...
+    G.c_dim = ... # 1 for single class dataset
+    return G
 
 # 2. Define a custom function to generate images using the generator.
 def run_generator(z, c, opts):
