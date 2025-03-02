@@ -196,7 +196,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elif label == "IS" and value is not None:
             mean, std = metrics.get("is50k_mean"), metrics.get("is50k_std")
             data.append([label, f"{mean:.4f} ± {std:.4f}", "[0, ∞]  ↑"])
-        elif label == "FID" or label=="KID" and value is not None:
+        elif (label == "FID" or label=="KID") and value is not None:
             data.append([label, f"{value:.4f}", "[0, ∞]  ↓"])
 
     table = Table(data)

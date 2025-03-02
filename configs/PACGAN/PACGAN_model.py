@@ -98,8 +98,6 @@ class Generator(nn.Module):
     ):
         super().__init__()
         # Modifications for metric computation:
-        self.z_dim = z_dim
-        self.c_dim = class_size
         self.img_resolution = 256
 
         self.label_embedding = nn.Embedding(class_size, embedding_dim)
@@ -131,10 +129,15 @@ class Generator(nn.Module):
         x = z
         label = c
         x = x.unsqueeze(-1).unsqueeze(-1)
-        label = np.argmax(label.cpu(), axis=1).to(device='cuda', dtype=torch.long)
-        
-        label_embed = self.label_embedding(label)
-        label_embed = label_embed.view(label_embed.shape[0], label_embed.shape[1], 1, 1)
+        if len(c)>1:
+            label = np.argmax(label.cpu(), axis=1).to(device='cuda', dtype=torch.long)
+        else:
+            label = np.argmax(label.cpu()).to(device='cuda', dtype=torch.long)
+        label_embed = self.label_embedding(label.cpu())
+        if len(c)>1:
+            label_embed = label_embed.view(label_embed.shape[0], label_embed.shape[1], 1, 1)
+        else:
+            label_embed = label_embed.view(1, label_embed.shape[0], 1, 1)
         x = torch.cat((x, label_embed), dim=1)  # b_size + (z_dim + embedding_dim) x 1x1
         x = x.to(dtype=torch.float32)
         out = self.initial_block(x)             # b_size x (512) x 4x4
