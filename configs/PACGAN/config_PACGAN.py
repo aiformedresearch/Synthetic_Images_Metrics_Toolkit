@@ -91,7 +91,7 @@ DATASET = {
 # ----------------------------- Synthetic data configuration -----------------------------
 
 # Flag to determine the mode of operation
-USE_PRETRAINED_MODEL = True  # Set to False to load synthetic images from files
+USE_PRETRAINED_MODEL = False  # Set to False to load synthetic images from files
 
 SYNTHETIC_DATA = {
     "mode": "pretrained_model" if USE_PRETRAINED_MODEL else "from_files",
@@ -106,7 +106,7 @@ SYNTHETIC_DATA = {
         # Function to generate synthetic images from the pre-trained generator (below in this script)
         "run_generator": lambda z, c, opts: _run_generator(z, c, opts),
         # Number of images you want to generate
-        "NUM_SYNTH": 10
+        "NUM_SYNTH": 500
         },
         
     #       -------    -------    -------    -------    -------    -------    -------

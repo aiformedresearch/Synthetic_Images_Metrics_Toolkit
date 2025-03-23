@@ -104,7 +104,7 @@ SYNTHETIC_DATA = {
         # Function to generate synthetic images from the pre-trained generator (below in this script)
         "run_generator": lambda z, opts: _run_generator(z, opts),
         # Number of images you want to generate
-        "NUM_SYNTH": 8
+        "NUM_SYNTH": 500
         },
         
     #       -------    -------    -------    -------    -------    -------    -------
