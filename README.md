@@ -43,12 +43,22 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
 
 ### Installation with Anaconda
 0. Install [Anaconda](https://docs.anaconda.com/free/anaconda/install/index.html) for your operating system.
-1. Create a Conda environment and install the required dependencies using the following commands:
+1. Create a Conda environment:
     ```
     conda create -n metrics_toolkit python=3.10 -y
     conda activate metrics_toolkit
+    ```
+2. Install dependencies:
+    ```
     pip install -r requirements.txt
     ```
+    Note: if you plan to follow the tutorials, install the additional dependencies via:
+        ```
+        pip install -r requirements_tutorial.txt
+        ```
+3. Install additional packages
+    Install any additional packages needed for data loading specific to your custom case. 
+    Optionally, install packages required to load your pre-trained generator.
 
 ### Installation with Docker
 0. Install [Docker](https://docs.docker.com/get-docker/) for your operating system.
