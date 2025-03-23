@@ -56,9 +56,7 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
         ```
         pip install -r requirements_tutorial.txt
         ```
-3. Install additional packages
-    Install any additional packages needed for data loading specific to your custom case. 
-    Optionally, install packages required to load your pre-trained generator.
+3. Install any additional packages needed for your specific use case. 
 
 ### Installation with Docker
 0. Install [Docker](https://docs.docker.com/get-docker/) for your operating system.
