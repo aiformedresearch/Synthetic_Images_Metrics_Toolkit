@@ -28,46 +28,118 @@ METRICS = [
 # -------------------------------- Runtime configurations --------------------------------
 
 CONFIGS = {
-
     # Define the path where the results should be saved.
     # This is the directory where all metric computations will be stored.
-    "RUN_DIR": "Synthetic_Images_Metrics_Toolkit/EXPERIMENT_PACGAN",
-
-    # Define the number of synthetic images to generate for computing the metrics.
-    # Default: 50,000
-    "NUM_SYNTH": 500,
-
-    # If you are perfroming the k-NN analysis, set the number of images to visualize in the grid.
-    "K-NN_configs":
-        {
-            # Number of real images to visualize (the closest to any synthetic images).
-            "num_real": 2,
-
-            # Number of synthetic images to visualize, ranked by similarity, next to each real image.
-            "num_synth": 4
-        },
-
+    "RUN_DIR": "Synthetic_Images_Metrics_Toolkit/EXPERIMENT_StyleGAN2-ADA",
     # Define the number of GPUs to use for computation.
     # Set 0 for CPU mode.
-    "NUM_GPUS": 0,
-
+    "NUM_GPUS": 1,
     # Set verbosity for logging and debugging.
-    # If True, the script will print logs and progress updates.
     "VERBOSE": True,
-
     # Path to an optional Outlier Classifier (OC) detector model, for the computation of pr_auth.
     # If None, the OC detector will be trained during metric computation.
     "OC_DETECTOR_PATH": None
 }
 
-# ----------------------------- Real dataset configuration ----------------------------
+# ---------------------------- Metrics  configurations -----------------------------
 
-# 0. Import necessary packages for data loading.
+METRICS_CONFIGS = {
+
+    # Some metrics are computed estimating data manifold through k-Nearest Neighbor.
+    # Set the size of k (nhood_size):
+    "nhood_size":
+        {
+            "pr": 5,      # For improved Precision & Recall (Karras et al.)
+            "prdc": 5,    # For precision, recall, density, coverage (Naeem et al.)
+            "pr_auth": 5  # For alpha-precision, beta-recall, authenticity (Alaa et al.)
+        },
+
+    # If you are perfroming the k-NN analysis, set the number of images to visualize in a num_real x num_synth grid.
+    "K-NN_configs":
+        {
+            "num_real": 3, # Number of real images to visualize (the closest to any synthetic images).
+            "num_synth": 5 # Number of synthetic images to visualize, ranked by similarity, next to each real image.
+        },
+
+    # The computation of some metrics require the resize of the images to the size of the input required by a pre-trained model
+    # If False, images are resized with the PIL.BICUBIC resizer. If True, zero-padding is performed (ideal if the image has black background, such as the brain MRI)
+    "padding": False
+}
+
+# ----------------------------- Real data configuration ----------------------------
+
+# 2. Define the path(s) to the data file and, optionally, path to the label file and additional settings.  
+DATASET = {
+
+    # Class definition, to load your data
+    "class": "<defined below: NiftiDataset>",
+
+    # Additional parameters required for loading the dataset.
+    "params": 
+    {
+        # Path to the dataset file containing the real images (in NIfTI format).
+        "path_data": "data/real_images_simulation.nii.gz",
+        # Path to an optional labels file. If None, the dataset will be treated as unlabelled.
+        "path_labels": "data/labels.csv",
+        # Flag to enable label usage.
+        "use_labels": True,
+        # Number of real images to use, if None using all
+        "size_dataset": None
+    }
+}
+
+# ----------------------------- Synthetic data configuration -----------------------------
+
+# Flag to determine the mode of operation
+USE_PRETRAINED_MODEL = True  # Set to False to load synthetic images from files
+
+SYNTHETIC_DATA = {
+    "mode": "pretrained_model" if USE_PRETRAINED_MODEL else "from_files",
+
+    # Configuration for pre-trained model mode
+    "pretrained_model": 
+        {
+        # Path to the pre-trained generator
+        "network_path": "Synthetic_Images_Metrics_Toolkit/configs/PACGAN/pre-trained_generator.pt",
+        # Function to load the pre-trained generator (below in this script)
+        "load_network": lambda network_path: _load_network(network_path),
+        # Function to generate synthetic images from the pre-trained generator (below in this script)
+        "run_generator": lambda z, c, opts: _run_generator(z, c, opts),
+        # Number of images you want to generate
+        "NUM_SYNTH": 10
+        },
+        
+    #       -------    -------    -------    -------    -------    -------    -------
+
+
+    # Configuration for direct synthetic images mode
+    "from_files": 
+        {
+        # Class definition, to load synthetic data
+        "class": "<defined below: NiftiDataset>",
+        
+        "params":
+            {
+            # Path to directory or file containing synthetic images
+            "path_data": "data/real_images_simulation.nii.gz",
+            # Path to an optional labels file. If None, the dataset will be treated as unlabelled.
+            "path_labels": None,
+            # Flag to enable label usage.
+            "use_labels": False,
+            # Number of synthetic images to use, if None using all
+            "size_dataset": None,  
+            }
+        }
+}
+
+# ----------------------------- Functions and classes definition -----------------------------
+
+# -> For data loading
+
 import nibabel as nib
 import numpy as np
 import pandas as pd
 
-# 1. Define the function(s) to load data and, optionally, labels.
 class NiftiDataset(BaseDataset):
     def _load_files(self):
         """
@@ -98,60 +170,41 @@ class NiftiDataset(BaseDataset):
         labels = labels.astype({1: np.int64, 2: np.float32}[labels.ndim])
         return labels
 
-# 2. Define the path(s) to the data file and, optionally, path to the label file and additional settings.  
-DATASET = {
+DATASET["class"] = NiftiDataset
+SYNTHETIC_DATA["from_files"]["class"] = NiftiDataset
 
-    # Class definition, to load your data
-    "class": NiftiDataset,
+#  -------    -------    -------    -------    -------    -------    -------    -------    -------
 
-    # Additional parameters required for loading the dataset.
-    "params": 
-    {
-        # Path to the dataset file containing the medical images (in NIfTI format).
-        "path_data": "data/real_images_simulation.nii.gz",
+# -> for synthetic data generation:
 
-        # Path to an optional labels file.
-        # If None, the dataset will be treated as unlabelled.
-        "path_labels": "data/labels.csv",
-
-        # Flag to enable label usage.
-        "use_labels": True,
-
-        # Set if you want to upload a subset of data from the dataset.
-        # If None, the whole dataset will be loaded
-        "size_dataset": None
-    }
-}
-
-# ----------------------------- Generator configuration -----------------------------
-
-# 0. Import necessary packages.
 from configs.PACGAN.PACGAN_model import Generator
 import torch
 import json
 
-# 1. Define the path to the pre-trained generator
-network_path = "Synthetic_Images_Metrics_Toolkit/configs/PACGAN/pre-trained_generator.pt"
 
-# 2. Define a function to load the generator network.
 json_path= "Synthetic_Images_Metrics_Toolkit/configs/PACGAN/config.json"
 # Read parameters from JSON file
 with open(json_path) as f:
     config_data = json.load(f)
-def load_network(network_path):
+
+def _load_network(network_path):
     network_dict = torch.load(network_path, map_location='cpu')['model_state_dict']
     G = Generator(config_data["Z_DIM"], config_data["EMBEDDING_DIM"],
                    config_data["CLASS_SIZE"], config_data["IMAGE_CHANNELS"], 
                    config_data["IN_CHANNELS"], eval(config_data["FACTORS"]))
     G.load_state_dict(network_dict)
     
+    # Set requires_grad to False for all parameters
+    for param in G.parameters():
+        param.requires_grad = False
+        
     # Define latent dimension and number of classes
     G.z_dim = config_data["Z_DIM"]
     G.c_dim = config_data["CLASS_SIZE"]
     return G
 
 # 3. Define a custom function to generate images using the generator.
-def run_generator(z, c, opts):
+def _run_generator(z, c, opts):
     
     # Generate images
     img = opts.G(z, c)
@@ -161,13 +214,3 @@ def run_generator(z, c, opts):
     img = img.to(dtype=torch.float32)
     
     return img # [batch_size, n_channels, img_resolution, img_resolution]
-
-# 4. Generator configuration dictionary
-GENERATOR = {
-    "network_path": network_path,
-
-    "load_network": load_network,
-
-    "run_generator": run_generator
-
-    }

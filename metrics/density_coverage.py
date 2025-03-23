@@ -15,6 +15,7 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from . import metric_utils
 import sklearn.metrics
+import dnnlib
 
 #----------------------------------------------------------------------------
 
@@ -61,7 +62,7 @@ def compute_nearest_neighbour_distances(input_features, nearest_k=5):
 
 # ----------------------------------------------------------------------------
 
-def compute_prdc(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_size):
+def compute_prdc(opts, max_real, num_gen):
 
     # detector_url = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/vgg16.pt'
     detector_url = {'model': 'vgg16', 'randomise': False, 'dim64': False}
@@ -70,15 +71,16 @@ def compute_prdc(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_
     # Compute the embedding from pre-trained detector
 
     real_features = metric_utils.compute_feature_stats_for_dataset(
-        opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
-        rel_lo=0, rel_hi=0, capture_all=True, max_items=max_real).get_all_torch().to(torch.float16).to(opts.device)
+        opts=opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
+        detector_url=detector_url, detector_kwargs=detector_kwargs,
+        rel_lo=0, rel_hi=0, dataset_kwargs=opts.dataset_kwargs, capture_all=True, max_items=max_real).get_all_torch().to(torch.float32).to(opts.device)
 
-    gen_features = metric_utils.compute_feature_stats_for_generator(
+    gen_features = metric_utils.compute_feature_stats_synthetic(
         opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
-        rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all_torch().to(torch.float16).to(opts.device)
-
+            rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all_torch().to(torch.float32).to(opts.device)
+    
     # Define the value of k for the kth nearest neighbour
-    nearest_k = 5
+    nearest_k = opts.nhood_size["prdc"]
 
     # Compute pairwise distances between real features and fake features
     # Compute the kth nearest neighbour distances for both real features
@@ -93,8 +95,6 @@ def compute_prdc(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_
         real_features, gen_features)
 
     # Compute the PRDC metrics
-    # Precision is calculated as the mean of a boolean array where each element indicates 
-    #  if the corresponding generated feature vector is within the l-th nearest distance of  any real feature vectors
     precision = (
             distance_real_fake <
             np.expand_dims(real_nearest_neighbour_distances, axis=1)

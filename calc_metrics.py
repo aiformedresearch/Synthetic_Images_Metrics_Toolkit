@@ -21,7 +21,6 @@ from torch_utils import training_stats
 from torch_utils import custom_ops
 
 import importlib 
-import inspect
 from metrics.create_report import generate_metrics_report
 
 import sys
@@ -44,81 +43,6 @@ def load_config_from_path(config_path):
 
 #----------------------------------------------------------------------------
 
-def validate_config(config):
-    """Validates the configuration parameters in config.py."""
-    
-    errors = []
-
-    # Validate METRICS
-    if not isinstance(config.METRICS, list) or not all(isinstance(m, str) for m in config.METRICS):
-        errors.append("METRICS must be a list of metric names (strings).")
-    elif not all(metric_main.is_valid_metric(m) for m in config.METRICS):
-        valid_metrics = metric_main.list_valid_metrics()
-        errors.append(f"Invalid metric(s) found. Allowed options: {valid_metrics}")
-
-    # Validate CONFIGS
-    required_config_keys = ["RUN_DIR", "NUM_SYNTH", "NUM_GPUS", "VERBOSE", "OC_DETECTOR_PATH"]
-    for key in required_config_keys:
-        if key not in config.CONFIGS:
-            errors.append(f"Missing key in CONFIGS: {key}")
-
-    if not isinstance(config.CONFIGS["RUN_DIR"], str):
-        errors.append("RUN_DIR must be a string (path).")
-
-    if not isinstance(config.CONFIGS["NUM_SYNTH"], int) or config.CONFIGS["NUM_SYNTH"] <= 0:
-        errors.append("NUM_SYNTH must be a positive integer.")
-
-    if not isinstance(config.CONFIGS["NUM_GPUS"], int) or config.CONFIGS["NUM_GPUS"] < 0:
-        errors.append("NUM_GPUS must be an integer greater than or equal to 0.")
-
-    if not isinstance(config.CONFIGS["VERBOSE"], bool):
-        errors.append("VERBOSE must be a boolean (True/False).")
-
-    # Validate DATASET
-    dataset = config.DATASET
-    if not isinstance(dataset, dict):
-        errors.append("DATASET must be a dictionary.")
-    else:
-        required_dataset_keys = ["class", "params"]
-        for key in required_dataset_keys:
-            if key not in dataset:
-                errors.append(f"Missing key in DATASET: {key}")
-
-        if not inspect.isclass(dataset["class"]):
-            errors.append("DATASET 'class' must be a class.")
-
-        if not isinstance(dataset["params"], dict):
-            errors.append("DATASET params must be a dictionary.")
-
-        if "path_data" in dataset["params"] and dataset["params"]["path_data"] is not None:
-            if not os.path.exists(dataset["params"]["path_data"]):
-                errors.append(f"Dataset file not found: {dataset['params']['path_data']}")
-
-    # Validate GENERATOR
-    generator = config.GENERATOR
-    if not isinstance(generator, dict):
-        errors.append("GENERATOR must be a dictionary.")
-    else:
-        required_generator_keys = ["network_path", "load_network", "run_generator"]
-        for key in required_generator_keys:
-            if key not in generator:
-                errors.append(f"Missing key in GENERATOR: {key}")
-
-        if not os.path.exists(generator["network_path"]):
-            errors.append(f"Generator checkpoint file not found: {generator['network_path']}")
-
-        if not callable(generator["load_network"]):
-            errors.append("load_network must be a callable function.")
-
-        if not callable(generator["run_generator"]):
-            errors.append("run_generator must be a callable function.")
-
-    # Print errors if any
-    if errors:
-        raise ValueError("\n".join(errors))
-
-#----------------------------------------------------------------------------
-
 def print_config(config):
     """Prints the loaded configuration in a readable format."""
     print("\nLoaded Configuration:")
@@ -126,9 +50,14 @@ def print_config(config):
     print("\n  CONFIGS:")
     for key, value in config.CONFIGS.items():
         print(f"    {key}: {value}")
-    print("\n  GENERATOR:")
-    for key, value in config.GENERATOR.items():
-        print(f"    {key}: {value}")
+    print("\n  METRICS_CONFIGS:")
+    for key, value in config.METRICS_CONFIGS.items():
+            print(f"    {key}: {value}")
+    print("\n  SYNTHETIC_DATA:")
+    mode = config.SYNTHETIC_DATA["mode"]
+    print("  mode: ", mode)
+    for key, value in config.SYNTHETIC_DATA[mode].items():
+        print(f"      {key}: {value}")
     print("\n  DATASET:")
     for key, value in config.DATASET.items():
         print(f"    {key}: {value}")
@@ -158,7 +87,7 @@ def subprocess_fn(rank, args, temp_dir):
     dnnlib.util.Logger(should_flush=True)
     # define device
     device = torch.device(f'cuda:{rank}' if torch.cuda.is_available() and args.num_gpus > 0 else 'cpu')
-    
+
     # Init torch.distributed.
     if args.num_gpus > 1 and torch.cuda.is_available():
         init_file = os.path.abspath(os.path.join(temp_dir, '.torch_distributed_init'))
@@ -189,22 +118,26 @@ def subprocess_fn(rank, args, temp_dir):
         if rank == 0 and args.verbose:
             print(f'Calculating {metric}...')
         progress = metric_utils.ProgressMonitor(verbose=args.verbose)
- 
+
         # Set the path to the OC detector:
         train_OC = False if args.oc_detector_path is not None else True
         oc_detector_path = args.oc_detector_path if args.oc_detector_path is not None else args.run_dir+'/oc_detector.pkl'
         
         result_dict = metric_main.calc_metric(
             metric=metric,
+            use_pretrained_generator=args.use_pretrained_generator,
             run_generator=args.generator["run_generator"], 
             num_gen=args.num_gen, 
+            nhood_size = args.nhood_size,
             knn_configs = args.knn_configs,
+            padding = args.padding,
             oc_detector_path=oc_detector_path, 
             train_OC=train_OC, 
             snapshot_pkl=args.generator['network_path'], 
             run_dir=args.run_dir, 
             G=args.G, 
             dataset_kwargs=args.dataset_kwargs,
+            dataset_synt_kwargs=args.dataset_synt_kwargs,
             num_gpus=args.num_gpus, 
             rank=rank, device=device, 
             progress=progress
@@ -248,19 +181,23 @@ def calc_metrics(ctx, config):
     config = load_config_from_path(config_path)
 
     # Validate configuration
-    validate_config(config)
+    metric_utils.validate_config(config)
 
     args = dnnlib.EasyDict({
         'metrics': config.METRICS,
         'run_dir': config.CONFIGS["RUN_DIR"],
-        'knn_configs': config.CONFIGS["K-NN_configs"],
+        'knn_configs': config.METRICS_CONFIGS["K-NN_configs"],
+        'nhood_size': config.METRICS_CONFIGS["nhood_size"],
+        'padding': config.METRICS_CONFIGS["padding"],
         'num_gpus': config.CONFIGS["NUM_GPUS"],
         'verbose': config.CONFIGS["VERBOSE"],
-        'num_gen': config.CONFIGS["NUM_SYNTH"],
         'oc_detector_path': config.CONFIGS["OC_DETECTOR_PATH"],
-        'generator': config.GENERATOR,
-        'run_generator': config.GENERATOR["run_generator"],
+        'num_gen': config.SYNTHETIC_DATA["pretrained_model"]["NUM_SYNTH"] if config.USE_PRETRAINED_MODEL else config.SYNTHETIC_DATA["from_files"]["params"]["size_dataset"],
+        'generator': config.SYNTHETIC_DATA["pretrained_model"],
+        'run_generator': config.SYNTHETIC_DATA["pretrained_model"]["run_generator"],
+        'dataset_synt': config.SYNTHETIC_DATA["from_files"],
         'dataset': config.DATASET,
+        'use_pretrained_generator': config.USE_PRETRAINED_MODEL,
         'config_path': config_path
     })
 
@@ -269,14 +206,25 @@ def calc_metrics(ctx, config):
         print_config(config)
 
     # Load the pre-trained generator
-    if args.verbose:
-        print(f'Loading network from "{args.generator["network_path"]}"...')
-    args.G = args.generator["load_network"](args.generator["network_path"])
+    if args.use_pretrained_generator:
+        if args.verbose:
+            print(f'Loading network from "{args.generator["network_path"]}"...')
+        args.G = args.generator["load_network"](args.generator["network_path"])
+        args.dataset_synt_kwargs = None
+    else:
+        args.G = None
+        if args.dataset_synt["params"]["path_data"] is not None:
+            args.dataset_synt_kwargs = dnnlib.EasyDict(
+                class_name=get_module_path(args.config_path)+"."+args.dataset_synt["class"].__name__,
+                **args.dataset_synt["params"]
+                    )
+        else:
+            ctx.fail('Could not look up dataset options; please specify DATASET configurations from the configuration file.')
 
     # Initialize dataset options.
     if args.dataset['params']['path_data'] is not None:
         args.dataset_kwargs = dnnlib.EasyDict(
-            class_name=get_module_path(args.config_path)+"."+config.DATASET["class"].__name__,
+            class_name=get_module_path(args.config_path)+"."+args.dataset["class"].__name__,
             **args.dataset["params"]
                 )
     else:

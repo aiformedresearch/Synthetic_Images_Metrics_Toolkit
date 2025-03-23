@@ -14,6 +14,7 @@ https://github.com/openai/improved-gan/blob/master/inception_score/model.py"""
 
 import numpy as np
 from . import metric_utils
+import dnnlib
 
 #----------------------------------------------------------------------------
 
@@ -22,10 +23,12 @@ def compute_is(opts, num_gen, num_splits):
     detector_url = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/inception-2015-12-05.pt'
     detector_kwargs = dict(no_output_bias=True) # Match the original implementation by not applying bias in the softmax layer.
 
-    gen_probs = metric_utils.compute_feature_stats_for_generator(
+    gen_probs = metric_utils.compute_feature_stats_synthetic(
         opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
         capture_all=True, max_items=num_gen).get_all()
 
+    num_gen = len(gen_probs) if num_gen is None else num_gen
+        
     if opts.rank != 0:
         return float('nan'), float('nan')
 

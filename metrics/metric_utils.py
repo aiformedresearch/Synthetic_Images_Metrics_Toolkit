@@ -21,23 +21,25 @@ import numpy as np
 import torch
 import dnnlib
 
-import legacy
-import nibabel as nib
 from representations.OneClass import OneClassLayer
 import tensorflow as tf
 from tensorflow.keras.models import Model
-from tensorflow.python.keras import backend 
 import matplotlib.pyplot as plt
 import re
+from PIL import Image
+from pathlib import Path
+import inspect
+from metrics import metric_main
 
 #----------------------------------------------------------------------------
 
 class MetricOptions:
-    def __init__(self, run_dir, run_generator, network_pkl, num_gen, knn_config, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
+    def __init__(self, run_dir, use_pretrained_generator, run_generator, network_pkl, num_gen, nhood_size, knn_config, padding, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, dataset_synt_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
         assert 0 <= rank <= num_gpus
         self.G              = G
         self.G_kwargs       = dnnlib.EasyDict(G_kwargs)
         self.dataset_kwargs = dnnlib.EasyDict(dataset_kwargs)
+        self.dataset_synt_kwargs = dnnlib.EasyDict(dataset_synt_kwargs) if dataset_synt_kwargs is not None else None
         self.num_gpus       = num_gpus
         self.rank           = rank
         self.device         = device if device is not None else torch.device('cuda', rank)
@@ -46,11 +48,15 @@ class MetricOptions:
         self.run_dir        = run_dir
         self.gen_path       = network_pkl
         self.data_path      = dataset_kwargs.path_data
+        self.max_size       = dataset_kwargs.size_dataset
         self.num_gen        = num_gen
+        self.nhood_size     = nhood_size
         self.knn_config     = knn_config
+        self.padding        = padding
         self.oc_detector_path = oc_detector_path
         self.train_OC       = train_OC
         self.run_generator  = run_generator
+        self.use_pretrained_generator = use_pretrained_generator
 
 #----------------------------------------------------------------------------
 
@@ -209,6 +215,150 @@ class ProgressMonitor:
             pfn_total       = self.pfn_total,
         )
 
+# --------------------------------------------------------------------------------------
+
+def validate_config(config):
+    """Validates the configuration parameters in config.py."""
+
+    errors = []
+
+    def check_required_keys(dictionary, required_keys, name):
+        for key in required_keys:
+            if key not in dictionary:
+                errors.append(f"Missing key in {name}: {key}")
+
+    def validate_metrics(metrics):
+        if not isinstance(metrics, list) or not all(isinstance(m, str) for m in metrics):
+            errors.append("METRICS must be a list of metric names (strings).")
+        else:
+            valid_metrics = metric_main.list_valid_metrics()
+            invalid_metrics = [m for m in metrics if m not in valid_metrics]
+            if invalid_metrics:
+                errors.append(f"Invalid metric(s) found: {invalid_metrics}. Allowed options: {valid_metrics}")
+
+    def validate_metrics_configs(metrics_configs):
+        # Validate 'nhood_size'
+        if "nhood_size" not in metrics_configs:
+            errors.append("Missing 'nhood_size' in METRICS_CONFIGS.")
+        else:
+            nhood_size = metrics_configs["nhood_size"]
+            required_keys = ["pr", "prdc", "pr_auth"]
+            for key in required_keys:
+                if key not in nhood_size:
+                    errors.append(f"Missing key in METRICS_CONFIGS['nhood_size']: {key}")
+                elif not isinstance(nhood_size[key], int) or nhood_size[key] <= 0:
+                    errors.append(f"METRICS_CONFIGS['nhood_size']['{key}'] must be a positive integer.")
+
+        # Validate 'K-NN_configs'
+        if "K-NN_configs" not in metrics_configs:
+            errors.append("Missing 'K-NN_configs' in METRICS_CONFIGS.")
+        else:
+            knn_configs = metrics_configs["K-NN_configs"]
+            required_keys = ["num_real", "num_synth"]
+            for key in required_keys:
+                if key not in knn_configs:
+                    errors.append(f"Missing key in METRICS_CONFIGS['K-NN_configs']: {key}")
+                elif not isinstance(knn_configs[key], int) or knn_configs[key] <= 0:
+                    errors.append(f"METRICS_CONFIGS['K-NN_configs']['{key}'] must be a positive integer.")
+
+    def validate_configs(configs):
+        required_keys = ["RUN_DIR", "NUM_GPUS", "VERBOSE", "OC_DETECTOR_PATH"]
+        check_required_keys(configs, required_keys, "CONFIGS")
+
+        if not isinstance(configs["RUN_DIR"], (str, Path)):
+            errors.append("RUN_DIR must be a string or Path object.")
+
+        if not isinstance(configs["NUM_GPUS"], int) or configs["NUM_GPUS"] < 0:
+            errors.append("NUM_GPUS must be an integer greater than or equal to 0.")
+
+        if not isinstance(configs["VERBOSE"], bool):
+            errors.append("VERBOSE must be a boolean (True/False).")
+
+    def validate_dataset(dataset):
+        if not isinstance(dataset, dict):
+            errors.append("DATASET must be a dictionary.")
+        else:
+            required_keys = ["class", "params"]
+            check_required_keys(dataset, required_keys, "DATASET")
+
+            if not inspect.isclass(dataset["class"]):
+                errors.append("DATASET 'class' must be a class.")
+
+            if not isinstance(dataset["params"], dict):
+                errors.append("DATASET params must be a dictionary.")
+
+            path_data = dataset["params"].get("path_data")
+            if path_data and not Path(path_data).exists():
+                errors.append(f"Dataset file not found: {path_data}")
+
+    def validate_synthetic_data_config(synthetic_data_config, use_pretrained_model):
+
+        # Validate mode
+        expected_mode = "pretrained_model" if use_pretrained_model else "from_files"
+        if synthetic_data_config.get("mode") != expected_mode:
+            errors.append(f"Mode mismatch: expected '{expected_mode}' but got '{synthetic_data_config.get('mode')}'.")
+
+        # Validate pretrained_model configuration
+        if use_pretrained_model:
+            pretrained_model_config = synthetic_data_config.get("pretrained_model", {})
+            required_keys = ["network_path", "load_network", "run_generator", "NUM_SYNTH"]
+            for key in required_keys:
+                if key not in pretrained_model_config:
+                    errors.append(f"Missing key in pretrained_model config: {key}")
+
+            if not Path(pretrained_model_config["network_path"]).exists():
+                errors.append(f"Pre-trained generator file not found: {pretrained_model_config['network_path']}")
+
+            if not callable(pretrained_model_config["load_network"]):
+                errors.append("load_network must be a callable function.")
+
+            if not callable(pretrained_model_config["run_generator"]):
+                errors.append("run_generator must be a callable function.")
+
+            if not isinstance(pretrained_model_config["NUM_SYNTH"], int) or pretrained_model_config["NUM_SYNTH"] <= 0:
+                errors.append("NUM_SYNTH must be a positive integer.")
+
+        # Validate from_files configuration
+        else:
+            from_files_config = synthetic_data_config.get("from_files", {})
+            required_keys = ["class", "params"]
+            for key in required_keys:
+                if key not in from_files_config:
+                    errors.append(f"Missing key in from_files config: {key}")
+
+            if not inspect.isclass(from_files_config["class"]):
+                errors.append("from_files 'class' must be a class.")
+
+            params = from_files_config.get("params", {})
+            required_params_keys = ["path_data", "path_labels", "use_labels", "size_dataset"]
+            for key in required_params_keys:
+                if key not in params:
+                    errors.append(f"Missing key in from_files params: {key}")
+
+            if not Path(params["path_data"]).exists():
+                errors.append(f"Synthetic images file not found: {params['path_data']}")
+
+            if params["path_labels"] is not None and not Path(params["path_labels"]).exists():
+                errors.append(f"Labels file not found: {params['path_labels']}")
+
+            if not isinstance(params["use_labels"], bool):
+                errors.append("use_labels must be a boolean.")
+
+            if params["size_dataset"] is not None and (not isinstance(params["size_dataset"], int) or params["size_dataset"] <= 0):
+                errors.append("size_dataset must be a positive integer or None.")
+
+    # Validate each section
+    validate_metrics(config.METRICS)
+    validate_metrics_configs(config.METRICS_CONFIGS)
+    validate_configs(config.CONFIGS)
+    validate_dataset(config.DATASET)
+    validate_synthetic_data_config(config.SYNTHETIC_DATA, config.USE_PRETRAINED_MODEL)
+
+    # Print errors if any
+    if errors:
+        raise ValueError(f"{len(errors)} error(s) in the configuration file:\n- "+"\n- ".join(errors))
+
+
 #----------------------------------------------------------------------------
 # Functions added to manage the different types of detectors
 #--------------------------------------------------------------------------------
@@ -256,24 +406,32 @@ def get_latest_figure(file_path):
 
 def visualize_ex_samples(args, device, rank=0, verbose=True):
 
-    # Load a real image
-    dataset = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
-    data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2)
-    item_subset = [0]
-    batch_size = 1
-    dataloader = torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs)
-    real_image, label = next(iter(dataloader))
-    real_sample = real_image[0,0,:,:]
+    def load_img(ds_kwargs):
+        dataset = dnnlib.util.construct_class_by_name(**ds_kwargs)
+        data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2)
+        item_subset = [0]
+        batch_size = 1
+        dataloader = torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs)    
+        image, label = next(iter(dataloader))
+        sample = image[0,0,:,:]
+        return sample, label, dataset._use_labels
 
-    # Generate a synthetic image
-    args.G.to(device)
-    c = label.to(device)
-    z = torch.from_numpy(np.random.RandomState(42).randn(1, *(args.G.z_dim if isinstance(args.G.z_dim, (list, tuple)) else [args.G.z_dim]))).to(device)
-    if dataset._use_labels:
-        img_synth = args.run_generator(z, c, args).to(device)
+    # Load a real image
+    real_sample, label, use_labels = load_img(args.dataset_kwargs)
+
+    if args.use_pretrained_generator:
+        # Generate a synthetic image
+        args.G.to(device)
+        c = label.to(device)
+        z = torch.from_numpy(np.random.RandomState(42).randn(1, *(args.G.z_dim if isinstance(args.G.z_dim, (list, tuple)) else [args.G.z_dim]))).to(device)
+        if use_labels:
+            img_synth = args.run_generator(z, c, args).to(device)
+        else:
+            img_synth = args.run_generator(z, args).to(device)
+        synth_sample = img_synth[0,0,:,:].cpu().detach().numpy()
     else:
-        img_synth = args.run_generator(z, args).to(device)
-    synth_sample = img_synth[0,0,:,:].cpu().detach().numpy()
+        # Load a synthetic image
+        synth_sample, _, _ = load_img(args.dataset_synt_kwargs)
 
     # Plot the images in a 2x1 subplot
     fig, axs = plt.subplots(1, 2, figsize=(20, 12))
@@ -339,12 +497,23 @@ def load_embedder(embedding):
     model.run_eagerly = True
     return model
 
-def adjust_size_embedder(embedder, embedding, batch):
-    if embedder.input.shape[2]==299:
+def adjust_size_embedder(opts, embedder, embedding, batch):
+    
+    if embedding['model'] == 'vgg16' or embedding['model'] == 'vgg':
+        input_shape = 224
+    elif embedder.input.shape[2]==299:
+        input_shape = 299
 
-        # Desired output shape
-        output_shape = (None, 299, 299, 3)
+    # Adjust input shape from [N, C, H, W] to [N, W, H, C]
+    n,c,h,w = batch.shape
+    batch = batch.permute(0, 2, 3, 1)
+    if c==1:
+        batch = batch.repeat(1, 1, 1, 3)
 
+    # Desired output shape
+    output_shape = (None, input_shape, input_shape, 3)
+
+    if opts.padding and (h<input_shape or w<input_shape):
         # Calculate the amount of padding needed
         pad_height = output_shape[1] - batch.shape[1]
         pad_width = output_shape[2] - batch.shape[2]
@@ -355,87 +524,115 @@ def adjust_size_embedder(embedder, embedding, batch):
         pad_left = pad_width // 2
         pad_right = pad_width - pad_left
 
-        # Pad the array to obtain a 299x299 array
-        batch = np.pad(batch, ((0,0), (pad_top, pad_bottom), (pad_left, pad_right), (0,0)), mode='constant')
-    
-    if embedding['model'] == 'vgg16' or embedding['model'] == 'vgg':
-        if batch.shape[2]!=224:
-            batch = tf.image.resize(batch, [224, 224])
+        # Zero-padding to obtain an array of the required shape
+        batch = np.pad(batch.cpu(), ((0,0), (pad_top, pad_bottom), (pad_left, pad_right), (0,0)), mode='constant')
+    else:
+        # Resize the image
+        resized_batch = []
+        for img in batch:
+            pil_img = Image.fromarray((img.cpu().numpy()).astype(np.uint8))
+            resized_img = pil_img.resize((input_shape, input_shape), resample=Image.BICUBIC) 
+            resized_batch.append(np.array(resized_img))
+        batch = np.array(resized_batch)
+
     return batch
 
-def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size=None, verbose=False):
-    """Calculates the activations of the pool_3 layer for all images.
-
-    Params:
-    -- synth_file      : a) path to the NIFTI file containing the images or
-                       b) path to the generator model that generates the images
-    -- embedding        : embedding type (Inception, VGG16, None)
-    -- batch_size  : the images numpy array is split into batches with batch size
-                     batch_size. A reasonable batch size depends on the disposable hardware.
-    -- verbose    : If set to True and parameter out_step is given, the number of calculated
-                     batches is reported.
-    Returns:
-    -- A numpy array of dimension (num images, embedding_size) that contains the
-       activations of the given tensor when feeding e.g. inception with the query tensor.
-    """
-      
-    # Check if synth_file is a .nii.gz format:
-    if synth_file.endswith('.nii.gz'):
-        # Load the NIFTI file
-        img_nifti = nib.load(synth_file)
-        img_data = img_nifti.get_fdata()
-
-        # Transpose dimensions to match the expected input shape of the embedder
-        img_data = np.transpose(img_data, (3, 0, 1, 2))  # Adjust dimensions to (num_images, height, width, channels)
-        if embedder is not None:
-            if embedder.input.shape[-1]==3:
-                img_data = np.repeat(img_data, 3, axis=-1)
-
-        print(f"Image data shape: {img_data.shape}")
-
-        n_imgs = img_data.shape[0]
-        print(f"Number of images: {n_imgs}")
-
+def get_activation_from_dataset(opts, dataset, max_img, embedding, embedder=None, verbose=True, save_act=False, batch_size=64*2):
+    
+    act_filename = f'{opts.run_dir}/act_{embedding["model"]}_{embedding["dim64"]}_{embedding["randomise"]}'
+    # Check if embeddings are already available
+    if os.path.exists(f'{act_filename}.npz'):
+        if verbose:
+            print('Loaded activations from', act_filename)
+            print(act_filename)
+        data = np.load(f'{act_filename}.npz',allow_pickle=True)
+        act, _ = data['act'], data['embedding']
+    # Otherwise compute embeddings
     else:
+        if verbose:
+            print('Calculating activations')
+        n_imgs = min(len(dataset), max_img) if max_img is not None else len(dataset)
+        if batch_size is None:
+            batch_size = n_imgs
+        elif batch_size > n_imgs:
+            print("warning: batch size is bigger than the data size. setting batch size to data size")
+            batch_size = n_imgs
+        n_batches = (n_imgs + batch_size - 1) // batch_size
+    
+        pred_arr = np.empty((n_imgs,embedder.output.shape[-1]))
+        if opts.num_gpus>0:
+            item_subset = [(i * opts.num_gpus + opts.rank) % n_imgs for i in range((n_imgs - 1) // opts.num_gpus + 1)]
+        else:
+            item_subset = list(range(n_imgs))
+        data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2)
+        i=0
+        for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs):
+            if verbose:
+                print("\rPropagating batch %d/%d" % (i+1, n_batches), end="", flush=True)
+            start = i*batch_size
+            i+=1
+            if start+batch_size < n_imgs:
+                end = start+batch_size
+            else:
+                end = n_imgs
+
+            batch = adjust_size_embedder(opts, embedder, embedding, images)
+
+            batch_embedding = embedder(batch)
+
+            # Convert to numpy array:
+            pred_arr[start:end] = np.stack(list(batch_embedding))
+            del batch #clean up memory        
+        if verbose:
+            print(" done")
+        act = pred_arr
+        # Save embeddings
+        if save_act:
+            np.savez(f'{act_filename}', act=act,embedding=embedding)
+    return act
+
+def get_activation_from_generator(opts, num_gen, embedding, embedder=None, verbose=True, batch_size=64*2):
+    act_filename = f'{opts.run_dir}/act_{embedding["model"]}_{embedding["dim64"]}_{embedding["randomise"]}'
+    # Check if embeddings are already available
+    if os.path.exists(f'{act_filename}.npz'):
+        if verbose:
+            print('Loaded activations from', act_filename)
+            print(act_filename)
+        data = np.load(f'{act_filename}.npz',allow_pickle=True)
+        act, _ = data['act'], data['embedding']
+    # Otherwise compute embeddings
+    else:
+        if verbose:
+            print('Calculating activations')
+
         # Define the generator model
         G = copy.deepcopy(opts.G).eval().requires_grad_(False).to(opts.device)
         dataset = dnnlib.util.construct_class_by_name(**opts.dataset_kwargs)
-
+        
         n_imgs = opts.num_gen 
         print(f"Generating {n_imgs} synthetic images...")
         n_generated = 0
-    
-    if batch_size is None:
-        batch_size = n_imgs
-    elif batch_size > n_imgs:
-        print("warning: batch size is bigger than the data size. setting batch size to data size")
-        batch_size = n_imgs
 
-    n_batches = (n_imgs + batch_size - 1) // batch_size
-    
-    pred_arr = np.empty((n_imgs,embedder.output.shape[-1]))
-    input_shape = embedder.input.shape[1]
-    
-    for i in range(n_batches):
-        if verbose:
-            print("\rPropagating batch %d/%d" % (i+1, n_batches), end="", flush=True)
-        start = i*batch_size
-        if start+batch_size < n_imgs:
-            end = start+batch_size
-        else:
-            end = n_imgs
-        
-        if synth_file.endswith('.nii.gz'):
-            batch = img_data[start:end,:,:,:]
-            batch = adjust_size_embedder(embedder, embedding, batch)
-            batch_embedding = embedder(batch)
-            # Convert to numpy array:
-            pred_arr[start:end] = np.stack(list(batch_embedding))
-            del batch #clean up memory
+        n_imgs = num_gen
+        if batch_size is None:
+            batch_size = n_imgs
+        elif batch_size > n_imgs:
+            print("warning: batch size is bigger than the data size. setting batch size to data size")
+            batch_size = n_imgs
+        n_batches = (n_imgs + batch_size - 1) // batch_size
 
-        else:
+        pred_arr = np.empty((n_imgs,embedder.output.shape[-1]))
+
+        for i in range(n_batches):
+            if verbose:
+                print("\rPropagating batch %d/%d" % (i+1, n_batches), end="", flush=True)
+            start = i*batch_size
+            if start+batch_size < n_imgs:
+                end = start+batch_size
+            else:
+                end = n_imgs
             n_to_generate = end-start
-            z = torch.randn([n_to_generate, *(G.z_dim if isinstance(G.z_dim, (list, tuple)) else [G.z_dim])], device=opts.device)
+            z = torch.randn([n_to_generate, G.z_dim], device=opts.device)
             # define c as a vector with batch_size elements sampled from 0 and 1:
             half_n = n_to_generate // 2
             c = [torch.tensor([1, 0]) for _ in range(half_n)] + [torch.tensor([0, 1]) for _ in range(half_n)]       
@@ -446,70 +643,44 @@ def get_activations_from_nifti(opts, synth_file, embedder, embedding, batch_size
                 batch = opts.run_generator(z, c, opts).to(opts.device)
             else:
                 batch = opts.run_generator(z, opts).to(opts.device)
-            batch = batch.cpu().detach().numpy()
             n_generated += n_to_generate
             print(f'\rGenerated {n_generated}/{n_imgs} images')
-            batch = np.transpose(batch, (0, 2, 3, 1))
-            batch = np.repeat(batch, 3, axis=-1)
-            batch = adjust_size_embedder(embedder, embedding, batch)
+            batch = adjust_size_embedder(opts, embedder, embedding, batch)
 
             batch_embedding = embedder(batch)
             # Convert to numpy array:
             pred_arr[start:end] = np.stack(list(batch_embedding))
             del batch #clean up memory
-        
     if verbose:
         print(" done")
-    
     return pred_arr
 
-def get_activation(opts, path, embedding, embedder=None, verbose=True, save_act=False):
-# Check if folder exists
-    if not os.path.exists(path):
-        raise RuntimeError("Invalid path: %s" % path)
-    # Don't embed data if no embedding is given 
-    if embedding is None:
-        act = load_all_images_nifti(path)    
 
+def get_activation_synthetic(opts, num_gen, detector_url, embedder, verbose=True):
+    if opts.use_pretrained_generator:
+        gen_features = get_activation_from_generator(
+            opts, num_gen, detector_url, embedder=embedder, verbose=verbose)
     else:
-        act_filename = f'{opts.run_dir}/act_{embedding["model"]}_{embedding["dim64"]}_{embedding["randomise"]}'
-        # Check if embeddings are already available
-        if os.path.exists(f'{act_filename}.npz'):
-            print('Loaded activations from', act_filename)
-            print(act_filename)
-            data = np.load(f'{act_filename}.npz',allow_pickle=True)
-            act, _ = data['act'], data['embedding']
-        # Otherwise compute embeddings
-        else:
-            # if load_act:
-            #     print('Could not find activation file', act_filename)
-            print('Calculating activations')
-            act = get_activations_from_nifti(opts, path, embedder, embedding, batch_size=64*2, verbose=verbose)
-            # Save embeddings
-            if save_act:
-                np.savez(f'{act_filename}', act=act,embedding=embedding)
-    return act
+        gen_features = get_activation_from_dataset(
+            opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_synt_kwargs), 
+                                max_img=opts.num_gen, embedding=detector_url, embedder=embedder, verbose=verbose)
+        
+    return gen_features
 
 def extract_features_from_detector(opts, images, detector, detector_url, detector_kwargs):
-    if type(detector_url)==str and detector_url.startswith('https://') and detector_url.endswith('.pt'):
+    if type(detector_url)==dict:
+        images = adjust_size_embedder(opts, detector, detector_url, images)
+        features = detector(images)                                   # tf.EagerTensor
+        features = torch.from_numpy(features.numpy()).to(opts.device) # torch.Tensor
+    else:
         features = detector(images.to(opts.device), **detector_kwargs)
-    elif type(detector_url)==dict:
-        if detector.input_shape[-1]==3:
-            images = images.permute(0,2,3,1)
-        if images.shape[1] != detector.input_shape[1]:
-            res_shape = detector.input_shape[1]
-            images = images.cpu()
-            images = tf.image.resize(images, (res_shape, res_shape))
-
-        features = detector(tf.convert_to_tensor(images))
-        features = torch.from_numpy(features.numpy()).to(opts.device)
     return features
 
 def define_detector(opts, detector_url, progress):
-    if type(detector_url)==str and detector_url.startswith('https://') and detector_url.endswith('.pt'):
-        detector = get_feature_detector(url=detector_url, device=opts.device, num_gpus=opts.num_gpus, rank=opts.rank, verbose=progress.verbose)
-    else:
+    if type(detector_url)==dict:
         detector = load_embedder(detector_url)
+    else:
+        detector = get_feature_detector(url=detector_url, device=opts.device, num_gpus=opts.num_gpus, rank=opts.rank, verbose=progress.verbose)
     return detector
 
 def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None):
@@ -546,8 +717,7 @@ def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None):
 
 #----------------------------------------------------------------------------
 
-def compute_feature_stats_for_dataset(opts, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, batch_size=64, data_loader_kwargs=None, max_items=None, **stats_kwargs):
-    dataset = dnnlib.util.construct_class_by_name(**opts.dataset_kwargs)
+def compute_feature_stats_for_dataset(opts, dataset, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, batch_size=64, dataset_kwargs=None, data_loader_kwargs=None, max_items=None, return_imgs=False, item_subset=None, **stats_kwargs):
     if data_loader_kwargs is None:
         data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2)
 
@@ -555,7 +725,7 @@ def compute_feature_stats_for_dataset(opts, detector_url, detector_kwargs, rel_l
     cache_file = None
     if opts.cache:
         # Choose cache file name.
-        args = dict(dataset_kwargs=opts.dataset_kwargs, detector_url=detector_url, detector_kwargs=detector_kwargs, stats_kwargs=stats_kwargs)
+        args = dict(dataset_kwargs=dataset_kwargs, detector_url=detector_url, detector_kwargs=detector_kwargs, stats_kwargs=stats_kwargs)
         md5 = hashlib.md5(repr(sorted(args.items())).encode('utf-8'))
         cache_tag = f'{dataset.name}-{get_feature_detector_name(detector_url)}-{md5.hexdigest()}'
         cache_file = dnnlib.make_cache_dir_path('gan-metrics', cache_tag + '.pkl')
@@ -568,7 +738,7 @@ def compute_feature_stats_for_dataset(opts, detector_url, detector_kwargs, rel_l
             flag = (float(flag.cpu()) != 0)
 
         # Load.
-        if flag:
+        if flag and not return_imgs:
             return FeatureStats.load(cache_file)
 
     # Initialize.
@@ -576,15 +746,16 @@ def compute_feature_stats_for_dataset(opts, detector_url, detector_kwargs, rel_l
     if max_items is not None:
         num_items = min(num_items, max_items)
     stats = FeatureStats(max_items=num_items, **stats_kwargs)
-    print('Extracting features from real data...')
+    print('Extracting features from dataset...')
     progress = opts.progress.sub(tag='dataset features', num_items=num_items, rel_lo=rel_lo, rel_hi=rel_hi)
     detector = define_detector(opts, detector_url, progress)
 
     # Main loop.
-    if opts.num_gpus>0:
-        item_subset = [(i * opts.num_gpus + opts.rank) % num_items for i in range((num_items - 1) // opts.num_gpus + 1)]
-    else:
-        item_subset = list(range(num_items))
+    if item_subset is None:
+        if opts.num_gpus>0:
+            item_subset = [(i * opts.num_gpus + opts.rank) % num_items for i in range((num_items - 1) // opts.num_gpus + 1)]
+        else:
+            item_subset = list(range(num_items))
         
     for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs):
         if images.shape[1] == 1:
@@ -599,8 +770,10 @@ def compute_feature_stats_for_dataset(opts, detector_url, detector_kwargs, rel_l
         temp_file = cache_file + '.' + uuid.uuid4().hex
         stats.save(temp_file)
         os.replace(temp_file, cache_file) # atomic
-    return stats
-
+    if return_imgs:
+        return stats, images[:,0,:,:]
+    else:
+        return stats
 #----------------------------------------------------------------------------
 
 def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, batch_size=64, batch_gen=None, jit=False, return_imgs=False, **stats_kwargs):
@@ -638,7 +811,7 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
                 images.append(opts.run_generator(z, c, opts))
             else:
                 images.append(opts.run_generator(z, opts))
-        images = torch.cat(images)
+        images = torch.cat(images).to(opts.device)
         if images.shape[1] == 1:
             images = images.repeat([1, 3, 1, 1])
         features = extract_features_from_detector(opts, images, detector, detector_url, detector_kwargs)
@@ -650,9 +823,24 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
         return stats
 
 #----------------------------------------------------------------------------
+
+def compute_feature_stats_synthetic(opts, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, **stats_kwargs):
+    if opts.use_pretrained_generator:
+        gen_features = compute_feature_stats_for_generator(
+            opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs, 
+            rel_lo=rel_lo, rel_hi=rel_hi, **stats_kwargs)
+    else:
+        gen_features = compute_feature_stats_for_dataset(
+            opts=opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_synt_kwargs),
+            detector_url=detector_url, detector_kwargs=detector_kwargs, 
+            rel_lo=rel_lo, rel_hi=rel_hi, **stats_kwargs)
+        
+    return gen_features
+
+#----------------------------------------------------------------------------
 # Functions added for k-NN analysis visualization
 
-def visualize_grid(real_images, synthetic_images, fig_path, top_n, k):
+def visualize_grid(real_images, synthetic_images, top_n_real_indices, closest_synthetic_indices, fig_path, top_n, k):
     fig, axes = plt.subplots(top_n, k+1, figsize=(5 * k, 5 * top_n))
     base_fontsize = max(35, 30 - k) 
 
@@ -664,7 +852,13 @@ def visualize_grid(real_images, synthetic_images, fig_path, top_n, k):
         if row_idx == 0:
             axes[row_idx, 0].set_title(f"Real Image", fontsize=base_fontsize)
         
-        
+         # Add index annotation below the real image
+        axes[row_idx, 0].text(
+            0.5, -0.1, str(top_n_real_indices[row_idx]),
+            fontsize=base_fontsize - 10, color='black', ha='center', va='bottom',
+            transform=axes[row_idx, 0].transAxes
+        )
+               
         # Show the top k synthetic images in the next columns
         img_gray = synthetic_images[0][0].shape[0] != 3
         for col_idx in range(k):
@@ -676,7 +870,14 @@ def visualize_grid(real_images, synthetic_images, fig_path, top_n, k):
             axes[row_idx, col_idx+1].axis('off')
             if row_idx == 0:
                 axes[row_idx, col_idx+1].set_title(f"Synth {col_idx+1}", fontsize=base_fontsize)
-    
+
+            # Add index annotation below the synthetic image
+            axes[row_idx, col_idx+1].text(
+                0.5, -0.1, str(closest_synthetic_indices[top_n_real_indices[row_idx]][col_idx]),
+                fontsize=base_fontsize - 10, color='black', ha='center', va='bottom',
+                transform=axes[row_idx, col_idx+1].transAxes
+            )
+
     plt.tight_layout()
     plt.savefig(fig_path)
 
@@ -693,7 +894,7 @@ def select_top_n_real_images(closest_similarities, top_n=6):
     return sorted_real_indices
 
 
-def visualize_top_k(opts, closest_images, top_n_real_indices, fig_path, batch_size, top_n=6, k=8):
+def visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, fig_path, batch_size, top_n=6, k=8):
     """
     Visualize the top-k closest synthetic images for the selected real images.
     """
@@ -707,5 +908,5 @@ def visualize_top_k(opts, closest_images, top_n_real_indices, fig_path, batch_si
     synthetic_images_to_visualize = [closest_images[real_idx][:k] for real_idx in top_n_real_indices]
 
     # Now visualize the real image and the k closest synthetic images
-    visualize_grid(real_images, synthetic_images_to_visualize, fig_path, top_n, k)
+    visualize_grid(real_images, synthetic_images_to_visualize, top_n_real_indices, closest_indices, fig_path, top_n, k)
    

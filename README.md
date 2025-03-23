@@ -135,11 +135,11 @@ The k-NN analysis identifies and visualizes the `top_n` real images most similar
 By default, `k=5` and `top_n=3`. These parameters can be adjusted in the `knn` function within the [metric_main.py](metrics/metric_main.py) file.
 
 ## 🚧To-do list:
-✅ Simplify the procedure for data loading;
+- [x] Simplify the procedure for data loading;
 
-🔲 Allow to load synthetic images from files (as well as from a pre-trained generator);
+- [x] Allow to load synthetic images from files (as well as from a pre-trained generator);
 
-🔲 Implement t-SNE to qualitatively assess diversity.
+- [ ] Implement t-SNE to qualitatively assess diversity.
 
 ## Aknowledgments
 This repository builds on NVIDIA's StyleGAN2-ADA repository: https://github.com/NVlabs/stylegan2-ada-pytorch.

@@ -13,6 +13,7 @@ GANs". Matches the original implementation by Binkowski et al. at
 https://github.com/mbinkowski/MMD-GAN/blob/master/gan/compute_scores.py"""
 
 import numpy as np
+import dnnlib
 from . import metric_utils
 
 #----------------------------------------------------------------------------
@@ -23,13 +24,14 @@ def compute_kid(opts, max_real, num_gen, num_subsets, max_subset_size):
     detector_kwargs = dict(return_features=True) # Return raw features before the softmax layer.
 
     real_features = metric_utils.compute_feature_stats_for_dataset(
-        opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
-        rel_lo=0, rel_hi=0, capture_all=True, max_items=max_real).get_all()
+        opts=opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
+        detector_url=detector_url, detector_kwargs=detector_kwargs,
+        rel_lo=0, rel_hi=0, dataset_kwargs=opts.dataset_kwargs, capture_all=True, max_items=max_real).get_all()
 
-    gen_features = metric_utils.compute_feature_stats_for_generator(
+    gen_features = metric_utils.compute_feature_stats_synthetic(
         opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
         rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all()
-
+   
     if opts.rank != 0:
         return float('nan')
 

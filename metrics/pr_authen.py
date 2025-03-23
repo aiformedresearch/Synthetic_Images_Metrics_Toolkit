@@ -13,6 +13,7 @@ from sklearn.neighbors import NearestNeighbors
 from . import metric_utils
 import matplotlib.pyplot as plt
 
+import dnnlib
 import tensorflow as tf
 
 #----------------------------------------------------------------------------
@@ -61,9 +62,6 @@ def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
 
     # Determine the batch size
     batch_size = min(batch_size, real_data.shape[0], synthetic_data.shape[0])
-    print('batch_size', batch_size)
-    print('real_data.shape[0]', real_data.shape[0])
-    print('synthetic_data.shape[0]', synthetic_data.shape[0])
 
     # Fit the NearestNeighbors model on real data once
     nbrs_real = NearestNeighbors(n_neighbors=2, n_jobs=-1, p=2).fit(real_data)
@@ -73,7 +71,6 @@ def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
     # Shuffle synthetic data once and split into batches without replacement
     np.random.shuffle(synthetic_data)  # Shuffle synthetic data to ensure randomness
     num_batches = int(np.ceil(synthetic_data.shape[0] / batch_size))
-    print('num_batches = int(np.ceil(synthetic_data.shape[0] / batch_size))', num_batches)
 
     for i in range(num_batches):
         # Select batch of synthetic images without replacement
@@ -102,10 +99,9 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
     emb_center = torch.tensor(emb_center, device='cpu')
 
     n_steps = 30
-    nn_size = 2
+    nn_size = opts.nhood_size["pr_auth"]
     alphas  = np.linspace(0, 1, n_steps)
         
-    
     Radii   = np.quantile(torch.sqrt(torch.sum((torch.tensor(real_data).float() - emb_center) ** 2, dim=1)), alphas)
     
     synth_center          = torch.tensor(np.mean(synthetic_data, axis=0)).float()
@@ -114,12 +110,11 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
     beta_coverage_curve   = []
     
     synth_to_center       = torch.sqrt(torch.sum((torch.tensor(synthetic_data).float() - emb_center) ** 2, dim=1))
-    
-    
-    nbrs_real = NearestNeighbors(n_neighbors = 2, n_jobs=-1, p=2).fit(real_data)
+      
+    nbrs_real = NearestNeighbors(n_neighbors = nn_size+1, n_jobs=-1, p=2).fit(real_data)
     real_to_real, _       = nbrs_real.kneighbors(real_data)
     
-    nbrs_synth = NearestNeighbors(n_neighbors = 1, n_jobs=-1, p=2).fit(synthetic_data)
+    nbrs_synth = NearestNeighbors(n_neighbors = nn_size, n_jobs=-1, p=2).fit(synthetic_data)
     real_to_synth, real_to_synth_args = nbrs_synth.kneighbors(real_data)
 
     # To compute authenticity, select a subset of fake images of the same number of real images
@@ -128,11 +123,11 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
     nbrs_synth_auth = NearestNeighbors(n_neighbors = 1, n_jobs=-1, p=2).fit(subset_synth_data)
     real_to_synth_auth, real_to_synth_args_auth = nbrs_synth_auth.kneighbors(real_data)
 
-    # Let us find closest real point to any real point, excluding itself (therefore 1 instead of 0)
-    real_to_real          = torch.from_numpy(real_to_real[:,1].squeeze())
-    real_to_synth         = torch.from_numpy(real_to_synth.squeeze())
+    # Let us find closest real point to any real point, excluding itself
+    real_to_real          = torch.from_numpy(real_to_real[:,-1].squeeze()) # Use the k-th neighbor distance
+    real_to_synth         = torch.from_numpy(real_to_synth[:,-1].squeeze()) # Use the k-th neighbor distance
     real_to_synth_auth    = torch.from_numpy(real_to_synth_auth.squeeze())
-    real_to_synth_args    = real_to_synth_args.squeeze()
+    real_to_synth_args    = real_to_synth_args[:,-1].squeeze()
     real_to_synth_args_auth = real_to_synth_args_auth.squeeze()
 
     real_synth_closest    = synthetic_data[real_to_synth_args]
@@ -154,14 +149,14 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
         alpha_precision_curve.append(alpha_precision)
         beta_coverage_curve.append(beta_coverage)
 
-    Delta_precision_alpha = 1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(alpha_precision_curve))) * (alphas[1] - alphas[0])
-    Delta_coverage_beta  = 1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(beta_coverage_curve))) * (alphas[1] - alphas[0])
+    Delta_precision_alpha = np.clip(1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(alpha_precision_curve))) * (alphas[1] - alphas[0]), 0, 1)
+    Delta_coverage_beta  = np.clip(1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(beta_coverage_curve))) * (alphas[1] - alphas[0]), 0, 1)
     
     return alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, authenticity_values, authenticity
 
 #----------------------------------------------------------------------------
 
-def compute_pr_a(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_size):
+def compute_pr_a(opts, max_real, num_gen):
     OC_params  = dict({"rep_dim": 32, 
                 "num_layers": 3, 
                 "num_hidden": 128, 
@@ -179,17 +174,19 @@ def compute_pr_a(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_
     OC_hyperparams = dict({"Radius": 1, "nu": 1e-2})
 
     # Load embedder function
-    embedding = {'model': 'inceptionv3', 'randomise': False, 'dim64': False}
-    if embedding is not None:
-        embedder = metric_utils.load_embedder(embedding)
-        print('Checking of embedder is using GPU')
+    detector_url = {'model': 'inceptionv3', 'randomise': False, 'dim64': False}
+    detector_kwargs = dict(return_features=True)
+    
+    if detector_url is not None:
+        embedder = metric_utils.load_embedder(detector_url)
+        print('Checking if embedder is using GPU')
         sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(log_device_placement=True))
         print(sess)
     
     # Compute the embedding from pre-trained detector
-    real_features = metric_utils.get_activation(opts, opts.data_path, embedding, embedder=embedder, verbose=True)
-    gen_features = metric_utils.get_activation(opts, opts.gen_path, embedding, embedder=embedder, verbose=True)
-    
+    real_features = metric_utils.get_activation_from_dataset(opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
+                                max_img=max_real, embedding=detector_url, embedder=embedder, verbose=True)
+    gen_features = metric_utils.get_activation_synthetic(opts, num_gen, detector_url, embedder=embedder, verbose=True)
 
     # Get the OC model (and eventually train it on the real features)
     OC_model, OC_params, OC_hyperparams = metric_utils.get_OC_model(opts, real_features, OC_params, OC_hyperparams)

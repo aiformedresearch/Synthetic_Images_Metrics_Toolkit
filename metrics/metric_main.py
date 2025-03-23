@@ -44,10 +44,10 @@ def list_valid_metrics():
 
 #----------------------------------------------------------------------------
 
-def calc_metric(metric, run_generator, num_gen, knn_configs, oc_detector_path, train_OC, snapshot_pkl, run_dir, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
+def calc_metric(metric, use_pretrained_generator, run_generator, num_gen, nhood_size, knn_configs, padding, oc_detector_path, train_OC, snapshot_pkl, run_dir, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
     
     assert is_valid_metric(metric)
-    opts = metric_utils.MetricOptions(run_dir, run_generator, snapshot_pkl, num_gen, knn_configs, oc_detector_path, train_OC, **kwargs)
+    opts = metric_utils.MetricOptions(run_dir, use_pretrained_generator, run_generator, snapshot_pkl, num_gen, nhood_size, knn_configs, padding, oc_detector_path, train_OC, **kwargs)
 
     # Calculate.
     start_time = time.time()
@@ -76,8 +76,10 @@ def calc_metric(metric, run_generator, num_gen, knn_configs, oc_detector_path, t
 def report_metric(result_dict, run_dir=None, snapshot_pkl=None):
     metric = result_dict['metric']
     assert is_valid_metric(metric)
-    if run_dir is not None and snapshot_pkl is not None:
+    if os.path.splitdrive(snapshot_pkl)[0] == os.path.splitdrive(run_dir)[0]:
         snapshot_pkl = os.path.relpath(snapshot_pkl, run_dir)
+    else:
+        print(f"Warning: 'snapshot_pkl' and 'run_dir' are on different drives. Using absolute path for 'snapshot_pkl'.")
 
     jsonl_line = json.dumps(dict(result_dict, snapshot_pkl=snapshot_pkl, timestamp=time.time()))
     print(jsonl_line)
@@ -98,19 +100,19 @@ def is_(opts):
 @register_metric
 def fid(opts):
     opts.dataset_kwargs.update(max_size=None)
-    fid = frechet_inception_distance.compute_fid(opts, max_real=50000, num_gen=opts.num_gen)
+    fid = frechet_inception_distance.compute_fid(opts, max_real=opts.max_size, num_gen=opts.num_gen)
     return dict(fid50k=fid)
 
 @register_metric
 def kid(opts):
     opts.dataset_kwargs.update(max_size=None)
-    kid = kernel_inception_distance.compute_kid(opts, max_real=50000, num_gen=opts.num_gen, num_subsets=100, max_subset_size=1000)
+    kid = kernel_inception_distance.compute_kid(opts, max_real=opts.max_size, num_gen=opts.num_gen, num_subsets=100, max_subset_size=1000)
     return dict(kid50k=kid)
 
 @register_metric
 def pr(opts):
     opts.dataset_kwargs.update(max_size=None)
-    precision, recall = precision_recall.compute_pr(opts, max_real=50000, num_gen=opts.num_gen, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    precision, recall = precision_recall.compute_pr(opts, max_real=opts.max_size, num_gen=opts.num_gen, nhood_size=opts.nhood_size["pr"], row_batch_size=10000, col_batch_size=10000)
     return dict(pr50k3_precision=precision, pr50k3_recall=recall)
 
 @register_metric
@@ -139,17 +141,17 @@ def ppl_wend(opts):
 @register_metric
 def pr_auth(opts):
     opts.dataset_kwargs.update(max_size=None)
-    a_precision_c, b_recall_c, authenticity_c  = pr_authen.compute_pr_a(opts, max_real=50000, num_gen=opts.num_gen, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    a_precision_c, b_recall_c, authenticity_c  = pr_authen.compute_pr_a(opts, max_real=opts.max_size, num_gen=opts.num_gen)
     return dict(a_precision_c=a_precision_c, b_recall_c=b_recall_c, authenticity_c=authenticity_c)
 
 @register_metric
 def prdc(opts):
     opts.dataset_kwargs.update(max_size=None)
-    precision, recall, density, coverage  = density_coverage.compute_prdc(opts, max_real=50000, num_gen=opts.num_gen, nhood_size=3, row_batch_size=10000, col_batch_size=10000)
+    precision, recall, density, coverage  = density_coverage.compute_prdc(opts, max_real=opts.max_size, num_gen=opts.num_gen)
     return dict(precision=precision, recall=recall, density=density, coverage=coverage)
 
 @register_metric
 def knn(opts):
     opts.dataset_kwargs.update(max_size=None)
-    path_to_img = knn_analysis.plot_knn(opts, max_real=50000, num_gen=opts.num_gen, batch_size=64, k=opts.knn_config["num_synth"], top_n=opts.knn_config["num_real"])
+    path_to_img = knn_analysis.plot_knn(opts, max_real=opts.max_size, num_gen=opts.num_gen, batch_size=64, k=opts.knn_config["num_synth"], top_n=opts.knn_config["num_real"])
     return dict(path_to_knn=path_to_img)

@@ -139,8 +139,7 @@ class OneClassLayer(BaseNet):
     
     
     def fit(self, x_train, verbosity=True):
-        
-        
+       
         self.optimizer      = torch.optim.AdamW(self.model.parameters(), lr=self.learningRate, weight_decay = self.weight_decay)
         self.X              = torch.tensor(x_train.reshape((-1, self.input_dim))).float()
         
@@ -150,12 +149,10 @@ class OneClassLayer(BaseNet):
         
         self.losses         = []
         self.loss_vals       = []
-                
         
         for epoch in range(self.epochs):
             
             # Converting inputs and labels to Variable
-            
             inputs = Variable(torch.from_numpy(x_train)).to(self.device).float()
             
             self.model.zero_grad()
@@ -174,7 +171,6 @@ class OneClassLayer(BaseNet):
             elif self.loss_type=="OneClass":
                 
                 self.loss = self.loss_fn(outputs=outputs, c=self.c) 
-            
             
             #self.c    = torch.mean(torch.tensor(outputs).float(), dim=0)
             
@@ -207,9 +203,6 @@ class OneClassLayer(BaseNet):
                         loss_val = self.loss_fn(outputs=outputs, c=self.c).detach.cpu().numpy()
                     
                     self.loss_vals.append(loss_val)
-                                        
-                
-                
             
             if verbosity:
                 if self.train_prop == 1:

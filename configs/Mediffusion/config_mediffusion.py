@@ -27,41 +27,112 @@ METRICS = [
 # -------------------------------- Runtime configurations --------------------------------
 
 CONFIGS = {
-
     # Define the path where the results should be saved.
     # This is the directory where all metric computations will be stored.
-    "RUN_DIR": "Synthetic_Images_Metrics_Toolkit/EXPERIMENT_Mediffusion2D",
-
-    # Define the number of synthetic images to generate for computing the metrics.
-    # Default: 50,000
-    "NUM_SYNTH": 500,
-
-    # If you are perfroming the k-NN analysis, set the number of images to visualize in the grid.
-    "K-NN_configs":
-        {
-            # Number of real images to visualize (the closest to any synthetic images).
-            "num_real": 2,
-
-            # Number of synthetic images to visualize, ranked by similarity, next to each real image.
-            "num_synth": 4
-        },
-
+    "RUN_DIR": "Synthetic_Images_Metrics_Toolkit/EXPERIMENT_StyleGAN2-ADA",
     # Define the number of GPUs to use for computation.
     # Set 0 for CPU mode.
-    "NUM_GPUS": 0,
-
+    "NUM_GPUS": 1,
     # Set verbosity for logging and debugging.
-    # If True, the script will print logs and progress updates.
     "VERBOSE": True,
-
     # Path to an optional Outlier Classifier (OC) detector model, for the computation of pr_auth.
     # If None, the OC detector will be trained during metric computation.
     "OC_DETECTOR_PATH": None
 }
 
-# ----------------------------- Real dataset configuration ----------------------------
+# ---------------------------- Metrics  configurations -----------------------------
+METRICS_CONFIGS = {
 
-# 0. Import necessary packages for data loading.
+    # Some metrics are computed estimating data manifold through k-Nearest Neighbor.
+    # Set the size of k (nhood_size):
+    "nhood_size":
+        {
+            "pr": 5,      # For improved Precision & Recall (Karras et al.)
+            "prdc": 5,    # For precision, recall, density, coverage (Naeem et al.)
+            "pr_auth": 5  # For alpha-precision, beta-recall, authenticity (Alaa et al.)
+        },
+
+    # If you are perfroming the k-NN analysis, set the number of images to visualize in a num_real x num_synth grid.
+    "K-NN_configs":
+        {
+            "num_real": 3, # Number of real images to visualize (the closest to any synthetic images).
+            "num_synth": 5 # Number of synthetic images to visualize, ranked by similarity, next to each real image.
+        },
+
+    # The computation of some metrics require the resize of the images to the size of the input required by a pre-trained model
+    # If False, images are resized with the PIL.BICUBIC resizer. If True, zero-padding is performed (ideal if the image has black background, such as the brain MRI)
+    "padding": False
+}
+
+# ----------------------------- Real data configuration ----------------------------
+
+DATASET = {
+
+    # Class definition, to load real data
+    "class": "< defined below: NiftiDataset>",
+
+    # Additional parameters required for loading the dataset.
+    "params": 
+    {
+        # Path to the dataset file containing the real images (in NIfTI format).
+        "path_data": "data/real_images_simulation.nii.gz",
+        # Path to an optional labels file. If None, the dataset will be treated as unlabelled.
+        "path_labels": None,
+        # Flag to enable label usage.
+        "use_labels": False,
+        # Number of real images to use, if None using all
+        "size_dataset": None,
+    }
+}
+
+# ----------------------------- Synthetic data configuration -----------------------------
+
+## Flag to determine the mode of operation
+USE_PRETRAINED_MODEL = True  # Set to False to load synthetic images from files
+
+SYNTHETIC_DATA = {
+    "mode": "pretrained_model" if USE_PRETRAINED_MODEL else "from_files",
+
+    # Configuration for pre-trained model mode
+    "pretrained_model": 
+        {
+        # Path to the pre-trained generator
+        "network_path": "Synthetic_Images_Metrics_Toolkit/configs/Mediffusion/pre-trained_generator.ckpt",
+        # Function to load the pre-trained generator (below in this script)
+        "load_network": lambda network_path: _load_network(network_path),
+        # Function to generate synthetic images from the pre-trained generator (below in this script)
+        "run_generator": lambda z, opts: _run_generator(z, opts),
+        # Number of images you want to generate
+        "NUM_SYNTH": 50000
+        },
+        
+    #       -------    -------    -------    -------    -------    -------    -------
+
+
+    # Configuration for direct synthetic images mode
+    "from_files": 
+        {
+        # Class definition, to load synthetic data
+        "class": "<defined below: NiftiDataset>",
+        
+        "params":
+            {
+            # Path to directory or file containing synthetic images
+            "path_data": "data/real_images_simulation.nii.gz",
+            # Path to an optional labels file. If None, the dataset will be treated as unlabelled.
+            "path_labels": None,
+            # Flag to enable label usage.
+            "use_labels": False,
+            # Number of synthetic images to use, if None using all
+            "size_dataset": None,  
+            }
+        }
+}
+
+# ----------------------------- Functions and classes definition -----------------------------
+
+# -> For data loading
+
 import nibabel as nib
 import numpy as np
 
@@ -88,43 +159,18 @@ class NiftiDataset(BaseDataset):
     def _load_raw_labels(self):
         pass
 
-# 2. Define the path(s) to the data file and, optionally, path to the label file and additional settings.
-DATASET = {
+DATASET["class"] = NiftiDataset
+SYNTHETIC_DATA["from_files"]["class"] = NiftiDataset
 
-    # Class definition, to load your data
-    "class": NiftiDataset,
+#  -------    -------    -------    -------    -------    -------    -------    -------    -------
 
-    # Additional parameters required for loading the dataset.
-    "params": 
-    {
-        # Path to the dataset file containing the medical images (in NIfTI format).
-        "path_data": "data/real_images_simulation.nii.gz",
+# -> For synthetic data generation:
 
-        # Path to an optional labels file.
-        # If None, the dataset will be treated as unlabelled.
-        "path_labels": None,
-
-        # Flag to enable label usage.
-        "use_labels": False,
-
-        # Set if you want to upload a subset of data from the dataset.
-        # If None, the whole dataset will be loaded
-        "size_dataset": None
-    }
-}
-
-# ----------------------------- Generator configuration -----------------------------
-
-# 0. Import necessary packages.
 import torch
 from mediffusion import DiffusionModule
-
-# 1. Define the path to the pre-trained generator
-network_path = "Synthetic_Images_Metrics_Toolkit/configs/Mediffusion/pre-trained_generator.ckpt"
-
 # 2. Define a function to load the generator network.
 config_path= "Synthetic_Images_Metrics_Toolkit/configs/Mediffusion/config.yaml"
-def load_network(network_path):
+def _load_network(network_path):
     G = DiffusionModule(config_path)
     network_dict = torch.load(network_path)['state_dict']
     G.load_state_dict(network_dict)
@@ -136,7 +182,7 @@ def load_network(network_path):
     return G
 
 # 3. Define a custom function to generate images using the generator.
-def run_generator(z, opts):
+def _run_generator(z, opts):
 
     # Generate images using the specified inference protocol.
     img = opts.G.predict(z, inference_protocol="DDIM100") # List of images
@@ -148,14 +194,3 @@ def run_generator(z, opts):
     img = (img.float() * 255.0).clamp(0, 255)
     
     return img # [batch_size, n_channels, img_resolution, img_resolution]
-
-# 4. Generator configuration dictionary
-GENERATOR = {
-    # Path to the pre-trained generator checkpoint file.
-    "network_path": network_path,
-
-    "load_network": load_network,
-
-    "run_generator": run_generator
-
-    }

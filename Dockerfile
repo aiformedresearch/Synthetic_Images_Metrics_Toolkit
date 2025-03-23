@@ -50,6 +50,7 @@ COPY ./representations/ /Synthetic_Images_Metrics_Toolkit/representations/
 COPY ./torch_utils/ /Synthetic_Images_Metrics_Toolkit/torch_utils/
 COPY ./dnnlib/ /Synthetic_Images_Metrics_Toolkit/dnnlib/
 COPY legacy.py /Synthetic_Images_Metrics_Toolkit/
+COPY ./dataset.py /Synthetic_Images_Metrics_Toolkit/
 COPY ./calc_metrics.py /Synthetic_Images_Metrics_Toolkit/
 
 # Set the working directory
