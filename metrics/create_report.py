@@ -7,15 +7,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Image, Spacer, Paragraph, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Image, Spacer, Paragraph, PageBreak, ListFlowable, ListItem, Flowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import Paragraph, ListFlowable, ListItem
-from reportlab.platypus import Flowable
 from reportlab.lib.enums import TA_JUSTIFY
-from reportlab.lib import colors
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
+
 from metrics import metric_utils
 import dnnlib
-
 
 # Define the legend mapping metric keys to human-readable labels
 metric_labels = {
@@ -23,15 +22,39 @@ metric_labels = {
     "kid50k": "KID",
     "is50k_mean": "IS",
     "precision": "Precision",
-    "pr50k3_precision": "Precision (by NVIDIA)",
+    "pr50k3_precision": "Precision (NVIDIA)",
     "density": "Density",
     "a_precision_c": "α-Precision",
     "recall": "Recall",
-    "pr50k3_recall": "Recall (by NVIDIA)",
+    "pr50k3_recall": "Recall (NVIDIA)",
     "coverage": "Coverage",
     "b_recall_c": "β-Recall",
     "authenticity_c": "Authenticity"
 }
+
+metric_references = {
+    "FID": "Paper: <a href='https://arxiv.org/abs/1706.08500'>\"GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium\"</a>, Heusel et al. 2017. <br/>  Implementation: Karras et al., https://github.com/NVlabs/stylegan2-ada-pytorch",
+    "KID": "Paper: <a href='https://arxiv.org/abs/1801.01401'>\"Demystifying MMD GANs\"</a>, Binkowski et al. 2018 <br/>  Implementation: Karras et al., https://github.com/NVlabs/stylegan2-ada-pytorch",
+    "IS": "Paper: <a href='https://arxiv.org/abs/1606.03498'>\"Improved Techniques for Training GANs\"</a>, Salimans et al. 2016 <br/>  Implementation: Karras et al., https://github.com/NVlabs/stylegan2-ada-pytorch",
+    "Precision (NVIDIA)": "Paper: <a href='https://arxiv.org/abs/1904.06991'>\"Improved Precision and Recall Metric for Assessing Generative Models\"</a>, Kynkäänniemi et al. 2019 <br/>  Implementation: Karras et al, https://github.com/NVlabs/stylegan2-ada-pytorch",
+    "Recall (NVIDIA)": "Paper: <a href='https://arxiv.org/abs/1904.06991'>\"Improved Precision and Recall Metric for Assessing Generative Models\"</a>, Kynkäänniemi et al. 2019 <br/>  Implementation: Karras et al, https://github.com/NVlabs/stylegan2-ada-pytorch",
+    "Precision": "Paper: <a href='https://arxiv.org/abs/1904.06991'>\"Improved Precision and Recall Metric for Assessing Generative Models\"</a>, Kynkäänniemi et al. 2019 <br/>  Implementation: Naeem et al., https://github.com/clovaai/generative-evaluation-prdc",
+    "Recall": "Paper: <a href='https://arxiv.org/abs/1904.06991'>\"Improved Precision and Recall Metric for Assessing Generative Models\"</a>, Kynkäänniemi et al. 2019 <br/>  Implementation: Naeem et al., https://github.com/clovaai/generative-evaluation-prdc",
+    "Density": "Paper: <a href='https://proceedings.mlr.press/v119/naeem20a/naeem20a.pdf'>\"Reliable Fidelity and Diversity Metrics for Generative Models\"</a>, Naeem et al., 2020 <br/>  Implementation: Naeem et al., https://github.com/clovaai/generative-evaluation-prdc",
+    "Coverage": "Paper: <a href='https://proceedings.mlr.press/v119/naeem20a/naeem20a.pdf'>\"Reliable Fidelity and Diversity Metrics for Generative Models\"</a>, Naeem et al., 2020 <br/>  Implementation: Naeem et al., https://github.com/clovaai/generative-evaluation-prdc",
+    "α-Precision": "Paper: <a href='https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf'>\"How Faithful is your Synthetic Data? Sample-level Metrics for Evaluating and Auditing Generative Models\"</a>, Alaa et al., 2022 <br/>  Implementation: Alaa et al., https://github.com/vanderschaarlab/evaluating-generative-models",
+    "β-Recall": "Paper: <a href='https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf'>\"How Faithful is your Synthetic Data? Sample-level Metrics for Evaluating and Auditing Generative Models\"</a>, Alaa et al., 2022 <br/>  Implementation: Alaa et al., https://github.com/vanderschaarlab/evaluating-generative-models",
+    "Authenticity": "Paper: <a href='https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf'>\"How Faithful is your Synthetic Data? Sample-level Metrics for Evaluating and Auditing Generative Models\"</a>, Alaa et al., 2022 <br/>  Implementation: Alaa et al., https://github.com/vanderschaarlab/evaluating-generative-models",
+}
+
+def add_page_number(canvas, doc):
+    """
+    Adds page numbers at the bottom of each page.
+    """
+    page_num = canvas.getPageNumber()
+    text = f"{page_num}"
+    canvas.setFont("Helvetica", 10)
+    canvas.drawRightString(7.5 * inch, 0.5 * inch, text)
 
 class TableAndImage(Flowable):
     def __init__(self, table, image_path, img_width=200, img_height=200):
@@ -47,7 +70,7 @@ class TableAndImage(Flowable):
     def wrap(self, availWidth, availHeight):
         return availWidth, availHeight
 
-    def split(self, availWidth, availHeight):
+    def split(self):
         return [self.table, Image(self.image_path, width=self.img_width, height=self.img_height)]
 
 def extract_last_line(file_path):
@@ -135,9 +158,9 @@ def plot_metrics_triangle(metrics, metric_folder):
     ax.plot([centroid[0], triangle_vertices[2][0]], [centroid[1], triangle_vertices[2][1]], color='green', alpha=0.3, lw=1)  # Line to Fidelity
     
     # Define symbols for different metric categories
-    fidelity_symbols = ['o', 'v', '^', 's']  # Circle, triangle, up triangle, square
-    diversity_symbols = ['p', 'H', '*', 'X']  # Pentagon, hexagon, star, cross
-    generalization_symbols = ['D']  # Diamond
+    fidelity_symbols = ['o', 'v', 'D', 's']  # Circle, triangle, diamond, square
+    diversity_symbols = ['p', '^', '*', 'X']  # Pentagon, up triangle, star, cross
+    generalization_symbols = ['H']  # Hexagon
 
     # Plot individual fidelity metrics with different shades of green
     fidelity_metric_points = []
@@ -188,17 +211,28 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     styles = getSampleStyleSheet()
     
     # Create table data: header row + rows for each metric present in both `metrics` and `metric_labels`
+    ref_mapping = {}
+    references = []
+    ref_counter = 1
     data = [["Metric", "Value", "Range"]]
     for key, label in metric_labels.items():
         value = metrics.get(key, None)
-        if value is not None and label not in ['FID', 'KID', 'IS']:
-            data.append([label, f"{value:.4f}", "[0, 1]  ↑"])
-        elif label == "IS" and value is not None:
-            mean, std = metrics.get("is50k_mean"), metrics.get("is50k_std")
-            data.append([label, f"{mean:.4f} ± {std:.4f}", "[0, ∞]  ↑"])
-        elif (label == "FID" or label=="KID") and value is not None:
-            data.append([label, f"{value:.4f}", "[0, ∞]  ↓"])
-
+        if value is not None:
+            ref_text = metric_references[label]
+            if ref_text not in ref_mapping:
+                ref_mapping[ref_text] = ref_counter
+                references.append(f"[{ref_counter}] {ref_text}")
+                ref_counter += 1
+            ref_number = ref_mapping[ref_text]
+            metric_display = f"{label} [{ref_number}]"
+            if label not in ["FID", "KID", "IS"]:
+                data.append([metric_display, f"{value:.4f}", "[0, 1]  ↑"])
+            elif label == "IS":
+                mean, std = metrics.get("is50k_mean"), metrics.get("is50k_std")
+                data.append([metric_display, f"{mean:.4f} ± {std:.4f}", "[0, ∞]  ↑"])
+            elif label in ["FID", "KID"]:
+                data.append([metric_display, f"{value:.4f}", "[0, ∞]  ↓"])
+   
     table = Table(data)
     
     style = TableStyle([
@@ -249,9 +283,17 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
 
     dataset = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
     num_real = len(dataset)
+    if args.use_pretrained_generator:
+        num_syn = args.num_gen
+        phrase_gen = f"<b>{num_syn}</b> synthetic images generated by {args.generator['network_path']}"
+    else:
+        dataset_s = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
+        num_syn = len(dataset_s)
+        phrase_gen = f"<b>{num_syn}</b> synthetic images from {args.dataset_synt_kwargs['path_data']}"
+    
     recap_paragraph  = ListFlowable([
         ListItem(Paragraph(f"<b>{num_real}</b> real images from {args.dataset_kwargs['path_data']}", styles['BodyText'])),
-        ListItem(Paragraph(f"<b>{args.num_gen}</b> synthetic images generated by {args.generator['network_path']}", styles['BodyText'])),
+        ListItem(Paragraph(phrase_gen, styles['BodyText'])),
     ], bulletType='bullet')
     elements.append(recap_paragraph)
     elements.append(Spacer(1, 10))
@@ -312,8 +354,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         # Additional text
         elements.append(Spacer(1, 12))
         auth_path= os.path.join(metric_folder, "figures/authenticity_distribution_c.png")
-        batch_size = min(1024, num_real, args.num_gen)
-        num_batches = int(np.ceil(args.num_gen / batch_size))
+        batch_size = min(1024, num_real, num_syn)
+        num_batches = int(np.ceil(num_syn / batch_size))
         additional_text_2 = Paragraph(
             f"<b>Authenticity</b> measures the fraction of synthetic data not memorized from the training set. To compute this score, batches of {batch_size} synthetic images are compared with batches of {batch_size} real ones (with batch_size = min(1024, #real_imgs, #synth_imgs)), and the final score is calculated as the average across these {num_batches} batches.",
             justified_style
@@ -360,14 +402,20 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         generalization_text = Paragraph(
             "This visualization displays the k-nearest neighbors (k-NN) of real training images, helping to assess whether the model memorizes training data. "
             f"The first column shows the {args.knn_configs['num_real']} real images that have the highest cosine similarity to any synthetic sample. "
-            f"Each subsequent column presents the top {args.knn_configs['num_synth']} most similar synthetic images (out of {args.num_gen} generated samples) for each real image."
+            f"Each subsequent column presents the top {args.knn_configs['num_synth']} most similar synthetic images (out of {num_syn} generated samples) for each real image."
         )
 
         elements.append(generalization_text)
-    
-    doc.build(elements)
-    print(f"Metrics successfully saved to {out_pdf_path}")
 
+    # Add references section
+    if references:
+        elements.append(Paragraph("References", styles['Heading2']))
+        for ref in references:
+            elements.append(Paragraph(ref, styles['Normal']))
+            elements.append(Spacer(1, 6))
+    
+    doc.build(elements, onLaterPages=add_page_number, onFirstPage=add_page_number)
+    print(f"Metrics successfully saved to {out_pdf_path}")
 
 def generate_metrics_report(args):
     metric_folder = args.run_dir
