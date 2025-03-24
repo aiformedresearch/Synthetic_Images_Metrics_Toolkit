@@ -83,11 +83,14 @@ Refer to the [Usage](#usage) section for detailed instructions about running the
 
 ## Usage
 ### 1. Customize for your use case
-To evaluate your generative model, modify the `configs/config.py` script to specify:
-- metrics to compute (e.g., FID, KID, etc.);
-- runtime configurations (working directory, number of synthetic images, etc.)
-- real dataset details
-- generator configuration (functions to load the pre-trained generator and generate new samples)
+To evaluate your generative model, tailor the `configs/config.py` script to meet your specific needs. This involves specifying the following:
+- **Metrics to compute**: Choose the metrics you want to evaluate, such as FID, KID, etc.
+- **Runtime configurations**: Set up your working directory and specify whether to use CPU or GPU.
+- **Metrics configurations**: Eventually, adjust the hyperparameters for metrics computation.
+- **Real data configuration**: Define the function for data loading.
+- **Synthetic data configuration**: Choose one of the following options:
+    1. Define functions to load a pre-trained generator and generate new samples;
+    2. Load synthetic images directly from files or a folder.
 
 📌 We have tested this repository with three generative models for 2D image synthesis:
 
