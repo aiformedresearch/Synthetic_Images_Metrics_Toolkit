@@ -69,13 +69,13 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
 2. Run the Docker container
     ```
     docker run -it --gpus all \
-      -v /absolute/path/to/real_data.nii.gz:/Synthetic_Images_Metrics_Toolkit/data \
+      -v /absolute/path/to/real_data:/Synthetic_Images_Metrics_Toolkit/data \
       -v /absolute/path/to/config_file:/Synthetic_Images_Metrics_Toolkit/configs \
       -v /absolute/path/to/local_output_directory:/Synthetic_Images_Metrics_Toolkit/outputs \
       aiformedresearch/metrics_toolkit
     ```
       - The `--gpus all` flag enables GPU support. Specify a GPU if needed, e.g., `--gpus 0`.
-      - The `-v` flag is used to mount the local directories to the working directory `Metrics_Toolkit` inside the container. 
+      - The `-v` flag is used to mount the local directories to the working directory `Synthetic_Images_Metrics_Toolkit` inside the container. 
       > Note: To exit from the Docker container, type: `exit`.
 
 Refer to the [Usage](#usage) section for detailed instructions about running the main script. 
