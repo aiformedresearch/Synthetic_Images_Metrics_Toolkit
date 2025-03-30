@@ -62,7 +62,7 @@ METRICS_CONFIGS = {
 
     # The computation of some metrics require the resize of the images to the size of the input required by a pre-trained model
     # If False, images are resized with the PIL.BICUBIC resizer. If True, zero-padding is performed (ideal if the image has black background, such as the brain MRI)
-    "padding": False
+    "padding": True
 }
 
 # ----------------------------- Real data configuration ----------------------------
@@ -92,7 +92,6 @@ DATASET = {
 USE_PRETRAINED_MODEL = True  # Set to False to load synthetic images from files
 
 SYNTHETIC_DATA = {
-    "mode": "pretrained_model" if USE_PRETRAINED_MODEL else "from_files",
 
     # Configuration for pre-trained model mode
     "pretrained_model": 
@@ -119,7 +118,7 @@ SYNTHETIC_DATA = {
         "params":
             {
             # Path to directory or file containing synthetic images
-            "path_data": "data/real_images_simulation.nii.gz",
+            "path_data": "data/synt_images_simulation.nii.gz",
             # Path to an optional labels file. If None, the dataset will be treated as unlabelled.
             "path_labels": None,
             # Flag to enable label usage.

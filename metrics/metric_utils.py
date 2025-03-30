@@ -293,11 +293,6 @@ def validate_config(config):
 
     def validate_synthetic_data_config(synthetic_data_config, use_pretrained_model):
 
-        # Validate mode
-        expected_mode = "pretrained_model" if use_pretrained_model else "from_files"
-        if synthetic_data_config.get("mode") != expected_mode:
-            errors.append(f"Mode mismatch: expected '{expected_mode}' but got '{synthetic_data_config.get('mode')}'.")
-
         # Validate pretrained_model configuration
         if use_pretrained_model:
             pretrained_model_config = synthetic_data_config.get("pretrained_model", {})
@@ -840,7 +835,7 @@ def compute_feature_stats_synthetic(opts, detector_url, detector_kwargs, rel_lo=
 #----------------------------------------------------------------------------
 # Functions added for k-NN analysis visualization
 
-def visualize_grid(real_images, synthetic_images, top_n_real_indices, closest_synthetic_indices, fig_path, top_n, k):
+def visualize_grid(opts, real_images, synthetic_images, top_n_real_indices, closest_synthetic_indices, fig_path, top_n, k):
     fig, axes = plt.subplots(top_n, k+1, figsize=(5 * k, 5 * top_n))
     base_fontsize = max(35, 30 - k) 
 
@@ -871,12 +866,13 @@ def visualize_grid(real_images, synthetic_images, top_n_real_indices, closest_sy
             if row_idx == 0:
                 axes[row_idx, col_idx+1].set_title(f"Synth {col_idx+1}", fontsize=base_fontsize)
 
-            # Add index annotation below the synthetic image
-            axes[row_idx, col_idx+1].text(
-                0.5, -0.1, str(closest_synthetic_indices[top_n_real_indices[row_idx]][col_idx]),
-                fontsize=base_fontsize - 10, color='black', ha='center', va='bottom',
-                transform=axes[row_idx, col_idx+1].transAxes
-            )
+            if not opts.use_pretrained_generator:
+                # Add annotation of the index of the synthetic image
+                axes[row_idx, col_idx+1].text(
+                    0.5, -0.1, str(closest_synthetic_indices[top_n_real_indices[row_idx]][col_idx]),
+                    fontsize=base_fontsize - 10, color='black', ha='center', va='bottom',
+                    transform=axes[row_idx, col_idx+1].transAxes
+                )
 
     plt.tight_layout()
     plt.savefig(fig_path)
@@ -908,5 +904,5 @@ def visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, f
     synthetic_images_to_visualize = [closest_images[real_idx][:k] for real_idx in top_n_real_indices]
 
     # Now visualize the real image and the k closest synthetic images
-    visualize_grid(real_images, synthetic_images_to_visualize, top_n_real_indices, closest_indices, fig_path, top_n, k)
+    visualize_grid(opts, real_images, synthetic_images_to_visualize, top_n_real_indices, closest_indices, fig_path, top_n, k)
    

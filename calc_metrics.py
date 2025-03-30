@@ -54,9 +54,9 @@ def print_config(config):
     for key, value in config.METRICS_CONFIGS.items():
             print(f"    {key}: {value}")
     print("\n  SYNTHETIC_DATA:")
-    mode = config.SYNTHETIC_DATA["mode"]
+    mode = "pretrained_model" if config.USE_PRETRAINED_MODEL else "from_files",
     print("  mode: ", mode)
-    for key, value in config.SYNTHETIC_DATA[mode].items():
+    for key, value in config.SYNTHETIC_DATA[mode[0]].items():
         print(f"      {key}: {value}")
     print("\n  DATASET:")
     for key, value in config.DATASET.items():
@@ -126,14 +126,14 @@ def subprocess_fn(rank, args, temp_dir):
         result_dict = metric_main.calc_metric(
             metric=metric,
             use_pretrained_generator=args.use_pretrained_generator,
-            run_generator=args.generator["run_generator"], 
+            run_generator=args.run_generator, 
             num_gen=args.num_gen, 
             nhood_size = args.nhood_size,
             knn_configs = args.knn_configs,
             padding = args.padding,
             oc_detector_path=oc_detector_path, 
             train_OC=train_OC, 
-            snapshot_pkl=args.generator['network_path'], 
+            snapshot_pkl=args.network_path, 
             run_dir=args.run_dir, 
             G=args.G, 
             dataset_kwargs=args.dataset_kwargs,
@@ -143,7 +143,8 @@ def subprocess_fn(rank, args, temp_dir):
             progress=progress
             )
         if rank == 0:
-            metric_main.report_metric(result_dict, run_dir=args.run_dir, snapshot_pkl=args.generator['network_path'])
+            synt_source = args.network_path if args.use_pretrained_generator else args.dataset_synt_kwargs['path_data']
+            metric_main.report_metric(result_dict, run_dir=args.run_dir, synt_source=synt_source)
         if rank == 0 and args.verbose:
             print()
 
@@ -193,9 +194,10 @@ def calc_metrics(ctx, config):
         'verbose': config.CONFIGS["VERBOSE"],
         'oc_detector_path': config.CONFIGS["OC_DETECTOR_PATH"],
         'num_gen': config.SYNTHETIC_DATA["pretrained_model"]["NUM_SYNTH"] if config.USE_PRETRAINED_MODEL else config.SYNTHETIC_DATA["from_files"]["params"]["size_dataset"],
-        'generator': config.SYNTHETIC_DATA["pretrained_model"],
-        'run_generator': config.SYNTHETIC_DATA["pretrained_model"]["run_generator"],
-        'dataset_synt': config.SYNTHETIC_DATA["from_files"],
+        'network_path': config.SYNTHETIC_DATA["pretrained_model"]["network_path"] if config.USE_PRETRAINED_MODEL else None,
+        'load_network': config.SYNTHETIC_DATA["pretrained_model"]["load_network"] if config.USE_PRETRAINED_MODEL else None,
+        'run_generator': config.SYNTHETIC_DATA["pretrained_model"]["run_generator"] if config.USE_PRETRAINED_MODEL else None,
+        'dataset_synt': config.SYNTHETIC_DATA["from_files"] if not config.USE_PRETRAINED_MODEL else None,
         'dataset': config.DATASET,
         'use_pretrained_generator': config.USE_PRETRAINED_MODEL,
         'config_path': config_path
@@ -208,8 +210,8 @@ def calc_metrics(ctx, config):
     # Load the pre-trained generator
     if args.use_pretrained_generator:
         if args.verbose:
-            print(f'Loading network from "{args.generator["network_path"]}"...')
-        args.G = args.generator["load_network"](args.generator["network_path"])
+            print(f'Loading network from "{args.network_path}"...')
+        args.G = args.load_network(args.network_path)
         args.dataset_synt_kwargs = None
     else:
         args.G = None

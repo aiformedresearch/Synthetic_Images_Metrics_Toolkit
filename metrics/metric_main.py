@@ -73,15 +73,15 @@ def calc_metric(metric, use_pretrained_generator, run_generator, num_gen, nhood_
 
 #----------------------------------------------------------------------------
 
-def report_metric(result_dict, run_dir=None, snapshot_pkl=None):
+def report_metric(result_dict, run_dir=None, synt_source=None):
     metric = result_dict['metric']
     assert is_valid_metric(metric)
-    if os.path.splitdrive(snapshot_pkl)[0] == os.path.splitdrive(run_dir)[0]:
-        snapshot_pkl = os.path.relpath(snapshot_pkl, run_dir)
+    if os.path.splitdrive(synt_source)[0] == os.path.splitdrive(run_dir)[0]:
+        synt_source = os.path.relpath(synt_source, run_dir)
     else:
-        print(f"Warning: 'snapshot_pkl' and 'run_dir' are on different drives. Using absolute path for 'snapshot_pkl'.")
+        print(f"Warning: 'synt_source' and 'run_dir' are on different drives. Using absolute path for 'synt_source'.")
 
-    jsonl_line = json.dumps(dict(result_dict, snapshot_pkl=snapshot_pkl, timestamp=time.time()))
+    jsonl_line = json.dumps(dict(result_dict, synt_source=synt_source, timestamp=time.time()))
     print(jsonl_line)
     if run_dir is not None and os.path.isdir(run_dir):
         print(f'Saving metrics in {run_dir}')
