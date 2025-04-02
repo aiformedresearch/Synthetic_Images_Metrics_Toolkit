@@ -97,8 +97,6 @@ class Generator(nn.Module):
         factors: list              # List of factors used for scaling in the progressive growing structure (e.g. [1, 1, 1/2, 1/4, 1/8, 1/16, 1/32])
     ):
         super().__init__()
-        # Modifications for metric computation:
-        self.img_resolution = 256
 
         self.label_embedding = nn.Embedding(class_size, embedding_dim)
 
@@ -133,7 +131,7 @@ class Generator(nn.Module):
             label = np.argmax(label.cpu(), axis=1).to(device='cuda', dtype=torch.long)
         else:
             label = np.argmax(label.cpu()).to(device='cuda', dtype=torch.long)
-        label_embed = self.label_embedding(label.cpu())
+        label_embed = self.label_embedding(label)
         if len(c)>1:
             label_embed = label_embed.view(label_embed.shape[0], label_embed.shape[1], 1, 1)
         else:

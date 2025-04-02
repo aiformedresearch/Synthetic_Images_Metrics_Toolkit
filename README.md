@@ -92,14 +92,15 @@ To evaluate your generative model, tailor the `configs/config.py` script to meet
     1. Load synthetic images directly from files or a folder;
     2. Define functions to load a pre-trained generator and generate new samples.
 
-📌 We have tested this repository with three generative models for 2D image synthesis:
+📌 We have tested this repository with several data types and with three generative models for 2D image synthesis:
 
->  ✅ [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch), a state-of-the-art generative adversarial network ([config.py](configs/StyleGAN2ADA/config_stylegan2ada.py));
+>  ✅ [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch), a state-of-the-art generative adversarial network ([config.py](configs/from_pre-trained_model/StyleGAN2ADA/config_stylegan2ada.py));
   
->  ✅ [PACGAN](https://github.com/MatteoLai/PACGAN), a custom generative adversarial network ([config.py](configs/PACGAN/config_PACGAN.py));
+>  ✅ [PACGAN](https://github.com/MatteoLai/PACGAN), a custom generative adversarial network ([config.py](configs/from_pre-trained_model/PACGAN/config_PACGAN.py));
   
->  ✅ [Mediffusion](https://github.com/BardiaKh/Mediffusion), a diffusion model ([config.py](configs/Mediffusion/config_mediffusion.py)).
+>  ✅ [Mediffusion](https://github.com/BardiaKh/Mediffusion), a diffusion model ([config.py](configs/from_pre-trained_model/Mediffusion/config_mediffusion.py)).
 
+You can find more information to customize your
 📖 For an interactive guide, check out our [Jupyter Notebook](https://colab.research.google.com/drive/1A70ENEZPpB9FT4mMU5ZiP0gFTkw--ysf?usp=drive_link) on Google Colab.
 
 
