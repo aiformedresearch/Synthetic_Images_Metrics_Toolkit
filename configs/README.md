@@ -19,7 +19,7 @@ The Synthetic_Images_Metrics_Toolkit repository is designed to evaluate the qual
 
 If synthetic images are saved in files or folders, you only need to define a function to load them.
 
-📝 **Example configurations**: Find sample configuration files for different data types [here](Tutorials/from_files)
+📝 **Example configurations**: Find sample configuration files for different data types [here](from_files)
 
 📖 **Colab tutorial**: Follow 
 [this Google Colab tutorial](https://colab.research.google.com/drive/1A70ENEZPpB9FT4mMU5ZiP0gFTkw--ysf?usp=drive_link) to learn how to create a configuration file that loads both real and synthetic images from files or folders and computes the metrics of interest.
@@ -30,7 +30,7 @@ If you prefer to generate synthetic images dynamically using a pretrained genera
 - Load the pretrained generator
 - Generate new samples
 
-📝 **Example configurations**: Sample configuration files for various pretrained generators are available [here](Tutorials/from_pre-trained_model):
+📝 **Example configurations**: Sample configuration files for various pretrained generators are available [here](from_pre-trained_model):
 - [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch) $-$ a state-of-the-art generative adversarial network;
 - [PACGAN](https://github.com/MatteoLai/PACGAN) $-$ a custom generative adversarial network;
 - [Mediffusion](https://github.com/BardiaKh/Mediffusion) $-$ a diffusion model.
