@@ -107,28 +107,6 @@ SYNTHETIC_DATA = {
         # Number of images you want to generate
         "NUM_SYNTH": 500
         },
-        
-    #       -------    -------    -------    -------    -------    -------    -------
-
-
-    # Configuration for direct synthetic images mode
-    "from_files": 
-        {
-        # Class definition, to load synthetic data
-        "class": "<defined below: NiftiDataset>",
-        
-        "params":
-            {
-            # Path to directory or file containing synthetic images
-            "path_data": "data/synt_images_simulation.nii.gz",
-            # Path to an optional labels file. If None, the dataset will be treated as unlabelled.
-            "path_labels": None,
-            # Flag to enable label usage.
-            "use_labels": False,
-            # Number of synthetic images to use, if None using all
-            "size_dataset": None,  
-            }
-        }
 }
 
 # ----------------------------- Functions and classes definition -----------------------------
