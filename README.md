@@ -43,20 +43,26 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
 
 ### Installation with Anaconda
 0. Install [Anaconda](https://docs.anaconda.com/free/anaconda/install/index.html) for your operating system.
-1. Create a Conda environment:
+1. Clone the repository:
+    ```
+    cd /path_to/metrics_toolkit_repo
+    git clone https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit.git
+    cd Synthetic_Images_Metrics_Toolkit
+    ```
+2. Create and activate the Conda environment:
     ```
     conda create -n metrics_toolkit python=3.10 -y
     conda activate metrics_toolkit
     ```
-2. Install dependencies:
+3. Install dependencies:
     ```
     pip install -r requirements.txt
     ```
-    Note: if you plan to follow the tutorials, install the additional dependencies via:
-        ```
-        pip install -r requirements_tutorial.txt
-        ```
-3. Install any additional packages needed for your specific use case. 
+    📌 To install additional dependencies for the tutorials with the pre-trained generators:
+    ```
+    pip install -r requirements_tutorial.txt
+    ```
+4. Install any additional packages needed for your specific use case. 
 
 ### Installation with Docker
 0. Install [Docker](https://docs.docker.com/get-docker/) for your operating system.
@@ -93,18 +99,16 @@ To evaluate your generative model, tailor the `configs/config.py` script to meet
     2. Define functions to load a pre-trained generator and generate new samples.
 
 📌 We have tested this repository with several data types and with three generative models for 2D image synthesis:
+- ✅ [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch), a state-of-the-art generative adversarial network ([config.py](configs/from_pre-trained_model/StyleGAN2ADA/config_stylegan2ada.py));
+- ✅ [PACGAN](https://github.com/MatteoLai/PACGAN), a custom generative adversarial network ([config.py](configs/from_pre-trained_model/PACGAN/config_PACGAN.py));
+- ✅ [Mediffusion](https://github.com/BardiaKh/Mediffusion), a diffusion model ([config.py](configs/from_pre-trained_model/Mediffusion/config_mediffusion.py)).
 
->  ✅ [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch), a state-of-the-art generative adversarial network ([config.py](configs/from_pre-trained_model/StyleGAN2ADA/config_stylegan2ada.py));
-  
->  ✅ [PACGAN](https://github.com/MatteoLai/PACGAN), a custom generative adversarial network ([config.py](configs/from_pre-trained_model/PACGAN/config_PACGAN.py));
-  
->  ✅ [Mediffusion](https://github.com/BardiaKh/Mediffusion), a diffusion model ([config.py](configs/from_pre-trained_model/Mediffusion/config_mediffusion.py)).
+📝 [Detailed guide to build the configuration file](https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit/tree/main/configs)
 
-You can find more information to customize your
-📖 For an interactive guide, check out our [Jupyter Notebook](https://colab.research.google.com/drive/1A70ENEZPpB9FT4mMU5ZiP0gFTkw--ysf?usp=drive_link) on Google Colab.
+📖 [Interactive guide on Google Colab](https://colab.research.google.com/drive/1A70ENEZPpB9FT4mMU5ZiP0gFTkw--ysf?usp=drive_link)
 
 
-### 2. Run the script
+### 2. Run the metrics calculation
 Once customized the `config.py` script, execute the main script with:
 ```
 python calc_metrics.py --config configs/config.py
