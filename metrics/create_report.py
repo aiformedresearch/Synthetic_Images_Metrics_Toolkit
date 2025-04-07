@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: NPOSL-3.0
 
 import os
-import json
+import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from reportlab.lib import colors
@@ -18,15 +18,15 @@ import dnnlib
 
 # Define the legend mapping metric keys to human-readable labels
 metric_labels = {
-    "fid50k": "FID",
-    "kid50k": "KID",
-    "is50k_mean": "IS",
+    "fid": "FID",
+    "kid": "KID",
+    "is_mean": "IS",
     "precision": "Precision",
-    "pr50k3_precision": "Precision (NVIDIA)",
+    "pr_precision": "Precision (NVIDIA)",
     "density": "Density",
     "a_precision_c": "α-Precision",
     "recall": "Recall",
-    "pr50k3_recall": "Recall (NVIDIA)",
+    "pr_recall": "Recall (NVIDIA)",
     "coverage": "Coverage",
     "b_recall_c": "β-Recall",
     "authenticity_c": "Authenticity"
@@ -73,31 +73,33 @@ class TableAndImage(Flowable):
     def split(self):
         return [self.table, Image(self.image_path, width=self.img_width, height=self.img_height)]
 
-def extract_last_line(file_path):
-    with open(file_path, "r") as file:
-        last_line = None
-        for line in file:
-            last_line = line
-        return json.loads(last_line) if last_line else None
+def extract_metrics_from_csv(folder_path):
+    csv_path = os.path.join(folder_path, 'metrics.csv')
+    if not os.path.exists(csv_path):
+        print(f"No CSV file found at {csv_path}")
+        return {}
 
-def extract_metrics_from_folder(folder_path):
-    metric_files = {
-        "fid": os.path.join(folder_path, "metric-fid.jsonl"),
-        "kid": os.path.join(folder_path, "metric-kid.jsonl"),
-        "is_": os.path.join(folder_path, "metric-is_.jsonl"),
-        "pr": os.path.join(folder_path, "metric-pr.jsonl"),
-        "prdc": os.path.join(folder_path, "metric-prdc.jsonl"),
-        "pr_auth": os.path.join(folder_path, "metric-pr_auth.jsonl"),
-    }
-
+    known_flags = {"fid", "kid", "is_", "pr", "prdc", "pr_auth"}
     metrics = {}
 
-    for metric, file_path in metric_files.items():
-        if os.path.exists(file_path):
-            data = extract_last_line(file_path)        
-            if data:
-                metrics.update(data["results"])
-    
+    with open(csv_path, newline='') as csvfile:
+        reader = list(csv.DictReader(csvfile))
+        if not reader:
+            return {}
+
+        # Filter rows to only known metrics
+        filtered_rows = [row for row in reader if row['flag'] in known_flags]
+
+        # Pick only the latest row for each submetric
+        for row in reversed(filtered_rows):
+            metric = row['metric']
+            if metric not in metrics:
+                try:
+                    value = float(row['score'])
+                except ValueError:
+                    value = row['score']
+                metrics[metric] = value
+
     return metrics
 
 def plot_metrics_triangle(metrics, metric_folder):
@@ -228,7 +230,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             if label not in ["FID", "KID", "IS"]:
                 data.append([metric_display, f"{value:.4f}", "[0, 1]  ↑"])
             elif label == "IS":
-                mean, std = metrics.get("is50k_mean"), metrics.get("is50k_std")
+                mean, std = metrics.get("is_mean"), metrics.get("is_std")
                 data.append([metric_display, f"{mean:.4f} ± {std:.4f}", "[0, ∞]  ↑"])
             elif label in ["FID", "KID"]:
                 data.append([metric_display, f"{value:.4f}", "[0, ∞]  ↓"])
@@ -427,7 +429,7 @@ def generate_metrics_report(args):
         print(f"Error: Folder '{metric_folder}' does not exist or is not accessible.")
         exit(1)
 
-    metrics = extract_metrics_from_folder(metric_folder)
+    metrics = extract_metrics_from_csv(metric_folder)
 
     print("Generating the report...")   
     plot_metrics_triangle(metrics, metric_folder)

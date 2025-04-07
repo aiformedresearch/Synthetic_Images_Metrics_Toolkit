@@ -144,7 +144,7 @@ def subprocess_fn(rank, args, temp_dir):
             )
         if rank == 0:
             synt_source = args.network_path if args.use_pretrained_generator else args.dataset_synt_kwargs['path_data']
-            metric_main.report_metric(result_dict, run_dir=args.run_dir, synt_source=synt_source)
+            metric_main.report_metric(result_dict, run_dir=args.run_dir, real_source=args.dataset_kwargs['path_data'], synt_source=synt_source)
         if rank == 0 and args.verbose:
             print()
 

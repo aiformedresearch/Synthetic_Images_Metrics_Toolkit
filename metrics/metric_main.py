@@ -14,6 +14,7 @@
 import os
 import time
 import json
+import csv
 import torch
 import dnnlib
 
@@ -73,20 +74,42 @@ def calc_metric(metric, use_pretrained_generator, run_generator, num_gen, nhood_
 
 #----------------------------------------------------------------------------
 
-def report_metric(result_dict, run_dir=None, synt_source=None):
+def report_metric(result_dict, run_dir=None, real_source=None, synt_source=None):
     metric = result_dict['metric']
-    assert is_valid_metric(metric)
-    if os.path.splitdrive(synt_source)[0] == os.path.splitdrive(run_dir)[0]:
-        synt_source = os.path.relpath(synt_source, run_dir)
-    else:
-        print(f"Warning: 'synt_source' and 'run_dir' are on different drives. Using absolute path for 'synt_source'.")
+    results = result_dict['results']
+    assert isinstance(results, dict)
 
-    jsonl_line = json.dumps(dict(result_dict, synt_source=synt_source, timestamp=time.time()))
-    print(jsonl_line)
+    # Build rows
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+    base_row = {
+        'flag': metric,
+        'real_source': real_source,
+        'synt_source': synt_source,
+        'timestamp': timestamp,
+        'total_time': round(result_dict.get('total_time', 0), 2),
+        'total_time_str': result_dict['total_time_str'],
+        'num_gpus': result_dict.get('num_gpus', 1),
+    }
+
+    rows = []
+    for k, v in results.items():
+        row = base_row.copy()
+        row['metric'] = k
+        row['score'] = v
+        rows.append(row)
+
+    # Save to CSV
     if run_dir is not None and os.path.isdir(run_dir):
-        print(f'Saving metrics in {run_dir}')
-        with open(os.path.join(run_dir, f'metric-{metric}.jsonl'), 'at') as f:
-            f.write(jsonl_line + '\n')
+        csv_path = os.path.join(run_dir, 'metrics.csv')
+        write_header = not os.path.isfile(csv_path)
+        print(f"Saving metrics in {csv_path}")
+        with open(csv_path, 'a', newline='') as csvfile:
+            fieldnames = ['flag', 'metric', 'score', 'real_source', 'synt_source', 'timestamp', 'total_time', 'total_time_str', 'num_gpus']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            if write_header:
+                writer.writeheader()
+            for row in rows:
+                writer.writerow(row)
 
 #----------------------------------------------------------------------------
 # Legacy metrics, from Karras et al.
@@ -95,25 +118,25 @@ def report_metric(result_dict, run_dir=None, synt_source=None):
 def is_(opts):
     opts.dataset_kwargs.update(max_size=None, xflip=False)
     mean, std = inception_score.compute_is(opts, num_gen=opts.num_gen, num_splits=10)
-    return dict(is50k_mean=mean, is50k_std=std)
+    return dict(is_mean=mean, is_std=std)
 
 @register_metric
 def fid(opts):
     opts.dataset_kwargs.update(max_size=None)
     fid = frechet_inception_distance.compute_fid(opts, max_real=opts.max_size, num_gen=opts.num_gen)
-    return dict(fid50k=fid)
+    return dict(fid=fid)
 
 @register_metric
 def kid(opts):
     opts.dataset_kwargs.update(max_size=None)
     kid = kernel_inception_distance.compute_kid(opts, max_real=opts.max_size, num_gen=opts.num_gen, num_subsets=100, max_subset_size=1000)
-    return dict(kid50k=kid)
+    return dict(kid=kid)
 
 @register_metric
 def pr(opts):
     opts.dataset_kwargs.update(max_size=None)
     precision, recall = precision_recall.compute_pr(opts, max_real=opts.max_size, num_gen=opts.num_gen, nhood_size=opts.nhood_size["pr"], row_batch_size=10000, col_batch_size=10000)
-    return dict(pr50k3_precision=precision, pr50k3_recall=recall)
+    return dict(pr_precision=precision, pr_recall=recall)
 
 @register_metric
 def ppl_zfull(opts):
