@@ -7,7 +7,7 @@ Defines metrics, dataset, and generator configurations.
 """
 from dataset import BaseDataset
 
-# -------------------------------- Metrics --------------------------------
+# ----------------------------------- Metrics --------------------------------------
 
 # Define the metrics to compute.
 # Available options: fid50k,kid50k,pr50k3,ppl_zfull,pr_auth,prdc,knn
@@ -21,8 +21,8 @@ METRICS = [
         "prdc",            # Precision, recall, density, coverage (Naeem et al.)
     
     # QUALITATIVE METRICS:
-        "knn",              # k-NN analysis (Lai et al.)
-           ]
+        "knn",             # k-NN analysis (Lai et al.)
+          ]
 
 # -------------------------------- Runtime configurations --------------------------------
 
@@ -41,6 +41,7 @@ CONFIGS = {
 }
 
 # ---------------------------- Metrics  configurations -----------------------------
+
 METRICS_CONFIGS = {
 
     # Some metrics are computed estimating data manifold through k-Nearest Neighbor.
@@ -61,7 +62,7 @@ METRICS_CONFIGS = {
 
     # The computation of some metrics require the resize of the images to the size of the input required by a pre-trained model
     # If False, images are resized with the PIL.BICUBIC resizer. If True, zero-padding is performed (ideal if the image has black background, such as the brain MRI)
-    "padding": False
+    "padding": True
 }
 
 # ----------------------------- Real data configuration ----------------------------
@@ -69,7 +70,7 @@ METRICS_CONFIGS = {
 DATASET = {
 
     # Class definition, to load real data
-    "class": "< defined below: NiftiDataset>",
+    "class": "<defined below: NiftiDataset>",
 
     # Additional parameters required for loading the dataset.
     "params": 
@@ -87,7 +88,7 @@ DATASET = {
 
 # ----------------------------- Synthetic data configuration -----------------------------
 
-## Flag to determine the mode of operation
+# Flag to determine the mode of operation
 USE_PRETRAINED_MODEL = True  # Set to False to load synthetic images from files
 
 SYNTHETIC_DATA = {
@@ -96,7 +97,7 @@ SYNTHETIC_DATA = {
     "pretrained_model": 
         {
         # Path to the pre-trained generator
-        "network_path": "Synthetic_Images_Metrics_Toolkit/configs/Mediffusion/pre-trained_generator.ckpt",
+        "network_path": "Synthetic_Images_Metrics_Toolkit/configs/StyleGAN2ADA/pre-trained_generator.pkl",
         # Function to load the pre-trained generator (below in this script)
         "load_network": lambda network_path: _load_network(network_path),
         # Function to generate synthetic images from the pre-trained generator (below in this script)
@@ -104,6 +105,7 @@ SYNTHETIC_DATA = {
         # Number of images you want to generate
         "NUM_SYNTH": 500
         },
+        
 }
 
 # ----------------------------- Functions and classes definition -----------------------------
@@ -113,7 +115,6 @@ SYNTHETIC_DATA = {
 import nibabel as nib
 import numpy as np
 
-# 1. Define the function(s) to load data and, optionally, labels.
 class NiftiDataset(BaseDataset):
     def _load_files(self):
         """
@@ -137,37 +138,24 @@ class NiftiDataset(BaseDataset):
         pass
 
 DATASET["class"] = NiftiDataset
-SYNTHETIC_DATA["from_files"]["class"] = NiftiDataset
 
 #  -------    -------    -------    -------    -------    -------    -------    -------    -------
 
-# -> For synthetic data generation:
+# -> for synthetic data generation:
+import dnnlib
+import legacy
 
-import torch
-from mediffusion import DiffusionModule
-# 2. Define a function to load the generator network.
-config_path= "Synthetic_Images_Metrics_Toolkit/configs/Mediffusion/config.yaml"
 def _load_network(network_path):
-    G = DiffusionModule(config_path)
-    network_dict = torch.load(network_path)['state_dict']
-    G.load_state_dict(network_dict)
-    G.eval().cuda().half()
-
-    # Define latent dimension and number of classes
-    G.z_dim = [1, 256, 256]
-    G.c_dim = 1
+    with dnnlib.util.open_url(network_path, verbose=CONFIGS["VERBOSE"]) as f:
+        network_dict = legacy.load_network_pkl(f)
+        G = network_dict['G_ema'] # subclass of torch.nn.Module
+    
     return G
 
-# 3. Define a custom function to generate images using the generator.
 def _run_generator(z, opts):
-
-    # Generate images using the specified inference protocol.
-    img = opts.G.predict(z, inference_protocol="DDIM100") # List of images
-    
-    # Convert the list to a single torch tensor.
-    img = torch.stack(img, dim=0)                    # torch tensor of shape [batch_size, 1, 256, 256]
+    img = opts.G(z=z, c=None)
 
     # Normalize pixel values to the standard [0, 255] range for image representation.
-    img = (img.float() * 255.0).clamp(0, 255)
+    img = (img.float() * 127.5 + 128).clamp(0, 255)#.to(torch.uint8)
     
     return img # [batch_size, n_channels, img_resolution, img_resolution]
