@@ -18,7 +18,7 @@ import tensorflow as tf
 
 #----------------------------------------------------------------------------
 
-def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, authen, emb):
+def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, Delta_precision_alpha, AUC_alpha_precision, Delta_coverage_beta, AUC_beta_coverage, authen, emb):
     plt.figure(figsize=(10, 6))
     
     # Plot alpha precision curve
@@ -35,7 +35,21 @@ def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authen
     
     # Add legend
     plt.legend(fontsize=12)
-    
+
+    textstr = '\n'.join((
+        f'$\Delta$ α-precision: {Delta_precision_alpha:.3f}',
+        f'AUC α-precision: {AUC_alpha_precision:.3f}',
+        f'$\Delta$ β-recall: {Delta_coverage_beta:.3f}',
+        f'AUC β-recall: {AUC_beta_coverage:.3f}'
+    ))
+
+    # These are matplotlib.patches.Patch properties
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+
+    # Place a text box in upper left in axes coords
+    plt.text(0.02, 0.75, textstr, transform=plt.gca().transAxes, fontsize=12,
+             verticalalignment='top', bbox=props)
+        
     # Display the plot
     plt.grid(True)
     fig_dir = os.path.join(opts.run_dir, 'figures')
@@ -149,10 +163,15 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
         alpha_precision_curve.append(alpha_precision)
         beta_coverage_curve.append(beta_coverage)
 
-    Delta_precision_alpha = np.clip(1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(alpha_precision_curve))) * (alphas[1] - alphas[0]), 0, 1)
-    Delta_coverage_beta  = np.clip(1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(beta_coverage_curve))) * (alphas[1] - alphas[0]), 0, 1)
+    # Original metrics
+    Delta_precision_alpha = 1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(alpha_precision_curve))) * (alphas[1] - alphas[0])
+    Delta_coverage_beta  = 1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(beta_coverage_curve))) * (alphas[1] - alphas[0])
     
-    return alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, authenticity_values, authenticity
+    # New AUC metrics
+    AUC_alpha_precision = np.trapz(alpha_precision_curve, alphas)
+    AUC_beta_coverage = np.trapz(beta_coverage_curve, alphas)
+
+    return alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, AUC_alpha_precision, AUC_beta_coverage, authenticity_values, authenticity
 
 #----------------------------------------------------------------------------
 
@@ -229,24 +248,28 @@ def compute_pr_a(opts, max_real, num_gen):
 
         # Compute the metrics
         OC_res = compute_alpha_precision(opts, real_features, gen_features, emb_center)
-        alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, authenticity_values, authen = OC_res
+        alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, AUC_alpha_precision, AUC_beta_coverage, authenticity_values, authen = OC_res
         
         results[f'alphas{emb}'] = alphas
         results[f'alpha_pc{emb}'] = alpha_precision_curve
         results[f'beta_cv{emb}'] = beta_coverage_curve
         results[f'auten{emb}'] = authen
-        results[f'Dpa{emb}'] = Delta_precision_alpha
-        results[f'Dcb{emb}'] = Delta_coverage_beta
+        results[f'Dap{emb}'] = Delta_precision_alpha
+        results[f'Dbr{emb}'] = Delta_coverage_beta
+        results[f'AUC_ap{emb}'] = AUC_alpha_precision
+        results[f'AUC_br{emb}'] = AUC_beta_coverage
         results[f'Daut{emb}'] = np.mean(authen)
         if opts.rank == 0:
-            print('OneClass: Delta_precision_alpha', results[f'Dpa{emb}'])
-            print('OneClass: Delta_coverage_beta  ', results[f'Dcb{emb}'])
+            print('OneClass: Delta_alpha-precision', results[f'Dap{emb}'])
+            print('OneClass: AUC_alpha-precision', results[f'AUC_ap{emb}'])
+            print('OneClass: Delta_beta-recall  ', results[f'Dbr{emb}'])
+            print('OneClass: AUC_beta-recall  ', results[f'AUC_br{emb}'])
             print('OneClass: Delta_autenticity    ', results[f'Daut{emb}'])
     
         # Plot the curves
         if opts.rank == 0 and emb_index==1:
-            plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, authen, emb)
+            plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, Delta_precision_alpha, AUC_alpha_precision, Delta_coverage_beta, AUC_beta_coverage, authen, emb)
     
-    return results['Dpa_c'], results['Dcb_c'], results['Daut_c']
+    return results['AUC_ap_c'], results['AUC_br_c'], results['Daut_c']
 
 

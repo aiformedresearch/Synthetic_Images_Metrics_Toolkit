@@ -340,7 +340,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         # Layout with the three images side by side
         prec_rec_path = os.path.join(metric_folder, "figures/alpha_precision_beta_recall_curves_c.png")
         additional_text1 = Paragraph(
-            'The scores of <b>α-precision</b> and <b>β-recall</b> are computed based the curves shown, which are derived by computing precision and recall for several values of the α and β parameters. These parameters set thresholds to define what constitutes "typical" data, helping to reduce the influence of outliers on the final score.',
+            'The scores of <b>α-precision</b> and <b>β-recall</b> are computed from the curves shown, which are derived by computing precision and recall across several values of the α and β parameters. These parameters set thresholds to define what is considered "typical" data, helping to reduce the influence of outliers on the final evaluation. The Δ score represents the deviation from to the ideal curve (optimal performance), while the AUC (which serves as the actual score) corresponds to the area under the curve.',
             justified_style
         )
         pr_images = Table(
