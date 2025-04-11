@@ -8,8 +8,11 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
-
 import os
+import sys
+repo_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, repo_root)
+
 import click
 import tempfile
 import torch
@@ -23,7 +26,6 @@ from torch_utils import custom_ops
 import importlib 
 from metrics.create_report import generate_metrics_report
 
-import sys
 if not sys.warnoptions:
     import warnings 
     warnings.filterwarnings("ignore")
@@ -66,20 +68,29 @@ def print_config(config):
 #----------------------------------------------------------------------------
 
 def get_module_path(file_path):
-    # Normalize the path
+    """
+    Gets the module path relative to the repository root.
+    Handles both relative and absolute file paths.
+    """
     normalized_path = os.path.normpath(file_path)
-    base_dir = os.path.normpath(os.getcwd())
+    repo_name = os.path.basename(repo_root)
+    repo_path_normalized = os.path.normpath(repo_root)
 
-    # Find the relative path
-    normalized_path = os.path.relpath(normalized_path, base_dir)
+    # If the path starts with the repository root name, remove it
+    if normalized_path.startswith(repo_name + os.sep):
+        normalized_path = normalized_path[len(repo_name) + 1:]
+    elif normalized_path == repo_name:
+        normalized_path = ""
 
-    # Remove the file extension
-    root, _ = os.path.splitext(normalized_path)
+    if normalized_path.startswith(repo_path_normalized):
+        relative_path = normalized_path[len(repo_path_normalized) + 1:]
+    else:
+        # If not an absolute path within the repo, assume it's relative
+        relative_path = normalized_path
 
-    # Replace directory separators with dots
+    root, _ = os.path.splitext(relative_path)
     module_path = root.replace(os.sep, '.')
-
-    return module_path
+    return module_path.rstrip('.')
 
 #----------------------------------------------------------------------------
 
