@@ -119,9 +119,9 @@ SYNTHETIC_DATA = {
 
 import os
 from glob import glob
-import cv2
 import numpy as np
 from PIL import Image, ImageOps
+
 
 class PNGDataset(BaseDataset):
     def _load_files(self):
@@ -136,19 +136,27 @@ class PNGDataset(BaseDataset):
             try:
                 with Image.open(path) as img:
                     img = ImageOps.exif_transpose(img) # Correct orientation
-                    img = img.convert("L")             # Convert to grayscale
 
-                    image_np = np.array(img)  # (H, W, C)
+                    # Convert to either grayscale or RGB
+                    if img.mode not in ["L", "RGB"]:
+                        img = img.convert("RGB")
 
-                    images.append(image_np)
+                    img_np = np.array(img)  # Shape: (H, W) or (H, W, C)
+
+                    # Add channel dimension if grayscale
+                    if img_np.ndim == 2:
+                        img_np = img_np[np.newaxis, :, :]  # (1, H, W)
+                    elif img_np.ndim == 3:
+                        img_np = np.transpose(img_np, (2, 0, 1))  # (C, H, W)
+
+                    images.append(img_np)
             except Exception as e:
                 print(f"Warning: Could not load {path}: {e}")
 
         if not images:
-            raise RuntimeError(f"No JPEG images found in {self.path_data}")
+            raise RuntimeError(f"No PNG images found in {self.path_data}")
 
-        data = np.stack(images, axis=0)        # Shape: (N, H, W, C)
-        data = np.moveaxis(data, -1, 1)        # Convert to (N, C, H, W)
+        data = np.stack(images, axis=0)        # Shape: (N, C, H, W)
 
         return data  # [batch_size, n_channels, H, W]
 
