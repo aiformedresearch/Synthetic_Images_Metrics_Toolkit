@@ -379,3 +379,109 @@ SYNTHETIC_DATA = {
     # Write the initial content to the file
     with open(config_path, 'w') as file:
         file.write(initial_content)
+
+def select_config_file(image_type, file_format):
+  if image_type == '2D':
+    if file_format == 'PNG':
+      config_path = "configs/from_files/config_from_PNG.py"
+      print(f"config_path: {config_path}")
+      print(f"\n Expected image shape for each file: (H, W) or (H, W, C)")
+      print(f"\n Expected file structure for {image_type} {file_format} files:")
+      print("""    path/to/real_data/
+        ├── image001.png
+        ├── image002.png
+        ├── image003.png
+        ├── ...
+      path/to/synt_data/
+        ├── image001.png
+        ├── image002.png
+        ├── image003.png
+        ├── ...
+            """)
+      
+    elif file_format == 'JPG' or file_format == 'JPEG':
+      config_path = "configs/from_files/config_from_JPG.py"
+      print(f"config_path: {config_path}")
+      print(f"\n Expected image shape for each file: (H, W) or (H, W, C)")
+      print(f"Expected file structure for {image_type} {file_format} files:")
+      print("""    path/to/real_data/
+        ├── image001.jpg
+        ├── image002.jpg
+        ├── image003.jpg
+        ├── ...
+      path/to/synt_data/
+        ├── image001.jpg
+        ├── image002.jpg
+        ├── image003.jpg
+        ├── ...
+            """)
+      
+    elif file_format == 'TIF' or file_format == 'TIFF':
+      config_path = "configs/from_files/config_from_TIF.py"
+      print(f"config_path: {config_path}")
+      print(f"\n Expected image shape for each file: (H, W) or (H, W, C)")
+      print(f"\n Expected file structure for {image_type} {file_format} files:")
+      print("""    path/to/real_data/
+        ├── image001.tif
+        ├── image002.tif
+        ├── image003.tif
+        ├── ...
+      path/to/synt_data/
+        ├── image001.tif
+        ├── image002.tif
+        ├── image003.tif
+        ├── ...
+            """)
+      
+    elif file_format == 'NIfTI':
+      config_path = "configs/from_files/config_from_NIfTI.py"
+      print(f"config_path: {config_path}")
+      print(f"\n Expected image shape for each file: (W, H, C, N) - with N: #images")
+      print(f"\n Expected file structure for {image_type} {file_format} files:")
+      print("""    ── path/to/real_data.nii.gz
+      ── path/to/synt_data.nii.gz
+            """)
+    else:
+      raise ValueError("File format not supported")
+
+  elif image_type == '3D':
+    if file_format == 'NIfTI':
+      config_path = f"configs/from_files/config_from_NIfTI_3D.py"
+      print(f"config_path: {config_path}")
+      print(f"\n Expected image shape for each file: (H, W, D)")
+      print(f"\n Expected file structure for {image_type} {file_format} files:")
+      print("""    path/to/real_data/
+        ├── subj001.nii.gz
+        ├── subj002.nii.gz
+        ├── subj003.nii.gz
+        ├── ...
+      path/to/real_data/
+        ├── subj001.nii.gz
+        ├── subj002.nii.gz
+        ├── subj003.nii.gz
+        ├── ...
+            """)
+      
+    elif file_format == 'TIF' or file_format == 'TIFF':
+      config_path = f"configs/from_files/config_from_TIF.py"
+      print(f"config_path: {config_path}")
+      print(f"\n Expected image shape for each file: (H, W, D)")
+      print(f"\n Expected file structure for {image_type} {file_format} files:")
+      print("""    path/to/real_data/
+        ├── image001.tif
+        ├── image002.tif
+        ├── image003.tif
+        ├── ...
+      path/to/synt_data/
+        ├── image001.tif
+        ├── image002.tif
+        ├── image003.tif
+        ├── ...
+            """)
+      
+    else:
+      raise ValueError("File format not supported")
+  else:
+    raise ValueError("Image type not supported")
+  return config_path
+
