@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
 # SPDX-License-Identifier: NPOSL-3.0
 
+import numpy as np
+import nibabel as nib
+import matplotlib.pyplot as plt
 import re
 from typing import Any, Dict, List, Union
 
@@ -8,6 +11,34 @@ from typing import Any, Dict, List, Union
 Utility functions for the Google Colab tutorial
 """
 
+def load_and_visualize(data_path):
+    # Load the NIfTI file
+    data = nib.load(data_path)
+    data = np.asanyarray(data.dataobj)
+    data = np.float64(data)
+
+    # Get dimensions (W, H, C, N)
+    W, H, C, N = data.shape
+    assert W == H
+    print(f"shape: {data.shape}")
+
+    # Reshape to (N, C, W, H)
+    data = np.swapaxes(data, 0, 3)
+    data = np.swapaxes(data, 1, 2)
+
+    # Select the first 5 images for visualization
+    num_images = 5
+    selected_images = data[:num_images, 0, :, :]
+
+    # Plot images in a 5x1 grid
+    fig, axes = plt.subplots(1, num_images, figsize=(10, 5))
+
+    for i, ax in enumerate(axes):
+        ax.imshow(selected_images[i], cmap="gray")
+        ax.axis("off")
+
+    plt.tight_layout()
+    plt.show()
 
 def update_config_variable(config_path: str, variable_path: str, new_value: Any) -> None:
     """
