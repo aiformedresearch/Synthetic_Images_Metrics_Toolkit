@@ -37,7 +37,10 @@ def compute_distances(row_features, col_features, num_gpus, rank, col_batch_size
 #----------------------------------------------------------------------------
 
 def compute_pr(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_size):
-    detector_url = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/vgg16.pt'
+    if opts.data_type in ['2d', '2D']:
+        detector_url = ('https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/vgg16.pt', '2d')
+    elif opts.data_type in ['3d', '3D']:
+        detector_url = ('https://zenodo.org/records/15234379/files/resnet_50_23dataset_cpu.pth?download=1', '3d')
     detector_kwargs = dict(return_features=True)
 
     real_features = metric_utils.compute_feature_stats_for_dataset(

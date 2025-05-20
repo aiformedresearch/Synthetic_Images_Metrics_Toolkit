@@ -39,7 +39,7 @@ def update_closest_images(closest_images, closest_similarities, closest_indices,
     return closest_images, closest_similarities, closest_indices
 
 # Generate batches of synthetic images and compare to real embeddings
-def process_batches_and_find_closest(opts, real_embeddings, detector_url, detector_kwargs, num_gen, batch_size=64, k=8):
+def process_batches_and_find_closest(opts, real_embeddings, detector_url, detector_kwargs, num_gen, k=8):
     num_real_images = real_embeddings.shape[0]
 
     if not opts.use_pretrained_generator:
@@ -53,7 +53,7 @@ def process_batches_and_find_closest(opts, real_embeddings, detector_url, detect
     closest_indices = {i: [] for i in range(num_real_images)}
 
     # Loop over synthetic image batches
-    batch_size = min(num_gen, batch_size)
+    batch_size = min(num_gen, opts.batch_size)
     num_batches = num_gen // batch_size
 
     for batch_idx in range(num_batches):
@@ -81,9 +81,12 @@ def process_batches_and_find_closest(opts, real_embeddings, detector_url, detect
 
 
 # Main function to compute embeddings, find k-NN in batches, and visualize results
-def plot_knn(opts, max_real, num_gen, batch_size=64, k=8, top_n=6):
+def plot_knn(opts, max_real, num_gen, k=8, top_n=6):
     #detector_url = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/inception-2015-12-05.pt'
-    detector_url = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/vgg16.pt'
+    if opts.data_type in ['2d', '2D']:
+        detector_url = ('https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/vgg16.pt', '2d')
+    elif opts.data_type in ['3d', '3D']:
+        detector_url = ('https://zenodo.org/records/15234379/files/resnet_50_23dataset_cpu.pth?download=1', '3d')
     detector_kwargs = dict(return_features=True) # Return raw features before the softmax layer.
 
     # Step 1: Get embeddings for real images
@@ -94,13 +97,13 @@ def plot_knn(opts, max_real, num_gen, batch_size=64, k=8, top_n=6):
 
     # Step 2: Process synthetic images in batches and find the closest synthetic images
     closest_images, closest_similarities, closest_indices = process_batches_and_find_closest(
-        opts, real_embeddings, detector_url, detector_kwargs, num_gen=num_gen, batch_size=batch_size, k=k
+        opts, real_embeddings, detector_url, detector_kwargs, num_gen=num_gen, k=k
     )
 
     # Step 3: Select the top_n real images with the smallest distance to any synthetic image
     fig_path = opts.run_dir + '/figures/knn_analysis.png'
     fig_path = metric_utils.get_unique_filename(fig_path)
     top_n_real_indices = metric_utils.select_top_n_real_images(closest_similarities, top_n=top_n)
-    metric_utils.visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, fig_path, batch_size, top_n=top_n, k=k)
+    metric_utils.visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, fig_path, top_n=top_n, k=k)
 
     return fig_path

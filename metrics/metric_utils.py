@@ -19,7 +19,9 @@ import copy
 import uuid
 import numpy as np
 import torch
+import torch.nn as nn
 import dnnlib
+import platform
 
 from representations.OneClass import OneClassLayer
 import tensorflow as tf
@@ -30,11 +32,12 @@ from PIL import Image
 from pathlib import Path
 import inspect
 from metrics import metric_main
+from representations import resnet3d
 
 #----------------------------------------------------------------------------
 
 class MetricOptions:
-    def __init__(self, run_dir, use_pretrained_generator, run_generator, network_pkl, num_gen, nhood_size, knn_config, padding, oc_detector_path, train_OC, G=None, G_kwargs={}, dataset_kwargs={}, dataset_synt_kwargs={}, num_gpus=1, rank=0, device=None, progress=None, cache=True):
+    def __init__(self, run_dir, batch_size, data_type, use_pretrained_generator, run_generator, network_pkl, num_gen, nhood_size, knn_config, padding, oc_detector_path, train_OC, cache, G=None, G_kwargs={}, dataset_kwargs={}, dataset_synt_kwargs={}, num_gpus=1, rank=0, device=None, progress=None):
         assert 0 <= rank <= num_gpus
         self.G              = G
         self.G_kwargs       = dnnlib.EasyDict(G_kwargs)
@@ -57,10 +60,65 @@ class MetricOptions:
         self.train_OC       = train_OC
         self.run_generator  = run_generator
         self.use_pretrained_generator = use_pretrained_generator
+        self.data_type      = data_type
+        self.batch_size     = batch_size
 
 #----------------------------------------------------------------------------
 
 _feature_detector_cache = dict()
+_feature_detector_3d_cache = dict()
+
+class ResNet3DEmbedder(nn.Module):
+    def __init__(self, checkpoint_path, device):
+        super().__init__()
+        self.device = device
+        self._feature_output = None
+        self.model = self._load_model(checkpoint_path)
+        self._register_hook()
+
+    def _load_model(self, checkpoint_path):
+        use_cuda = self.device == "cuda" and torch.cuda.is_available()
+        model = resnet3d.resnet50(
+            shortcut_type='B',
+            no_cuda=not use_cuda)
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        model.load_state_dict(checkpoint['state_dict'], strict=False)
+        return model.to(self.device).eval()
+
+    def _register_hook(self):
+        def hook_fn(_, __, output):
+            self._feature_output = output.detach()
+
+        # Register hook on layer4 only once
+        self.model.layer4.register_forward_hook(hook_fn)
+
+    def forward(self, x):
+        self._feature_output = None
+        with torch.no_grad():
+            _ = self.model(x)
+
+        if self._feature_output is None:
+            raise RuntimeError("Feature hook did not capture output from layer4.")
+
+        # Global Average Pooling over 3D spatial dimensions
+        embedding = self._feature_output.mean(dim=(-1, -2, -3))
+        return embedding
+
+def download_pretrained_model(url, destination_path):
+    """Downloads a pre-trained model from a URL if it doesn't exist locally."""
+    if not os.path.exists(destination_path):
+        print(f"Downloading pre-trained model from: {url} to {destination_path}")
+        try:
+            state_dict = torch.hub.load_state_dict_from_url(url, progress=True, map_location='cpu')
+            # Save the downloaded state_dict
+            os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+            torch.save({'state_dict': state_dict}, destination_path)
+            print("Pre-trained model downloaded successfully.")
+        except Exception as e:
+            print(f"Error downloading pre-trained model: {e}")
+            raise
+    else:
+        print(f"Pre-trained model found at: {destination_path}")
 
 # def get_feature_detector_name(url):
 #     return os.path.splitext(url.split('/')[-1])[0]
@@ -71,23 +129,44 @@ def get_feature_detector_name(url):
     - "url" is a string with the path to the detector (NVIDIA pretrained models)
     - "url" is a dictionary with the model name (to exploit tf pretrained models)
     """
-    if type(url)==str and url.startswith('https://') and url.endswith('.pt'):
-        detector_name = os.path.splitext(url.split('/')[-1])[0]
+    if type(url)== tuple and url[1] == '2d':
+        detector_name = os.path.splitext(url[0].split('/')[-1])[0]
+    elif type(url)== tuple and url[1] == '3d':
+        detector_name = os.path.splitext(url[0].split('/')[-1])[0]
     elif type(url)==dict:
         detector_name = url['model']
     return detector_name
 
+    
 def get_feature_detector(url, device=torch.device('cpu'), num_gpus=1, rank=0, verbose=False):
     assert 0 <= rank <= num_gpus
-    key = (url, device)
-    if key not in _feature_detector_cache:
-        is_leader = (rank == 0)
-        if not is_leader and num_gpus > 1:
-            torch.distributed.barrier() # leader goes first
-        with dnnlib.util.open_url(url, verbose=(verbose and is_leader)) as f:
-            _feature_detector_cache[key] = torch.jit.load(f).eval().to(device)
-        if is_leader and num_gpus > 1:
-            torch.distributed.barrier() # others follow
+    key = (url[0], device)
+    if type(url)== tuple and url[1] == '3d':
+        if key not in _feature_detector_3d_cache:
+            is_leader = (rank == 0)
+            if not is_leader and num_gpus > 1:
+                torch.distributed.barrier() # leader goes first
+
+            # Define a local path for the downloaded checkpoint
+            pretrained_dir = dnnlib.make_cache_dir_path('pretrained_models')
+            os.makedirs(pretrained_dir, exist_ok=True)
+            filename = os.path.basename(url[0].split('?')[0])
+            checkpoint_path = os.path.join(pretrained_dir, filename)
+            download_pretrained_model(url[0], checkpoint_path)
+            model = ResNet3DEmbedder(checkpoint_path, device).eval().to(device)
+            _feature_detector_3d_cache[key] = model
+            if is_leader and num_gpus > 1:
+                torch.distributed.barrier() # others follow
+        return _feature_detector_3d_cache[key]        
+    else:
+        if key not in _feature_detector_cache:
+            is_leader = (rank == 0)
+            if not is_leader and num_gpus > 1:
+                torch.distributed.barrier() # leader goes first
+            with dnnlib.util.open_url(url[0], verbose=(verbose and is_leader)) as f:
+                _feature_detector_cache[key] = torch.jit.load(f).eval().to(device)
+            if is_leader and num_gpus > 1:
+                torch.distributed.barrier() # others follow
     return _feature_detector_cache[key]
 
 #----------------------------------------------------------------------------
@@ -262,11 +341,20 @@ def validate_config(config):
                     errors.append(f"METRICS_CONFIGS['K-NN_configs']['{key}'] must be a positive integer.")
 
     def validate_configs(configs):
-        required_keys = ["RUN_DIR", "NUM_GPUS", "VERBOSE", "OC_DETECTOR_PATH"]
+        required_keys = ["RUN_DIR", "DATA_TYPE", "USE_CACHE", "NUM_GPUS", "VERBOSE", "OC_DETECTOR_PATH"]
         check_required_keys(configs, required_keys, "CONFIGS")
 
         if not isinstance(configs["RUN_DIR"], (str, Path)):
             errors.append("RUN_DIR must be a string or Path object.")
+
+        allowed_values = ['2d', '2D', '3d', '3D']
+        if not isinstance(configs["DATA_TYPE"], str):
+            errors.append("DATA_TYPE must be a string.")
+        elif not configs["DATA_TYPE"] in allowed_values:
+            errors.append(f"DATA_TYPE allowed values: {allowed_values}")
+
+        if not isinstance(configs["USE_CACHE"], bool):
+            errors.append("USE_CACHE must be a boolean (True/False).")
 
         if not isinstance(configs["NUM_GPUS"], int) or configs["NUM_GPUS"] < 0:
             errors.append("NUM_GPUS must be an integer greater than or equal to 0.")
@@ -401,18 +489,33 @@ def get_latest_figure(file_path):
 
 def visualize_ex_samples(args, device, rank=0, verbose=True):
 
-    def load_img(ds_kwargs):
+    def load_img(args, ds_kwargs):
         dataset = dnnlib.util.construct_class_by_name(**ds_kwargs)
-        data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2)
+        data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2) if platform.system() != 'Windows' else dict(pin_memory=True, num_workers=0)
         item_subset = [0]
         batch_size = 1
         dataloader = torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs)    
         image, label = next(iter(dataloader))
-        sample = image[0,0,:,:]
+        if args.data_type in ['2d', '2D']:
+            assert len(image.shape)==4, f"Error: Expected 4 dimensions for 2D image, but got {len(image.shape)}"
+            sample = image[0,0,:,:]
+        elif args.data_type in ['3d', '3D']:
+            #assert len(image.shape)==5, f"Error: Expected 5 dimensions for 3D volume, but got {len(image.shape)}"
+            # sample = image[0,0,:,:,:]
+            sample = image[0,:,:,:]
         return sample, label, dataset._use_labels
 
+    def extract_slices(volume):
+        """Extract axial, coronal, sagittal central slices from 3D volume."""
+        c, d, h, w = volume.shape
+        return [
+            volume[0, d // 2, :, :],     # Axial (XY)
+            volume[0, :, h // 2, :],     # Coronal (XZ)
+            volume[0, :, :, w // 2],     # Sagittal (YZ)
+        ]
+    
     # Load a real image
-    real_sample, label, use_labels = load_img(args.dataset_kwargs)
+    real_sample, label, use_labels = load_img(args, args.dataset_kwargs)
 
     if args.use_pretrained_generator:
         # Generate a synthetic image
@@ -423,21 +526,40 @@ def visualize_ex_samples(args, device, rank=0, verbose=True):
             img_synth = args.run_generator(z, c, args).to(device)
         else:
             img_synth = args.run_generator(z, args).to(device)
-        synth_sample = img_synth[0,0,:,:].cpu().detach().numpy()
+        if args.data_type in ['2d', '2D']:
+            synth_sample = img_synth[0,0,:,:].cpu().detach().numpy()
+        elif args.data_type in ['3d', '3D']:
+            synth_sample = img_synth[0, 0, :, :, :].cpu().detach().numpy()
     else:
         # Load a synthetic image
-        synth_sample, _, _ = load_img(args.dataset_synt_kwargs)
+        synth_sample, _, _ = load_img(args, args.dataset_synt_kwargs)
 
-    # Plot the images in a 2x1 subplot
-    fig, axs = plt.subplots(1, 2, figsize=(20, 12))
+    # Prepare figures
+    if args.data_type in ['2d', '2D']:
+        fig, axs = plt.subplots(1, 2, figsize=(20, 12))
 
-    axs[0].imshow(real_sample, cmap='gray')
-    axs[0].set_title(f'Real Sample\n∈ [{real_sample.min()}, {real_sample.max()}]\ndtype: {real_sample.dtype}', fontsize=25)
-    axs[0].axis('off')
+        axs[0].imshow(real_sample, cmap='gray')
+        axs[0].set_title(f'Real Sample\n∈ [{real_sample.min()}, {real_sample.max()}]\ndtype: {real_sample.dtype}', fontsize=25)
+        axs[0].axis('off')
 
-    axs[1].imshow(synth_sample, cmap='gray')
-    axs[1].set_title(f'Synthetic Sample\n∈ [{synth_sample.min()}, {synth_sample.max()}]\ndtype: {synth_sample.dtype}', fontsize=25)
-    axs[1].axis('off')
+        axs[1].imshow(synth_sample, cmap='gray')
+        axs[1].set_title(f'Synthetic Sample\n∈ [{synth_sample.min()}, {synth_sample.max()}]\ndtype: {synth_sample.dtype}', fontsize=25)
+        axs[1].axis('off')
+
+    elif args.data_type in ['3d', '3D']:
+        real_slices = extract_slices(real_sample)
+        synth_slices = extract_slices(synth_sample)
+        fig, axs = plt.subplots(2, 3, figsize=(18, 10))
+
+        for i, (slice_img, title) in enumerate(zip(real_slices, ['Axial', 'Coronal', 'Sagittal'])):
+            axs[0, i].imshow(slice_img, cmap='gray')
+            axs[0, i].set_title(f"Real {title}", fontsize=20)
+            axs[0, i].axis('off')
+
+        for i, (slice_img, title) in enumerate(zip(synth_slices, ['Axial', 'Coronal', 'Sagittal'])):
+            axs[1, i].imshow(slice_img, cmap='gray')
+            axs[1, i].set_title(f"Synthetic {title}", fontsize=20)
+            axs[1, i].axis('off')
 
     plt.tight_layout()
     fig_dir = os.path.join(args.run_dir, 'figures')
@@ -532,7 +654,7 @@ def adjust_size_embedder(opts, embedder, embedding, batch):
 
     return batch
 
-def get_activation_from_dataset(opts, dataset, max_img, embedding, embedder=None, verbose=True, save_act=False, batch_size=64*2):
+def get_activation_from_dataset(opts, dataset, max_img, embedding, embedder=None, verbose=True, save_act=False):
     
     act_filename = f'{opts.run_dir}/act_{embedding["model"]}_{embedding["dim64"]}_{embedding["randomise"]}'
     # Check if embeddings are already available
@@ -547,19 +669,21 @@ def get_activation_from_dataset(opts, dataset, max_img, embedding, embedder=None
         if verbose:
             print('Calculating activations')
         n_imgs = min(len(dataset), max_img) if max_img is not None else len(dataset)
-        if batch_size is None:
+        if opts.batch_size is None:
             batch_size = n_imgs
-        elif batch_size > n_imgs:
-            print("warning: batch size is bigger than the data size. setting batch size to data size")
+        else:
+            batch_size = opts.batch_size*2
+        if batch_size > n_imgs:
+            print("warning: batch size is bigger than the data size. Setting batch size to data size")
             batch_size = n_imgs
         n_batches = (n_imgs + batch_size - 1) // batch_size
     
-        pred_arr = np.empty((n_imgs,embedder.output.shape[-1]))
+        pred_arr = torch.empty((n_imgs, embedder.output.shape[-1]), dtype=torch.float32).to(opts.device)
         if opts.num_gpus>0:
             item_subset = [(i * opts.num_gpus + opts.rank) % n_imgs for i in range((n_imgs - 1) // opts.num_gpus + 1)]
         else:
             item_subset = list(range(n_imgs))
-        data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2)
+        data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2) if platform.system() != 'Windows' else dict(pin_memory=True, num_workers=0)
         i=0
         for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs):
             if verbose:
@@ -575,8 +699,8 @@ def get_activation_from_dataset(opts, dataset, max_img, embedding, embedder=None
 
             batch_embedding = embedder(batch)
 
-            # Convert to numpy array:
-            pred_arr[start:end] = np.stack(list(batch_embedding))
+            # Convert to PyTorch:
+            pred_arr[start:end] = torch.from_numpy(batch_embedding.numpy()).to(opts.device)
             del batch #clean up memory        
         if verbose:
             print(" done")
@@ -586,7 +710,7 @@ def get_activation_from_dataset(opts, dataset, max_img, embedding, embedder=None
             np.savez(f'{act_filename}', act=act,embedding=embedding)
     return act
 
-def get_activation_from_generator(opts, num_gen, embedding, embedder=None, verbose=True, batch_size=64*2):
+def get_activation_from_generator(opts, num_gen, embedding, embedder=None, verbose=True):
     act_filename = f'{opts.run_dir}/act_{embedding["model"]}_{embedding["dim64"]}_{embedding["randomise"]}'
     # Check if embeddings are already available
     if os.path.exists(f'{act_filename}.npz'):
@@ -609,9 +733,11 @@ def get_activation_from_generator(opts, num_gen, embedding, embedder=None, verbo
         n_generated = 0
 
         n_imgs = num_gen
-        if batch_size is None:
+        if opts.batch_size is None:
             batch_size = n_imgs
-        elif batch_size > n_imgs:
+        else:
+            batch_size = opts.batch_size*2
+        if batch_size > n_imgs:
             print("warning: batch size is bigger than the data size. setting batch size to data size")
             batch_size = n_imgs
         n_batches = (n_imgs + batch_size - 1) // batch_size
@@ -627,7 +753,7 @@ def get_activation_from_generator(opts, num_gen, embedding, embedder=None, verbo
             else:
                 end = n_imgs
             n_to_generate = end-start
-            z = torch.randn([n_to_generate, G.z_dim], device=opts.device)
+            z = torch.randn([n_to_generate, *(G.z_dim if isinstance(G.z_dim, (list, tuple)) else [G.z_dim])], device=opts.device)
             # define c as a vector with batch_size elements sampled from 0 and 1:
             half_n = n_to_generate // 2
             c = [torch.tensor([1, 0]) for _ in range(half_n)] + [torch.tensor([0, 1]) for _ in range(half_n)]       
@@ -667,8 +793,10 @@ def extract_features_from_detector(opts, images, detector, detector_url, detecto
         images = adjust_size_embedder(opts, detector, detector_url, images)
         features = detector(images)                                   # tf.EagerTensor
         features = torch.from_numpy(features.numpy()).to(opts.device) # torch.Tensor
-    else:
+    elif type(detector_url)==tuple and detector_url[1]=='2d':
         features = detector(images.to(opts.device), **detector_kwargs)
+    elif type(detector_url)==tuple and detector_url[1]=='3d':
+        features = detector(images.to(opts.device))
     return features
 
 def define_detector(opts, detector_url, progress):
@@ -712,9 +840,9 @@ def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None):
 
 #----------------------------------------------------------------------------
 
-def compute_feature_stats_for_dataset(opts, dataset, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, batch_size=64, dataset_kwargs=None, data_loader_kwargs=None, max_items=None, return_imgs=False, item_subset=None, **stats_kwargs):
+def compute_feature_stats_for_dataset(opts, dataset, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, dataset_kwargs=None, data_loader_kwargs=None, max_items=None, return_imgs=False, item_subset=None, **stats_kwargs):
     if data_loader_kwargs is None:
-        data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2)
+        data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2) if platform.system() != 'Windows' else dict(pin_memory=True, num_workers=0)
 
     # Try to lookup from cache.
     cache_file = None
@@ -752,8 +880,8 @@ def compute_feature_stats_for_dataset(opts, dataset, detector_url, detector_kwar
         else:
             item_subset = list(range(num_items))
         
-    for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs):
-        if images.shape[1] == 1:
+    for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=opts.batch_size, **data_loader_kwargs):
+        if images.shape[1] == 1 and opts.data_type in ['2d', '2D']:
             images = images.repeat([1, 3, 1, 1])
         features = extract_features_from_detector(opts, images, detector, detector_url, detector_kwargs)
         stats.append_torch(features, num_gpus=opts.num_gpus, rank=opts.rank)
@@ -771,10 +899,10 @@ def compute_feature_stats_for_dataset(opts, dataset, detector_url, detector_kwar
         return stats
 #----------------------------------------------------------------------------
 
-def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, batch_size=64, batch_gen=None, jit=False, return_imgs=False, **stats_kwargs):
+def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, batch_gen=None, jit=False, return_imgs=False, **stats_kwargs):
     if batch_gen is None:
-        batch_gen = min(batch_size, 4)
-    assert batch_size % batch_gen == 0
+        batch_gen = min(opts.batch_size, 4)
+    assert opts.batch_size % batch_gen == 0
 
     # Setup generator and load labels.
     G = copy.deepcopy(opts.G).eval().requires_grad_(False).to(opts.device)
@@ -798,7 +926,7 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
     # Main loop.
     while not stats.is_full():
         images = []
-        for _i in range(batch_size // batch_gen):
+        for _i in range(opts.batch_size // batch_gen):
             z = torch.randn([batch_gen, *(G.z_dim if isinstance(G.z_dim, (list, tuple)) else [G.z_dim])], device=opts.device)
             if dataset._use_labels:
                 c = [dataset.get_label(np.random.randint(len(dataset))) for _i in range(batch_gen)]
@@ -877,6 +1005,61 @@ def visualize_grid(opts, real_images, synthetic_images, top_n_real_indices, clos
     plt.tight_layout()
     plt.savefig(fig_path)
 
+def extract_slices(volume):
+    """Extract axial, coronal, sagittal central slices from 3D volume (C, D, H, W)."""
+    d, h, w = volume.shape
+    return [
+        volume[d // 2, :, :],     # Axial (XY)
+        volume[:, h // 2, :],     # Coronal (XZ)
+        volume[:, :, w // 2],     # Sagittal (YZ)
+    ]
+
+def visualize_grid_3d(opts, real_volumes, synthetic_volumes, top_n_real_indices, closest_synthetic_indices, fig_path, top_n, k):
+    n_slices = 3  # Axial, Coronal, Sagittal
+    fig, axes = plt.subplots(top_n * n_slices, k + 1, figsize=(5 * (k + 1), 5 * top_n * n_slices))
+    base_fontsize = max(35, 30 - k)
+
+    for row_idx in range(top_n):
+        real_volume = real_volumes[row_idx][0].cpu()  # Shape (C, D, H, W)
+        real_slices = extract_slices(real_volume)
+
+        for slice_idx, (real_slice, slice_title) in enumerate(zip(real_slices, ['Axial', 'Coronal', 'Sagittal'])):
+            ax = axes[row_idx * n_slices + slice_idx, 0]
+            ax.imshow(real_slice, cmap='gray')
+            ax.axis('off')
+            if row_idx == 0:
+                ax.set_title(f"Real\n{slice_title}", fontsize=base_fontsize)
+            # Add index annotation below the real slices (using the first slice's axes)
+            if slice_idx == 0:
+                ax.text(
+                    0.5, -0.1, str(top_n_real_indices[row_idx]),
+                    fontsize=base_fontsize - 10, color='black', ha='center', va='bottom',
+                    transform=ax.transAxes
+                )
+
+            # Show the top k synthetic images
+            for col_idx in range(k):
+                synth_volume = synthetic_volumes[row_idx][col_idx]
+
+                synth_slices = extract_slices(synth_volume)
+                synth_slice = synth_slices[slice_idx] # Get the corresponding slice
+
+                ax_synth = axes[row_idx * n_slices + slice_idx, col_idx + 1]
+                ax_synth.imshow(synth_slice, cmap='gray')
+                ax_synth.axis('off')
+                if row_idx == 0:
+                    ax_synth.set_title(f"Synth {col_idx + 1}\n{slice_title}", fontsize=base_fontsize)
+
+                if not opts.use_pretrained_generator and slice_idx == 0:
+                    ax_synth.text(
+                        0.5, -0.1, str(closest_synthetic_indices[top_n_real_indices[row_idx]][col_idx]),
+                        fontsize=base_fontsize - 10, color='black', ha='center', va='bottom',
+                        transform=ax_synth.transAxes
+                    )
+
+    plt.tight_layout()
+    plt.savefig(fig_path)
+
 def select_top_n_real_images(closest_similarities, top_n=6):
     """
     Select the top-n real images based on the highest similarity.
@@ -890,7 +1073,7 @@ def select_top_n_real_images(closest_similarities, top_n=6):
     return sorted_real_indices
 
 
-def visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, fig_path, batch_size, top_n=6, k=8):
+def visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, fig_path, top_n=6, k=8):
     """
     Visualize the top-k closest synthetic images for the selected real images.
     """
@@ -898,11 +1081,13 @@ def visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, f
     dataset = dnnlib.util.construct_class_by_name(**opts.dataset_kwargs)
 
     # Use the indices of the closest synthetic images to load the real images from the dataset
-    real_images, _ = next(iter(torch.utils.data.DataLoader(dataset=dataset, sampler=top_n_real_indices, batch_size=batch_size)))
+    real_images, _ = next(iter(torch.utils.data.DataLoader(dataset=dataset, sampler=top_n_real_indices, batch_size=opts.batch_size)))
 
     # Collect the synthetic images corresponding to each real image from closest_images
     synthetic_images_to_visualize = [closest_images[real_idx][:k] for real_idx in top_n_real_indices]
 
     # Now visualize the real image and the k closest synthetic images
-    visualize_grid(opts, real_images, synthetic_images_to_visualize, top_n_real_indices, closest_indices, fig_path, top_n, k)
-   
+    if opts.data_type in ['2d','2D']:
+        visualize_grid(opts, real_images, synthetic_images_to_visualize, top_n_real_indices, closest_indices, fig_path, top_n, k)
+    elif opts.data_type in ['3d','3D']:
+        visualize_grid_3d(opts, real_images, synthetic_images_to_visualize, top_n_real_indices, closest_indices, fig_path, top_n, k)

@@ -145,7 +145,7 @@ class OneClassLayer(BaseNet):
         
         if self.train_prop != 1:
             x_train, x_val = x_train[:int(self.train_prop*len(x_train))], x_train[int(self.train_prop*len(x_train)):]
-            inputs_val = Variable(torch.from_numpy(x_val).to(self.device)).float()
+            inputs_val = Variable(x_val.to(self.device)).float()
         
         self.losses         = []
         self.loss_vals       = []
@@ -153,7 +153,7 @@ class OneClassLayer(BaseNet):
         for epoch in range(self.epochs):
             
             # Converting inputs and labels to Variable
-            inputs = Variable(torch.from_numpy(x_train)).to(self.device).float()
+            inputs = Variable(x_train).to(self.device).float()
             
             self.model.zero_grad()
 

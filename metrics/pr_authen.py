@@ -83,14 +83,15 @@ def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
     real_to_real = torch.from_numpy(real_to_real[:, 1].squeeze())  # Closest other real image (excluding itself)
 
     # Shuffle synthetic data once and split into batches without replacement
-    np.random.shuffle(synthetic_data)  # Shuffle synthetic data to ensure randomness
+    idx = torch.randperm(synthetic_data.size(0))
+    synthetic_data = synthetic_data[idx]
     num_batches = int(np.ceil(synthetic_data.shape[0] / batch_size))
 
     for i in range(num_batches):
         # Select batch of synthetic images without replacement
         start_idx = i * batch_size
         end_idx = min((i + 1) * batch_size, synthetic_data.shape[0])
-        subset_synth_data = synthetic_data[start_idx:end_idx]
+        subset_synth_data = synthetic_data[start_idx:end_idx].cpu().numpy()
 
         # Compute nearest neighbors for this batch of synthetic data
         nbrs_synth = NearestNeighbors(n_neighbors=1, n_jobs=-1, p=2).fit(subset_synth_data)
@@ -101,7 +102,7 @@ def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
 
         # Find the closest real point to any real point (excluding itself)
         authen = real_to_real[real_to_synth_args_auth] < real_to_synth_auth
-        batch_authenticity = np.mean(authen.numpy())
+        batch_authenticity = authen.float().mean().item()
         authenticity_values.append(batch_authenticity)
 
     # Compute and return the average authenticity
@@ -109,56 +110,55 @@ def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
     return authenticity_values, authenticity
 
 def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
-    
-    emb_center = torch.tensor(emb_center, device='cpu')
 
     n_steps = 30
     nn_size = opts.nhood_size["pr_auth"]
     alphas  = np.linspace(0, 1, n_steps)
         
-    Radii   = np.quantile(torch.sqrt(torch.sum((torch.tensor(real_data).float() - emb_center) ** 2, dim=1)), alphas)
+    Radii   = np.quantile(torch.sqrt(torch.sum((real_data.float() - emb_center) ** 2, dim=1)).cpu().numpy(), alphas)
     
-    synth_center          = torch.tensor(np.mean(synthetic_data, axis=0)).float()
+    synth_center          = synthetic_data.float().mean(dim=0)
     
     alpha_precision_curve = []
     beta_coverage_curve   = []
     
-    synth_to_center       = torch.sqrt(torch.sum((torch.tensor(synthetic_data).float() - emb_center) ** 2, dim=1))
+    synth_to_center       = torch.sqrt(torch.sum((synthetic_data.float() - emb_center) ** 2, dim=1))
       
-    nbrs_real = NearestNeighbors(n_neighbors = nn_size+1, n_jobs=-1, p=2).fit(real_data)
-    real_to_real, _       = nbrs_real.kneighbors(real_data)
+    real_data_np = real_data.cpu().numpy()
+    nbrs_real = NearestNeighbors(n_neighbors = nn_size+1, n_jobs=-1, p=2).fit(real_data_np)
+    real_to_real, _       = nbrs_real.kneighbors(real_data_np)
     
-    nbrs_synth = NearestNeighbors(n_neighbors = nn_size, n_jobs=-1, p=2).fit(synthetic_data)
-    real_to_synth, real_to_synth_args = nbrs_synth.kneighbors(real_data)
+    nbrs_synth = NearestNeighbors(n_neighbors = nn_size, n_jobs=-1, p=2).fit(synthetic_data.cpu().numpy())
+    real_to_synth, real_to_synth_args = nbrs_synth.kneighbors(real_data_np)
 
     # To compute authenticity, select a subset of fake images of the same number of real images
     smaller_population = min(real_data.shape[0], synthetic_data.shape[0])
-    subset_synth_data = synthetic_data[np.random.choice(synthetic_data.shape[0], smaller_population, replace=False)]
+    subset_synth_data = synthetic_data[np.random.choice(synthetic_data.shape[0], smaller_population, replace=False)].cpu().numpy()
     nbrs_synth_auth = NearestNeighbors(n_neighbors = 1, n_jobs=-1, p=2).fit(subset_synth_data)
-    real_to_synth_auth, real_to_synth_args_auth = nbrs_synth_auth.kneighbors(real_data)
+    real_to_synth_auth, real_to_synth_args_auth = nbrs_synth_auth.kneighbors(real_data_np)
 
     # Let us find closest real point to any real point, excluding itself
-    real_to_real          = torch.from_numpy(real_to_real[:,-1].squeeze()) # Use the k-th neighbor distance
-    real_to_synth         = torch.from_numpy(real_to_synth[:,-1].squeeze()) # Use the k-th neighbor distance
+    real_to_real          = torch.from_numpy(real_to_real[:,-1].squeeze()).to(opts.device) # Use the k-th neighbor distance
+    real_to_synth         = torch.from_numpy(real_to_synth[:,-1].squeeze()).to(opts.device) # Use the k-th neighbor distance
     real_to_synth_auth    = torch.from_numpy(real_to_synth_auth.squeeze())
     real_to_synth_args    = real_to_synth_args[:,-1].squeeze()
     real_to_synth_args_auth = real_to_synth_args_auth.squeeze()
 
-    real_synth_closest    = synthetic_data[real_to_synth_args]
+    real_synth_closest    = synthetic_data[real_to_synth_args].to(opts.device)
     
-    real_synth_closest_d  = torch.sqrt(torch.sum((torch.tensor(real_synth_closest).float()- synth_center) ** 2, dim=1))
-    closest_synth_Radii   = np.quantile(real_synth_closest_d, alphas)
+    real_synth_closest_d  = torch.sqrt(torch.sum((real_synth_closest.float()- synth_center) ** 2, dim=1))
+    closest_synth_Radii   = np.quantile(real_synth_closest_d.cpu().numpy(), alphas)
 
     # Compute authenticity
-    authenticity_values, authenticity = compute_authenticity_in_batches(real_data, synthetic_data)
+    authenticity_values, authenticity = compute_authenticity_in_batches(real_data_np, synthetic_data)
 
 
     # Compute alpha precision and beta recall   
     for k in range(len(Radii)):
-        precision_audit_mask = (synth_to_center <= Radii[k]).detach().float().numpy()
-        alpha_precision      = np.mean(precision_audit_mask)
+        precision_audit_mask = (synth_to_center <= Radii[k]).float()
+        alpha_precision      = precision_audit_mask.mean().item()
 
-        beta_coverage        = np.mean(((real_to_synth <= real_to_real) * (real_synth_closest_d <= closest_synth_Radii[k])).detach().float().numpy())
+        beta_coverage        = ((real_to_synth <= real_to_real) * (real_synth_closest_d <= closest_synth_Radii[k])).float().mean().item()
  
         alpha_precision_curve.append(alpha_precision)
         beta_coverage_curve.append(beta_coverage)
@@ -168,8 +168,8 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
     Delta_coverage_beta  = 1 - 2 * np.sum(np.abs(np.array(alphas) - np.array(beta_coverage_curve))) * (alphas[1] - alphas[0])
     
     # New AUC metrics
-    AUC_alpha_precision = np.trapz(alpha_precision_curve, alphas)
-    AUC_beta_coverage = np.trapz(beta_coverage_curve, alphas)
+    AUC_alpha_precision = 2 * np.trapz(alpha_precision_curve, alphas)
+    AUC_beta_coverage = 2 * np.trapz(beta_coverage_curve, alphas)
 
     return alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, AUC_alpha_precision, AUC_beta_coverage, authenticity_values, authenticity
 
@@ -193,19 +193,29 @@ def compute_pr_a(opts, max_real, num_gen):
     OC_hyperparams = dict({"Radius": 1, "nu": 1e-2})
 
     # Load embedder function
-    detector_url = {'model': 'inceptionv3', 'randomise': False, 'dim64': False}
+    if opts.data_type in ['2d', '2D']:
+        detector_url = {'model': 'inceptionv3', 'randomise': False, 'dim64': False}
+    elif opts.data_type in ['3d', '3D']:
+        detector_url = ('https://zenodo.org/records/15234379/files/resnet_50_23dataset_cpu.pth?download=1', '3d')
     detector_kwargs = dict(return_features=True)
     
-    if detector_url is not None:
+    if detector_url is not None and opts.data_type in ['2d', '2D']:
         embedder = metric_utils.load_embedder(detector_url)
         print('Checking if embedder is using GPU')
         sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(log_device_placement=True))
         print(sess)
     
     # Compute the embedding from pre-trained detector
-    real_features = metric_utils.get_activation_from_dataset(opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
-                                max_img=max_real, embedding=detector_url, embedder=embedder, verbose=True)
-    gen_features = metric_utils.get_activation_synthetic(opts, num_gen, detector_url, embedder=embedder, verbose=True)
+    if opts.data_type in ['2d', '2D']:
+        real_features = metric_utils.get_activation_from_dataset(opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
+                                    max_img=max_real, embedding=detector_url, embedder=embedder, verbose=True)
+        gen_features = metric_utils.get_activation_synthetic(opts, num_gen, detector_url, embedder=embedder, verbose=True)
+    elif opts.data_type in ['3d', '3D']:
+        real_features = metric_utils.compute_feature_stats_for_dataset(opts=opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
+            detector_url=detector_url, detector_kwargs=detector_kwargs,
+            rel_lo=0, rel_hi=0, dataset_kwargs=opts.dataset_kwargs, capture_all=True, max_items=max_real).get_all_torch().to(torch.float32).to(opts.device)
+        gen_features = metric_utils.compute_feature_stats_synthetic(opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
+            rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all_torch().to(torch.float32).to(opts.device)
 
     # Get the OC model (and eventually train it on the real features)
     OC_model, OC_params, OC_hyperparams = metric_utils.get_OC_model(opts, real_features, OC_params, OC_hyperparams)
@@ -224,13 +234,13 @@ def compute_pr_a(opts, max_real, num_gen):
                 print('Embedding data into OC representation')
             OC_model.to(opts.device)
             with torch.no_grad():
-                real_features = OC_model(torch.tensor(real_features).float().to(opts.device)).cpu().detach().numpy()
-                gen_features = OC_model(torch.tensor(gen_features).float().to(opts.device)).cpu().detach().numpy()
+                real_features = OC_model(real_features.float().to(opts.device))
+                gen_features = OC_model(gen_features.float().to(opts.device))
             
             if opts.rank == 0:
                 print('Done embedding')
-                print('real_features: mean, std - ', np.mean(real_features), np.std(real_features))
-                print('gen_features:  mean, std - ', np.mean(gen_features), np.std(gen_features))
+                print('real_features: mean, std - ', real_features.mean(), real_features.std(unbiased=False))
+                print('gen_features:  mean, std - ', gen_features.mean(), gen_features.std(unbiased=False))
         else:
             if opts.rank == 0:
                 print('Computing metrics for no additional OneClass embedding')
@@ -242,7 +252,7 @@ def compute_pr_a(opts, max_real, num_gen):
                 print('\n-> with embedding centered in c=10:')
         else:
             emb = '_mean'
-            emb_center = np.mean(real_features,axis=0)
+            emb_center = real_features.mean(dim=0)
             if opts.rank == 0:
                 print('\n-> with as center the data center:')
 
