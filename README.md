@@ -8,7 +8,7 @@ SPDX-License-Identifier: NPOSL-3.0
 
 # Synthetic_Images_Metrics_Toolkit
 
-This repository provides a comprehensive collection of state-of-the-art metrics for evaluating the quality of synthetic images. 
+This repository provides a comprehensive collection of state-of-the-art metrics for evaluating the quality of 2D and 3D synthetic images. 
 These metrics enable the assessment of:
 - **Fidelity**: the realism of synthetic data;
 - **Diversity**: the coverage of the real data distribution;
@@ -26,7 +26,7 @@ Check out an **example report** here: 📄 [report_metrics_toolkit.pdf](https://
 ## Installation
 Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-downloads) is installed. CUDA 11.0 or later is recommended.
 
-### Installation with Anaconda
+### 🔧 Option 1: Install via Anaconda
 0. Install [Anaconda](https://docs.anaconda.com/free/anaconda/install/index.html) for your operating system.
 1. Clone the repository:
     ```
@@ -49,7 +49,7 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
     ```
 4. Install any additional packages needed for your specific use case. 
 
-### Installation with Docker
+### 🐳 Option 2: Use Docker
 0. Install [Docker](https://docs.docker.com/get-docker/) for your operating system.
 
 1. Pull the Docker image
@@ -73,14 +73,14 @@ Refer to the [Usage](#usage) section for detailed instructions about running the
 
 
 ## Usage
-### 1. Customize for your use case
+### Step 1: Customize for your use case
 To evaluate your generative model, tailor the configuration script to meet your specific needs. 
 
 📖 Find here a [short tutorial](https://colab.research.google.com/drive/1EyO8hAu6sJw_gbE3bsHID-5IzUBjhm6B?usp=sharing) to use the SIM Toolkit with your data.
 
-The configuration script specifies the following:
-- **Metrics to compute**: Choose the metrics you want to evaluate, such as FID, KID, etc.
-- **Runtime configurations**: Set up your working directory and specify whether to use CPU or GPU.
+Key configuration options include:
+- **Metrics**: Select metrics such as FID, KID, etc.
+- **Runtime configurations**: Set up your working directory; select CPU or GPU; define data type (2D, 3D).
 - **Metrics configurations**: Adjust the hyperparameters for metrics computation, if needed.
 - **Real data configuration**: Define the function for data loading.
 - **Synthetic data configuration**: Choose one of the following options:
@@ -89,7 +89,7 @@ The configuration script specifies the following:
 
 📝 [Detailed guide to build the configuration file](https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit/tree/main/configs)
 
-### 2. Run the metrics calculation
+### Step 2: Run the SIM Toolkit
 Once customized the `config.py` script, execute the main script with:
 ```
 python calc_metrics.py --config configs/config.py
@@ -107,6 +107,8 @@ The following quantitative metrics are available:
 | `is_`       | Inception score<sup>[4]</sup> against the full dataset                              | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
 | `prdc`    |  Precision, recall, density, and coverage<sup>[5]</sup>  against the full dataset                    | [Naeem et al.](https://github.com/clovaai/generative-evaluation-prdc)
 | `pr_auth`    |  	$\alpha$-precision, 	$\beta$-recall, and authenticity<sup>[6]</sup> against the full dataset  | [Alaa et al.](https://github.com/vanderschaarlab/evaluating-generative-models)
+
+> ⚠️ 3D metrics rely on a 3D-ResNet50 feature extractor from [MedicalNet](https://github.com/Tencent/MedicalNet/tree/master), pre-trained on 23 medical imaging datasets. Before using these metrics, please verify that your data domain is represented among those datasets. If your dataset differs significantly from the pretraining domains, the resulting embeddings—and therefore the computed metrics—may not be meaningful. 
 
 References:
 1. [GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium](https://arxiv.org/abs/1706.08500), Heusel et al. 2017
@@ -136,6 +138,8 @@ By default, `k=5` and `top_n=3`. These parameters can be adjusted in the `knn` f
 
 - [x] Allow to load synthetic images from files (as well as from a pre-trained generator);
 
+- [x] 3D data support;
+
 - [ ] Implement t-SNE to qualitatively assess diversity.
 
 ## Licenses
@@ -151,5 +155,6 @@ This repository complies with the [REUSE Specification](https://reuse.software/)
 4. **NPOSL-3.0**: Applies to the code developed specifically for this repository.
 
 For detailed license texts, see the `LICENSES` directory.
+
 ## Aknowledgments
 This repository builds on NVIDIA's StyleGAN2-ADA repository: https://github.com/NVlabs/stylegan2-ada-pytorch.
