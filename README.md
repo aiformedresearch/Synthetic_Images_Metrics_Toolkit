@@ -8,15 +8,15 @@ SPDX-License-Identifier: NPOSL-3.0
 
 # Synthetic_Images_Metrics_Toolkit
 
+<p align="center">
+  <img src="Images/logo.png" width="400" title="metrics">
+</p>
+
 This repository provides a comprehensive collection of state-of-the-art metrics for evaluating the quality of 2D and 3D synthetic images. 
 These metrics enable the assessment of:
 - **Fidelity**: the realism of synthetic data;
 - **Diversity**: the coverage of the real data distribution;
 - **Generalization**: the generation of authentic, non-memorized images. 
-
-<p align="center">
-  <img src="Images/Metrics.png" width="400" title="metrics">
-</p>
 
 ### 📊 Automated Report Generation
 This repository produces a comprehensive report as output, summarizing key findings and visualizations in a structured format.
@@ -96,6 +96,11 @@ python calc_metrics.py --config configs/config.py
 ```
 
 ## Metrics overview
+
+<p align="center">
+  <img src="Images/Metrics.png" width="400" title="metrics">
+</p>
+
 ### Quantitative metrics
 The following quantitative metrics are available:
 
