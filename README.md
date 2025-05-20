@@ -108,7 +108,7 @@ The following quantitative metrics are available:
 | `prdc`    |  Precision, recall, density, and coverage<sup>[5]</sup>  against the full dataset                    | [Naeem et al.](https://github.com/clovaai/generative-evaluation-prdc)
 | `pr_auth`    |  	$\alpha$-precision, 	$\beta$-recall, and authenticity<sup>[6]</sup> against the full dataset  | [Alaa et al.](https://github.com/vanderschaarlab/evaluating-generative-models)
 
-> ⚠️ 3D metrics rely on a 3D-ResNet50 feature extractor from [MedicalNet](https://github.com/Tencent/MedicalNet/tree/master), pre-trained on 23 medical imaging datasets. Before using these metrics, please verify that your data domain is represented among those datasets. If your dataset differs significantly from the pretraining domains, the resulting embeddings—and therefore the computed metrics—may not be meaningful. 
+> ⚠️ 3D metrics rely on a 3D-ResNet50 feature extractor from [MedicalNet](https://github.com/Tencent/MedicalNet/tree/master), pre-trained on 23 medical imaging datasets. Before using these metrics, please verify that your data domain is represented among those datasets. If your dataset differs significantly from the pretraining domains, the resulting embeddings $-$ and therefore the computed metrics $-$ may not be meaningful. 
 
 References:
 1. [GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium](https://arxiv.org/abs/1706.08500), Heusel et al. 2017
