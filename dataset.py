@@ -37,9 +37,9 @@ class BaseDataset(data.Dataset):
         return self._data.shape[0]
 
     def __getitem__(self, idx):
-        image = self._data[idx]
+        image = self._data[idx].astype(np.float32)
         label = self._labels[idx] if self._labels is not None else -1
-        return torch.tensor(image, dtype=torch.float32), torch.tensor(label, dtype=torch.int64)
+        return torch.from_numpy(image), torch.tensor(label, dtype=torch.int64)
 
     def _get_raw_labels(self):
         if self._raw_labels is None:
