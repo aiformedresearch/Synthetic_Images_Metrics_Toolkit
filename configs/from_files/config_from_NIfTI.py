@@ -33,6 +33,12 @@ CONFIGS = {
     # Define the number of GPUs to use for computation.
     # Set 0 for CPU mode.
     "NUM_GPUS": 1,
+    # Set the batch size to use while computing the embeddings of real and synthetic images
+    "BATCH_SIZE": 64,
+    # Set data type ('2D' or '3D')
+    "DATA_TYPE": '2D',
+    # Enable or disable caching of feature statistics. When True, cached data is reused (if available).
+    "USE_CACHE": True,
     # Set verbosity for logging and debugging.
     "VERBOSE": True,
     # Path to an optional Outlier Classifier (OC) detector model, for the computation of pr_auth.
@@ -62,7 +68,7 @@ METRICS_CONFIGS = {
 
     # The computation of some metrics require the resize of the images to the size of the input required by a pre-trained model
     # If False, images are resized with the PIL.BICUBIC resizer. If True, zero-padding is performed (ideal if the image has black background, such as the brain MRI)
-    "padding": True
+    "padding": False
 }
 
 # ----------------------------- Real data configuration ----------------------------
@@ -76,7 +82,7 @@ DATASET = {
     "params": 
     {
         # Path to the dataset file containing the real images (in NIfTI format).
-        "path_data": "data/OpenBHB_train.nii.gz",
+        "path_data": "data/real_images_simulation.nii.gz",
         # Path to an optional labels file. If None, the dataset will be treated as unlabelled.
         "path_labels": None,
         # Flag to enable label usage.

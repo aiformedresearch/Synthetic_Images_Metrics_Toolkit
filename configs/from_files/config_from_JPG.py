@@ -33,6 +33,12 @@ CONFIGS = {
     # Define the number of GPUs to use for computation.
     # Set 0 for CPU mode.
     "NUM_GPUS": 1,
+    # Set the batch size to use while computing the embeddings of real and synthetic images
+    "BATCH_SIZE": 64,
+    # Set data type ('2D' or '3D')
+    "DATA_TYPE": '2D',
+    # Enable or disable caching of feature statistics. When True, cached data is reused (if available).
+    "USE_CACHE": True,
     # Set verbosity for logging and debugging.
     "VERBOSE": True,
     # Path to an optional Outlier Classifier (OC) detector model, for the computation of pr_auth.
@@ -70,12 +76,12 @@ METRICS_CONFIGS = {
 DATASET = {
 
     # Class definition, to load real data
-    "class": "<defined below: NiftiDataset>",
+    "class": "<defined below: JPEGDataset>",
 
     # Additional parameters required for loading the dataset.
     "params": 
     {
-        # Path to the dataset file containing the real images (in NIfTI format).
+        # Path to the dataset file containing the real images (in JPG format).
         "path_data": "/path/to/real_data",
         # Path to an optional labels file. If None, the dataset will be treated as unlabelled.
         "path_labels": None,
@@ -97,7 +103,7 @@ SYNTHETIC_DATA = {
     "from_files": 
         {
         # Class definition, to load synthetic data
-        "class": "<defined below: NiftiDataset>",
+        "class": "<defined below: JPEGDataset>",
         
         "params":
             {
@@ -137,19 +143,27 @@ class JPEGDataset(BaseDataset):
             try:
                 with Image.open(path) as img:
                     img = ImageOps.exif_transpose(img) # Correct orientation
-                    img = img.convert("L")             # Convert to grayscale
 
-                    image_np = np.array(img)  # (H, W, C)
+                    # Convert to either grayscale or RGB
+                    if img.mode not in ["L", "RGB"]:
+                        img = img.convert("RGB")
 
-                    images.append(image_np)
+                    img_np = np.array(img)  # Shape: (H, W) or (H, W, C)
+
+                    # Add channel dimension if grayscale
+                    if img_np.ndim == 2:
+                        img_np = img_np[np.newaxis, :, :]  # (1, H, W)
+                    elif img_np.ndim == 3:
+                        img_np = np.transpose(img_np, (2, 0, 1))  # (C, H, W)
+
+                    images.append(img_np)
             except Exception as e:
                 print(f"Warning: Could not load {path}: {e}")
 
         if not images:
             raise RuntimeError(f"No JPEG images found in {self.path_data}")
 
-        data = np.stack(images, axis=0)        # Shape: (N, H, W, C)
-        data = np.moveaxis(data, -1, 1)        # Convert to (N, C, H, W)
+        data = np.stack(images, axis=0)        # Shape: (N, C, H, W)
 
         return data  # [batch_size, n_channels, H, W]
 
