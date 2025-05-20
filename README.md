@@ -4,8 +4,7 @@ SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
 SPDX-License-Identifier: NPOSL-3.0
 -->
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14845935.svg)](https://doi.org/10.5281/zenodo.14845935) [<img src="https://img.shields.io/badge/  -Dockerhub-blue.svg?logo=docker&logoColor=white">](<https://hub.docker.com/r/aiformedresearch/metrics_toolkit>) [<img src="https://img.shields.io/badge/Jupyter_Notebook-orange.svg?logo=jupyter&logoColor=white">](https://colab.research.google.com/drive/1A70ENEZPpB9FT4mMU5ZiP0gFTkw--ysf?usp=drive_link)
-
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14845935.svg)](https://doi.org/10.5281/zenodo.14845935) [<img src="https://img.shields.io/badge/  -Dockerhub-blue.svg?logo=docker&logoColor=white">](<https://hub.docker.com/r/aiformedresearch/metrics_toolkit>) [<img src="https://img.shields.io/badge/Jupyter_Notebook-orange.svg?logo=jupyter&logoColor=white">](https://colab.research.google.com/drive/1EyO8hAu6sJw_gbE3bsHID-5IzUBjhm6B?usp=sharing)
 
 # Synthetic_Images_Metrics_Toolkit
 
@@ -23,20 +22,6 @@ These metrics enable the assessment of:
 This repository produces a comprehensive report as output, summarizing key findings and visualizations in a structured format.
 
 Check out an **example report** here: 📄 [report_metrics_toolkit.pdf](https://drive.google.com/file/d/1K_H0KCjjqr6rfi1tHYk03Gy3WhdcyKjk/view?usp=sharing)
-
-## Licenses
-This repository complies with the [REUSE Specification](https://reuse.software/). All source files are annotated with SPDX license identifiers, and full license texts are included in the `LICENSES` directory.
-
-### Licenses Used
-
-1. **LicenseRef-NVIDIA-1.0**: Applies to code reused from NVIDIA's StyleGAN2-ADA repository: https://github.com/NVlabs/stylegan2-ada-pytorch, under the [NVIDIA Source Code License](https://nvlabs.github.io/stylegan2-ada-pytorch/license.html).
-2. **MIT**:  For code reused from:
-    - https://github.com/vanderschaarlab/evaluating-generative-models; 
-    - https://github.com/clovaai/generative-evaluation-prdc.
-3. **BSD-3-Clause**: Applies to two scripts reused from https://github.com/vanderschaarlab/evaluating-generative-models;
-4. **NPOSL-3.0**: Applies to the code developed specifically for this repository.
-
-For detailed license texts, see the `LICENSES` directory.
 
 ## Installation
 Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-downloads) is installed. CUDA 11.0 or later is recommended.
@@ -89,7 +74,11 @@ Refer to the [Usage](#usage) section for detailed instructions about running the
 
 ## Usage
 ### 1. Customize for your use case
-To evaluate your generative model, tailor the `configs/config.py` script to meet your specific needs. This involves specifying the following:
+To evaluate your generative model, tailor the configuration script to meet your specific needs. 
+
+📖 Find here a [short tutorial](https://colab.research.google.com/drive/1EyO8hAu6sJw_gbE3bsHID-5IzUBjhm6B?usp=sharing) to use the SIM Toolkit with your data.
+
+The configuration script specifies the following:
 - **Metrics to compute**: Choose the metrics you want to evaluate, such as FID, KID, etc.
 - **Runtime configurations**: Set up your working directory and specify whether to use CPU or GPU.
 - **Metrics configurations**: Adjust the hyperparameters for metrics computation, if needed.
@@ -98,15 +87,7 @@ To evaluate your generative model, tailor the `configs/config.py` script to meet
     1. Load synthetic images directly from files or a folder;
     2. Define functions to load a pre-trained generator and generate new samples.
 
-📌 We have tested this repository with several data types and with three generative models for 2D image synthesis:
-- ✅ [StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch), a state-of-the-art generative adversarial network ([config.py](configs/from_pre-trained_model/StyleGAN2ADA/config_stylegan2ada.py));
-- ✅ [PACGAN](https://github.com/MatteoLai/PACGAN), a custom generative adversarial network ([config.py](configs/from_pre-trained_model/PACGAN/config_PACGAN.py));
-- ✅ [Mediffusion](https://github.com/BardiaKh/Mediffusion), a diffusion model ([config.py](configs/from_pre-trained_model/Mediffusion/config_mediffusion.py)).
-
 📝 [Detailed guide to build the configuration file](https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit/tree/main/configs)
-
-📖 [Interactive guide on Google Colab](https://colab.research.google.com/drive/1A70ENEZPpB9FT4mMU5ZiP0gFTkw--ysf?usp=drive_link)
-
 
 ### 2. Run the metrics calculation
 Once customized the `config.py` script, execute the main script with:
@@ -157,5 +138,18 @@ By default, `k=5` and `top_n=3`. These parameters can be adjusted in the `knn` f
 
 - [ ] Implement t-SNE to qualitatively assess diversity.
 
+## Licenses
+This repository complies with the [REUSE Specification](https://reuse.software/). All source files are annotated with SPDX license identifiers, and full license texts are included in the `LICENSES` directory.
+
+### Licenses Used
+
+1. **LicenseRef-NVIDIA-1.0**: Applies to code reused from NVIDIA's StyleGAN2-ADA repository: https://github.com/NVlabs/stylegan2-ada-pytorch, under the [NVIDIA Source Code License](https://nvlabs.github.io/stylegan2-ada-pytorch/license.html).
+2. **MIT**:  For code reused from:
+    - https://github.com/vanderschaarlab/evaluating-generative-models; 
+    - https://github.com/clovaai/generative-evaluation-prdc.
+3. **BSD-3-Clause**: Applies to two scripts reused from https://github.com/vanderschaarlab/evaluating-generative-models;
+4. **NPOSL-3.0**: Applies to the code developed specifically for this repository.
+
+For detailed license texts, see the `LICENSES` directory.
 ## Aknowledgments
 This repository builds on NVIDIA's StyleGAN2-ADA repository: https://github.com/NVlabs/stylegan2-ada-pytorch.

@@ -125,9 +125,9 @@ SYNTHETIC_DATA = {
 
 import os
 from glob import glob
-import cv2
 import numpy as np
 from PIL import Image, ImageOps
+
 
 class PNGDataset(BaseDataset):
     def _load_files(self):
