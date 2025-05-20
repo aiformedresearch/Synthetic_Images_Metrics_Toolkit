@@ -9,7 +9,7 @@ SPDX-License-Identifier: NPOSL-3.0
 # Synthetic_Images_Metrics_Toolkit
 
 <p align="center">
-  <img src="Images/logo.png" width="400" title="metrics">
+  <img src="Images/logo.png" width="300" title="metrics">
 </p>
 
 The **Synthetic Images Metrics (SIM) Toolkit** provides a comprehensive collection of state-of-the-art metrics for evaluating the quality of 2D and 3D synthetic images. 
