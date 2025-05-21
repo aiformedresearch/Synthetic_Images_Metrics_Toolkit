@@ -34,6 +34,12 @@ CONFIGS = {
     # Define the number of GPUs to use for computation.
     # Set 0 for CPU mode.
     "NUM_GPUS": 1,
+    # Set the batch size to use while computing the embeddings of real and synthetic images
+    "BATCH_SIZE": 64,
+    # Set data type ('2D' or '3D')
+    "DATA_TYPE": '3D',
+    # Enable or disable caching of feature statistics. When True, cached data is reused (if available).
+    "USE_CACHE": True,
     # Set verbosity for logging and debugging.
     "VERBOSE": True,
     # Path to an optional Outlier Classifier (OC) detector model, for the computation of pr_auth.

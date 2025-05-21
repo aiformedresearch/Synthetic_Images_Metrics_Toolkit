@@ -38,7 +38,7 @@ CONFIGS = {
     # Set data type ('2D' or '3D')
     "DATA_TYPE": '3D',
     # Enable or disable caching of feature statistics. When True, cached data is reused (if available).
-    "USE_CACHE": False,
+    "USE_CACHE": True,
     # Set verbosity for logging and debugging.
     "VERBOSE": True,
     # Path to an optional Outlier Classifier (OC) detector model, for the computation of pr_auth.
