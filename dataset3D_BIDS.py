@@ -33,7 +33,9 @@ class BidsDataset(data.Dataset):
         self.name = os.path.basename(path_data)
         example_img = self._load_files(self.inputfiles[0])
         self._raw_shape = [len(self.inputfiles)] + list(example_img.shape)
-
+        self._dtype = self._data.dtype
+        self._min = self._data.min()
+        self._max = self._data.max()
 
         # Apply max_size.
         self._raw_idx = np.arange(len(self.inputfiles), dtype=np.int64)
@@ -65,10 +67,6 @@ class BidsDataset(data.Dataset):
     
     def get_label(self, idx):
         label = self._get_raw_labels()[self._raw_idx[idx]]
-        if label.dtype == np.int64:
-            onehot = np.zeros(self.label_shape, dtype=np.float32)
-            onehot[label] = 1
-            label = onehot
         return label.copy()
 
     @property

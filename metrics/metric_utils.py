@@ -33,6 +33,11 @@ from pathlib import Path
 import inspect
 from metrics import metric_main
 from representations import resnet3d
+from matplotlib.patches import Ellipse
+from sklearn.decomposition import PCA
+import seaborn as sns
+from sklearn.manifold import TSNE
+import PIL.Image
 
 #----------------------------------------------------------------------------
 
@@ -487,89 +492,125 @@ def get_latest_figure(file_path):
     else:
         return None
 
-def visualize_ex_samples(args, device, rank=0, verbose=True):
+def pad_image(batch, output_shape, input_shape='nhwc'):
+    # Calculate the amount of padding needed
+    pad_height = output_shape[1] - batch.shape[1]
+    pad_width = output_shape[2] - batch.shape[2]
 
-    def load_img(args, ds_kwargs):
-        dataset = dnnlib.util.construct_class_by_name(**ds_kwargs)
-        data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2) if platform.system() != 'Windows' else dict(pin_memory=True, num_workers=0)
-        item_subset = [0]
-        batch_size = 1
-        dataloader = torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs)    
-        image, label = next(iter(dataloader))
-        if args.data_type in ['2d', '2D']:
-            assert len(image.shape)==4, f"Error: Expected 4 dimensions for 2D image, but got {len(image.shape)}"
-            sample = image[0,0,:,:]
-        elif args.data_type in ['3d', '3D']:
-            #assert len(image.shape)==5, f"Error: Expected 5 dimensions for 3D volume, but got {len(image.shape)}"
-            # sample = image[0,0,:,:,:]
-            sample = image[0,:,:,:]
-        return sample, label, dataset._use_labels
+    # Calculate padding for each side
+    pad_top = pad_height // 2
+    pad_bottom = pad_height - pad_top
+    pad_left = pad_width // 2
+    pad_right = pad_width - pad_left
 
-    def extract_slices(volume):
-        """Extract axial, coronal, sagittal central slices from 3D volume."""
-        c, d, h, w = volume.shape
-        return [
-            volume[0, d // 2, :, :],     # Axial (XY)
-            volume[0, :, h // 2, :],     # Coronal (XZ)
-            volume[0, :, :, w // 2],     # Sagittal (YZ)
-        ]
-    
-    # Load a real image
-    real_sample, label, use_labels = load_img(args, args.dataset_kwargs)
+    # Zero-padding to obtain an array of the required shape
+    if input_shape == 'nhwc':
+        padded_batch = np.pad(batch, ((0,0), (pad_top, pad_bottom), (pad_left, pad_right), (0,0)), mode='constant')
+    elif input_shape == 'chw':
+        padded_batch = np.pad(batch, pad_width=((0, 0), (pad_top, pad_bottom), (pad_left, pad_right)), mode='constant')
+    return padded_batch
 
-    if args.use_pretrained_generator:
-        # Generate a synthetic image
-        args.G.to(device)
-        c = label.to(device)
-        z = torch.from_numpy(np.random.RandomState(42).randn(1, *(args.G.z_dim if isinstance(args.G.z_dim, (list, tuple)) else [args.G.z_dim]))).to(device)
-        if use_labels:
-            img_synth = args.run_generator(z, c, args).to(device)
+def setup_grid_slices(images_3d, grid_size):
+    n, c, d, h, w = images_3d.shape
+    assert c == 1, "Only single-channel 3D volumes supported"
+    assert images_3d.min() >= 0 and images_3d.max() <= 255
+
+    gw, gh = grid_size
+    # Split the grid in thirds: 1/3 sagittal, 1/3 coronal, 1/3 axial
+    third = max(1, int(gh / 3)) 
+
+    slices = []
+
+    for i in range(n):
+        image_3d = images_3d[i, 0]  # shape: [D, H, W]
+
+        # Decide which slice to take based on column group
+        col = i % gw
+        if col < third:
+            slice_img = image_3d[:, :, w // 2]  # [D, H] - sagittal
+        elif col < 2 * third:
+            slice_img = image_3d[:, h // 2, :]  # [D, W] - coronal
         else:
-            img_synth = args.run_generator(z, args).to(device)
-        if args.data_type in ['2d', '2D']:
-            synth_sample = img_synth[0,0,:,:].cpu().detach().numpy()
-        elif args.data_type in ['3d', '3D']:
-            synth_sample = img_synth[0, 0, :, :, :].cpu().detach().numpy()
+            slice_img = image_3d[d // 2, :, :]  # [H, W] - axial
+
+        # Ensure shape [1, H, W]
+        slice_img = np.expand_dims(slice_img, axis=0)
+        slices.append(slice_img)
+
+        # Zero-padding to have all slices of the same shape
+        max_h = max(img.shape[1] for img in slices)
+        max_w = max(img.shape[2] for img in slices)
+        target_shape = (slices[0].shape[0], max_h, max_w)
+
+        # Pad all images to the same shape
+        slices = [pad_image(img, target_shape, input_shape='chw') for img in slices]
+    return slices
+
+def setup_snapshot_image_grid(args, dataset, random_seed=0):
+    rnd = np.random.RandomState(random_seed)
+
+    n = 1 if args.data_type=="2d" or args.data_type=="2D" else 3
+    grid_size = min(int(np.round(np.sqrt(len(dataset)*n))), 32)
+    gw = np.clip(7680 // dataset._raw_shape[2], 7, grid_size)
+    gh = np.clip(4320 // dataset._raw_shape[3], 4, grid_size)
+
+    # No labels => show random subset of training samples.
+    if not dataset._use_labels:
+        all_indices = list(range(len(dataset)))
+        rnd.shuffle(all_indices)
+        grid_indices = [all_indices[i % len(all_indices)] for i in range(gw * gh)]
+
     else:
-        # Load a synthetic image
-        synth_sample, _, _ = load_img(args, args.dataset_synt_kwargs)
+        # Group training samples by label.
+        label_groups = dict() # label => [idx, ...]
+        for idx in range(len(dataset)):
+            label = tuple(dataset.get_details(idx).raw_label.flat[::-1])
+            if label not in label_groups:
+                label_groups[label] = []
+            label_groups[label].append(idx)
 
-    # Prepare figures
-    if args.data_type in ['2d', '2D']:
-        fig, axs = plt.subplots(1, 2, figsize=(20, 12))
+        # Reorder.
+        label_order = sorted(label_groups.keys())
+        for label in label_order:
+            rnd.shuffle(label_groups[label])
 
-        axs[0].imshow(real_sample, cmap='gray')
-        axs[0].set_title(f'Real Sample\n∈ [{real_sample.min()}, {real_sample.max()}]\ndtype: {real_sample.dtype}', fontsize=25)
-        axs[0].axis('off')
+        # Organize into grid.
+        grid_indices = []
+        for y in range(gh):
+            label = label_order[y % len(label_order)]
+            indices = label_groups[label]
+            grid_indices += [indices[x % len(indices)] for x in range(gw)]
+            label_groups[label] = [indices[(i + gw) % len(indices)] for i in range(len(indices))]
 
-        axs[1].imshow(synth_sample, cmap='gray')
-        axs[1].set_title(f'Synthetic Sample\n∈ [{synth_sample.min()}, {synth_sample.max()}]\ndtype: {synth_sample.dtype}', fontsize=25)
-        axs[1].axis('off')
+    images, labels = zip(*[dataset[i] for i in grid_indices])
+    return (gw, gh), np.stack(images), np.stack(labels)
 
-    elif args.data_type in ['3d', '3D']:
-        real_slices = extract_slices(real_sample)
-        synth_slices = extract_slices(synth_sample)
-        fig, axs = plt.subplots(2, 3, figsize=(18, 10))
+#----------------------------------------------------------------------------
 
-        for i, (slice_img, title) in enumerate(zip(real_slices, ['Axial', 'Coronal', 'Sagittal'])):
-            axs[0, i].imshow(slice_img, cmap='gray')
-            axs[0, i].set_title(f"Real {title}", fontsize=20)
-            axs[0, i].axis('off')
+def plot_image_grid(args, img, drange, grid_size, group, rank=0, verbose=True):
+    lo, hi = drange
+    img = np.asarray(img, dtype=np.float32)
+    img = (img - lo) * (255 / (hi - lo))
+    img = np.rint(img).clip(0, 255).astype(np.uint8)
 
-        for i, (slice_img, title) in enumerate(zip(synth_slices, ['Axial', 'Coronal', 'Sagittal'])):
-            axs[1, i].imshow(slice_img, cmap='gray')
-            axs[1, i].set_title(f"Synthetic {title}", fontsize=20)
-            axs[1, i].axis('off')
+    gw, gh = grid_size
+    _N, C, H, W = img.shape
+    img = img.reshape(gh, gw, C, H, W)
+    img = img.transpose(0, 3, 1, 4, 2)
+    img = img.reshape(gh * H, gw * W, C)
 
-    plt.tight_layout()
     fig_dir = os.path.join(args.run_dir, 'figures')
     os.makedirs(fig_dir, exist_ok=True)
-    save_path_base = os.path.join(fig_dir, "samples_visualization.png")
+    save_path_base = os.path.join(fig_dir, f"samples_{group}.png")
     save_path = get_unique_filename(save_path_base)
 
-    plt.savefig(save_path)
+    assert C in [1, 3]
+    if C == 1:
+        PIL.Image.fromarray(img[:, :, 0], 'L').save(save_path)
+    if C == 3:
+        PIL.Image.fromarray(img, 'RGB').save(save_path)
     if rank == 0 and verbose:
-        print(f"Saved samples from real and synthetic datasets in {save_path}")
+        print(f"Saved grid of {group} samples in {save_path}")
 
 def reset_weights(model):
     for layer in model.layers: 
@@ -613,7 +654,7 @@ def load_embedder(embedding):
             model = Model(new_input, hidden_layer)   
     model.run_eagerly = True
     return model
-
+ 
 def adjust_size_embedder(opts, embedder, embedding, batch):
     
     if embedding['model'] == 'vgg16' or embedding['model'] == 'vgg':
@@ -631,18 +672,7 @@ def adjust_size_embedder(opts, embedder, embedding, batch):
     output_shape = (None, input_shape, input_shape, 3)
 
     if opts.padding and (h<input_shape or w<input_shape):
-        # Calculate the amount of padding needed
-        pad_height = output_shape[1] - batch.shape[1]
-        pad_width = output_shape[2] - batch.shape[2]
-
-        # Calculate padding for each side
-        pad_top = pad_height // 2
-        pad_bottom = pad_height - pad_top
-        pad_left = pad_width // 2
-        pad_right = pad_width - pad_left
-
-        # Zero-padding to obtain an array of the required shape
-        batch = np.pad(batch.cpu(), ((0,0), (pad_top, pad_bottom), (pad_left, pad_right), (0,0)), mode='constant')
+        batch = pad_image(batch.cpu(), output_shape)
     else:
         # Resize the image
         resized_batch = []
@@ -961,7 +991,7 @@ def compute_feature_stats_synthetic(opts, detector_url, detector_kwargs, rel_lo=
     return gen_features
 
 #----------------------------------------------------------------------------
-# Functions added for k-NN analysis visualization
+# Functions for k-NN analysis visualization
 
 def visualize_grid(opts, real_images, synthetic_images, top_n_real_indices, closest_synthetic_indices, fig_path, top_n, k):
     fig, axes = plt.subplots(top_n, k+1, figsize=(5 * k, 5 * top_n))

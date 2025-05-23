@@ -122,7 +122,27 @@ def subprocess_fn(rank, args, temp_dir):
 
     # Visualize one sample for real and generated data
     if rank == 0:
-        metric_utils.visualize_ex_samples(args, device=device, rank=rank, verbose=args.verbose)
+        # Real samples
+        real_dataset = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
+        grid_size, images_real, labels = metric_utils.setup_snapshot_image_grid(args, real_dataset)
+        if args.data_type == "3D" or args.data_type == "3d":
+            images_real = metric_utils.setup_grid_slices(images_real, grid_size)
+        metric_utils.plot_image_grid(args, images_real, drange=[0,255], grid_size=grid_size, group='real', rank=rank, verbose=args.verbose)
+
+        # Synthetic samples
+        if args.use_pretrained_generator:
+            grid_z = torch.randn([labels.shape[0], *(args.G.z_dim if isinstance(args.G.z_dim, (list, tuple)) else [args.G.z_dim])], device=device).split(4)
+            grid_c = torch.from_numpy(labels).to(device).split(4)
+            if real_dataset._use_labels:
+                images_synt = torch.cat([args.run_generator(z, c, args).cpu() for z, c in zip(grid_z, grid_c)]).numpy()
+            else:
+                images_synt = torch.cat([args.run_generator(z, args).cpu() for z in grid_z]).numpy()
+        else:
+            synt_dataset = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
+            grid_size, images_synt, _ = metric_utils.setup_snapshot_image_grid(args, synt_dataset)
+        if args.data_type == "3D" or args.data_type == "3d":
+            images_synt = metric_utils.setup_grid_slices(images_synt, grid_size)
+        metric_utils.plot_image_grid(args, images_synt, drange=[0,255], grid_size=grid_size, group='synt', rank=rank, verbose=args.verbose)
 
     # Calculate each metric.
     for metric in args.metrics:

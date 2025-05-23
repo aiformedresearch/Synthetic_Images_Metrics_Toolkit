@@ -10,8 +10,9 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Image, Spacer, Paragraph, PageBreak, ListFlowable, ListItem, Flowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_JUSTIFY
-from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
+from PIL import Image as PILImage
+import torch
 
 from metrics import metric_utils
 import dnnlib
@@ -196,7 +197,7 @@ def plot_metrics_triangle(metrics, metric_folder):
     legend_handles = [p[0] for p in fidelity_metric_points + diversity_metric_points + generalization_metric_points]
     legend_labels = [p[1] for p in fidelity_metric_points + diversity_metric_points + generalization_metric_points]
     if legend_handles:
-        ax.legend(legend_handles, legend_labels, loc='upper left', bbox_to_anchor=(-0.35, 1.1), fontsize=12.5)
+        ax.legend(legend_handles, legend_labels, loc='upper left', bbox_to_anchor=(-0.2, 1.1), fontsize=12.5)
         
     ax.set_xlim(-1, 1)
     ax.set_ylim(-1, 1)
@@ -206,6 +207,25 @@ def plot_metrics_triangle(metrics, metric_folder):
     plot_path = os.path.join(metric_folder, "figures/metrics_triangle.png")
     plt.savefig(metric_utils.get_unique_filename(plot_path))
     plt.close()
+   
+def get_image_with_scaled_dimensions(path, max_width=None, max_height=None):
+    img = PILImage.open(path)
+    orig_width, orig_height = img.size
+
+    # If both max dimensions are set, scale proportionally to fit within both
+    if max_width and max_height:
+        ratio = min(max_width / orig_width, max_height / orig_height)
+    elif max_width:
+        ratio = max_width / orig_width
+    elif max_height:
+        ratio = max_height / orig_height
+    else:
+        ratio = 1.0  # no resizing
+
+    new_width = int(orig_width * ratio)
+    new_height = int(orig_height * ratio)
+
+    return Image(path, width=new_width, height=new_height)
 
 def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     doc = SimpleDocTemplate(out_pdf_path, pagesize=letter)
@@ -216,7 +236,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     ref_mapping = {}
     references = []
     ref_counter = 1
-    data = [["Metric [ref]", "Value", "Range"]]
+    data = [["Metric [ref]", "Value", "Range", "Trend"]]
     for key, label in metric_labels.items():
         value = metrics.get(key, None)
         if value is not None:
@@ -228,12 +248,12 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             ref_number = ref_mapping[ref_text]
             metric_display = f"{label} [{ref_number}]"
             if label not in ["FID", "KID", "IS"]:
-                data.append([metric_display, f"{value:.4f}", "[0, 1]  ↑"])
+                data.append([metric_display, f"{value:.4f}", "[0, 1]", "↑"])
             elif label == "IS":
                 mean, std = metrics.get("is_mean"), metrics.get("is_std")
-                data.append([metric_display, f"{mean:.4f} ± {std:.4f}", "[0, ∞]  ↑"])
+                data.append([metric_display, f"{mean:.4f} ± {std:.4f}", "[0, ∞]", "↑"])
             elif label in ["FID", "KID"]:
-                data.append([metric_display, f"{value:.4f}", "[0, ∞]  ↓"])
+                data.append([metric_display, f"{value:.4f}", "[0, ∞]", "↓"])
    
     table = Table(data)
     
@@ -259,15 +279,26 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     elements.append(title)
     elements.append(Spacer(1, 12))    
     
+    # Logo
+    if os.path.exists("Images/logo.png"):
+        logo_image = Image(metric_utils.get_latest_figure("Images/logo.png"), width=200, height=200)
+        elements.append(logo_image)   
+    elif os.path.exists("Synthetic_Images_Metrics_Toolkit/Images/logo.png"):
+        logo_image = Image(metric_utils.get_latest_figure("Synthetic_Images_Metrics_Toolkit/Images/logo.png"), width=200, height=200)
+        elements.append(logo_image)   
+
+    # --------------------------------------- Introduction ------------------------------------------------
+
     # Intro text
+    elements.append(Spacer(1, 50))
     intro_paragraph = Paragraph(
-        'This report has been generated using the <b><a href="https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit" color="blue">'
-        'Synthetic Images Metrics Toolkit</a></b>. This toolkit provides a comprehensive evaluation of the quality of synthetic images using established metrics.<br/><br/>'
-        'The evaluation focuses on the following key aspects:',
+        'This report was generated using the <b><a href="https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit" color="blue">'
+        'Synthetic Images Metrics (SIM) Toolkit</a></b>, created at the University of Bologna. This toolkit provides a comprehensive evaluation of synthetic image quality using established quantitative and qualitative metrics.<br/><br/>'
+        'The SIM Toolkit evaluates synthetic images based on the following key dimensions:',
         styles['BodyText'])
     elements.append(intro_paragraph)
 
-    # Bullet list for key aspects
+    # Bullet list for key dimensions
     bullet_list = ListFlowable([
         ListItem(Paragraph("<b>Fidelity</b>: Evaluates how realistic the synthetic images appear compared to real ones.", styles['BodyText'])),
         ListItem(Paragraph("<b>Diversity</b>: Assesses whether the generated images adequately represent the diversity of the real dataset.", styles['BodyText'])),
@@ -300,42 +331,137 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     elements.append(recap_paragraph)
     elements.append(Spacer(1, 10))
 
+    # --------------------------------------- Quantitative assessment ------------------------------------------------
+
     # Subtitle: Quantitative assessment
-    #elements.append(PageBreak())
+    elements.append(PageBreak())
     subtitle_quant = Paragraph("Quantitative assessment", styles['Heading2'])
     elements.append(subtitle_quant)
     #elements.append(Spacer(1, 12))
-    
-    # Layout table and image side by side
-    plot_path = os.path.join(metric_folder, "figures/metrics_triangle.png")
-    table_and_image = Table(
-        [[table, Image(metric_utils.get_latest_figure(plot_path), width=250, height=190)]],
-        colWidths=[250, 250] 
-    )
-    elements.append(table_and_image)
 
+    intro_paragraph = Paragraph(
+        "<b>Metrics interpretation:</b><br/> The ideal trend for each metric is indicated by arrow direction:",
+        justified_style
+    )
+    small_bullet = "&#8226;"
+    list_items = [
+        ListItem(Paragraph(f"↑ indicates better performance with higher values;", justified_style), leftIndent=0),
+        ListItem(Paragraph(f"↓ indicates better performance with lower values.", justified_style), leftIndent=0),
+    ]
+
+    bullet_list = ListFlowable(
+        list_items,
+        bulletType='bullet',
+        start=None,
+        leftIndent=10
+    )
+
+    pr_images = Table(
+        [[table, [intro_paragraph, bullet_list]]],
+        colWidths=[300, 150]
+    )
+
+    elements.append(pr_images)
+    pr_images.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+
+    # -------------------------------------------
+
+    elements.append(Spacer(1, 20))
+    triangle_path = metric_utils.get_latest_figure(os.path.join(metric_folder, "figures/metrics_triangle.png"))
+    additional_text1 = Paragraph(
+        "<b>Plot interpretation:</b><br/> Metrics are grouped into categories. Each metric has value in [0,1], with 1 representing the optimal value. To provide an overall assessment of the model's performance in each category, the average value of all metrics within that category is displayed.",
+        justified_style
+    )
+    traingle = Table(
+        [[get_image_with_scaled_dimensions(triangle_path, max_width=350), 
+        additional_text1]],
+        colWidths=[300, 150] 
+    )
+    elements.append(traingle)
+    traingle.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    triangle_caption = Paragraph(f"From: {triangle_path}", styles['BodyText'])
+    elements.append(triangle_caption)
+
+    # --------------------------------------- Qualitative assessment ------------------------------------------------
+
+    # Subtitle for Qualitative assessment
+    elements.append(PageBreak())
+    subtitle_qual = Paragraph("Qualitative assessment", styles['Heading2'])
+    elements.append(subtitle_qual)
+    
+    subtitle_vis = Paragraph("Images visualization", styles['Heading3'])
+    elements.append(subtitle_vis)
+
+    # Real images visualization
+    dataset_real = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
+    real_text = Paragraph(
+        f"<b>Real samples</b> ∈ [{dataset_real._min}, {dataset_real._max}] - dtype: {dataset_real._dtype}",   
+        styles['BodyText']
+    )
+    elements.append(real_text)
     elements.append(Spacer(1, 12))
 
-    additional_text1 = Paragraph(
-        "<b>Metrics interpretation:</b> The arrow direction indicates the preferred trend for each metric: ↑ indicates better performance with higher values, and ↓ indicates better performance with lower values.",
-        justified_style
+    # Layout with qualitative visualization
+    real_path = metric_utils.get_latest_figure(os.path.join(metric_folder, "figures/samples_real.png"))
+    real_grid = get_image_with_scaled_dimensions(real_path, max_width=450)
+    elements.append(real_grid)
+    real_caption = Paragraph(f"From: {real_path}", styles['BodyText'])
+    elements.append(real_caption)
+
+    # ----------------------------------
+
+    elements.append(PageBreak())
+
+    dataset_synt = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
+    synt_text = Paragraph(
+        f"<b>Synthetic samples</b> ∈ [{dataset_synt._min}, {dataset_synt._max}] - dtype: {dataset_synt._dtype}",  
+        styles['BodyText']
     )
-    additional_text_2 = Paragraph(
-        "<b>Plot interpretation:</b> Metrics are grouped into categories. Each metric has value in [0,1], with 1 representing the optimal value. To provide an overall assessment of the model's performance in each category, the average value of all metrics within that category is displayed.",
-        justified_style
-    )
-    two_texts = Table(
-        [[additional_text1, additional_text_2]],
-        colWidths=[250, 250] 
-    )
-    elements.append(two_texts)
-    two_texts.setStyle(TableStyle([
-    ('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+
+    elements.append(synt_text)
+    elements.append(Spacer(1, 12))
     
+    # Layout with qualitative visualization
+    synt_path = metric_utils.get_latest_figure(os.path.join(metric_folder, "figures/samples_synt.png"))
+    synt_grid = get_image_with_scaled_dimensions(synt_path, max_width=450)
+    elements.append(synt_grid)
+    synt_caption = Paragraph(f"From: {synt_path}", styles['BodyText'])
+    elements.append(synt_caption)
+
+    # ---------------------------------------
+    elements.append(PageBreak())
+
+    # Text for generalization assessment
+    generalization_path = os.path.join(metric_folder, "figures/knn_analysis.png")
+    if metric_utils.get_latest_figure(generalization_path) is not None:
+        generalization_path = metric_utils.get_latest_figure(generalization_path)
+        subtitle_knn = Paragraph("k-NN analysis", styles['Heading3'])
+        elements.append(subtitle_knn)
+
+        generalization_text = Paragraph(
+            "The k-nearest neighbors (k-NN) visualization performs a qualitative assessment of generalization, to assess whether the model memorizes training data. "
+            f"The first column shows the {args.knn_configs['num_real']} real images that have the highest cosine similarity to any synthetic sample. "
+            f"Each subsequent column presents the top {args.knn_configs['num_synth']} most similar synthetic images (out of {num_syn} generated samples) for each real image."
+        )
+        elements.append(generalization_text)
+        elements.append(Spacer(1, 12))
+
+        # Layout with qualitative generalization assessment
+        generalization_image = get_image_with_scaled_dimensions(generalization_path, max_width=450)
+        elements.append(generalization_image)
+        knn_caption = Paragraph(f"From: {generalization_path}", styles['BodyText'])
+        elements.append(knn_caption)
+
+    # --------------------------------------- Metrics interpretation ------------------------------------------------
+
     if metrics.get("a_precision_c", None) is not None:
         elements.append(PageBreak())
-        subtitle_knn = Paragraph("A closer look: α-precision, β-recall, and authenticity", styles['Heading3'])
-        elements.append(subtitle_knn)   
+        subtitle_pr_a = Paragraph("A closer look: α-precision, β-recall, and authenticity", styles['Heading3'])
+        elements.append(subtitle_pr_a)   
 
         # Layout with the three images side by side
         prec_rec_path = os.path.join(metric_folder, "figures/alpha_precision_beta_recall_curves_c.png")
@@ -344,7 +470,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             justified_style
         )
         pr_images = Table(
-            [[Image(metric_utils.get_latest_figure(prec_rec_path), width=350, height=250), 
+            [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(prec_rec_path), max_width=350), 
             additional_text1]],
             colWidths=[350, 150] 
         )
@@ -363,7 +489,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             justified_style
         )
         auth_images = Table(
-            [[Image(metric_utils.get_latest_figure(auth_path), width=350, height=250), additional_text_2]],
+            [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(auth_path), max_width=350), additional_text_2]],
             colWidths=[350, 150] 
         )
         elements.append(auth_images)
@@ -371,53 +497,18 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
 
-    # Subtitle for Qualitative assessment
-    elements.append(PageBreak())
-    subtitle_qual = Paragraph("Qualitative assessment", styles['Heading2'])
-    elements.append(subtitle_qual)
-    
-    subtitle_vis = Paragraph("Images visualization", styles['Heading3'])
-    elements.append(subtitle_vis)
-
-    # Text for qualitative assessment
-    qualitative_text = Paragraph(
-        "Sample Comparison: A real image vs. a synthetic image",   
-        styles['BodyText']
-    )
-    elements.append(qualitative_text)
-    elements.append(Spacer(1, 12))
-
-    # Layout with qualitative visualization
-    fidelity_path = os.path.join(metric_folder, "figures/samples_visualization.png")
-    fidelity_image = Image(metric_utils.get_latest_figure(fidelity_path), width=400, height=250)
-    elements.append(fidelity_image)
-
-    # Text for generalization assessment
-    generalization_path = os.path.join(metric_folder, "figures/knn_analysis.png")
-    if metric_utils.get_latest_figure(generalization_path) is not None:
-        subtitle_knn = Paragraph("k-NN analysis", styles['Heading3'])
-        elements.append(subtitle_knn)
-
-        # Layout with qualitative generalization assessment
-        generalization_image = Image(metric_utils.get_latest_figure(generalization_path), width=400, height=250)
-        elements.append(generalization_image)
-        generalization_text = Paragraph(
-            "This visualization displays the k-nearest neighbors (k-NN) of real training images, helping to assess whether the model memorizes training data. "
-            f"The first column shows the {args.knn_configs['num_real']} real images that have the highest cosine similarity to any synthetic sample. "
-            f"Each subsequent column presents the top {args.knn_configs['num_synth']} most similar synthetic images (out of {num_syn} generated samples) for each real image."
-        )
-
-        elements.append(generalization_text)
+    # --------------------------------------- References ------------------------------------------------
 
     # Add references section
     if references:
+        elements.append(PageBreak())
         elements.append(Paragraph("References", styles['Heading2']))
         for ref in references:
             elements.append(Paragraph(ref, styles['Normal']))
             elements.append(Spacer(1, 6))
     
     doc.build(elements, onLaterPages=add_page_number, onFirstPage=add_page_number)
-    print(f"Metrics successfully saved to {out_pdf_path}")
+    print(f"Report successfully saved to {out_pdf_path}")
 
 def generate_metrics_report(args):
     metric_folder = args.run_dir

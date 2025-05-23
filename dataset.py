@@ -4,6 +4,7 @@ import os
 import numpy as np
 import torch
 import torch.utils.data as data
+import dnnlib
 
 class BaseDataset(data.Dataset):
     def __init__(self, 
@@ -26,7 +27,10 @@ class BaseDataset(data.Dataset):
         # Store dataset metadata
         self.name = os.path.basename(path_data)
         self._raw_shape = list(self._data.shape)
-
+        self._dtype = self._data.dtype
+        self._min = self._data.min()
+        self._max = self._data.max()
+        
         # Apply max_size.
         self._raw_idx = np.arange(self._raw_shape[0], dtype=np.int64)
         if (size_dataset is not None) and (self._raw_idx.size > size_dataset):
@@ -50,17 +54,18 @@ class BaseDataset(data.Dataset):
             assert self._raw_labels.shape[0] == self._raw_shape[0]
             assert self._raw_labels.dtype in [np.float32, np.int64]
             if self._raw_labels.dtype == np.int64:
-                assert self._raw_labels.ndim == 1
                 assert np.all(self._raw_labels >= 0)
         return self._raw_labels
     
     def get_label(self, idx):
         label = self._get_raw_labels()[self._raw_idx[idx]]
-        if label.dtype == np.int64:
-            onehot = np.zeros(self.label_shape, dtype=np.float32)
-            onehot[label] = 1
-            label = onehot
         return label.copy()
+
+    def get_details(self, idx):
+        d = dnnlib.EasyDict()
+        d.raw_idx = int(self._raw_idx[idx])
+        d.raw_label = self._get_raw_labels()[d.raw_idx].copy()
+        return d
 
     @property
     def image_shape(self):
