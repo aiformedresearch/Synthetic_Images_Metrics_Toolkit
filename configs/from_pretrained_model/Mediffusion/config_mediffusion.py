@@ -36,7 +36,7 @@ CONFIGS = {
     # Set the batch size to use while computing the embeddings of real and synthetic images
     "BATCH_SIZE": 64,
     # Set data type ('2D' or '3D')
-    "DATA_TYPE": '3D',
+    "DATA_TYPE": '2D',
     # Enable or disable caching of feature statistics. When True, cached data is reused (if available).
     "USE_CACHE": True,
     # Set verbosity for logging and debugging.
@@ -102,7 +102,7 @@ SYNTHETIC_DATA = {
     "pretrained_model": 
         {
         # Path to the pre-trained generator
-        "network_path": "Synthetic_Images_Metrics_Toolkit/configs/Mediffusion/pre-trained_generator.ckpt",
+        "network_path": "Synthetic_Images_Metrics_Toolkit/configs/from_pretrained_model/Mediffusion/pre-trained_generator.ckpt",
         # Function to load the pre-trained generator (below in this script)
         "load_network": lambda network_path: _load_network(network_path),
         # Function to generate synthetic images from the pre-trained generator (below in this script)
@@ -151,7 +151,7 @@ DATASET["class"] = NiftiDataset
 import torch
 from mediffusion import DiffusionModule
 # 2. Define a function to load the generator network.
-config_path= "Synthetic_Images_Metrics_Toolkit/configs/Mediffusion/config.yaml"
+config_path= "Synthetic_Images_Metrics_Toolkit/configs/from_pretrained_model/Mediffusion/config.yaml"
 def _load_network(network_path):
     G = DiffusionModule(config_path)
     network_dict = torch.load(network_path)['state_dict']
@@ -165,6 +165,10 @@ def _load_network(network_path):
 
 # 3. Define a custom function to generate images using the generator.
 def _run_generator(z, opts):
+
+    # Move z,c to the model's device
+    device = next(opts.G.parameters()).device
+    z = z.to(device) 
 
     # Generate images using the specified inference protocol.
     img = opts.G.predict(z, inference_protocol="DDIM100") # List of images

@@ -140,10 +140,11 @@ class NiftiDataset(BidsDataset):
 
         data = np.expand_dims(data, axis=0)
 
-        # Normalize to the range [0, 1]
+        # Normalize to the range [0, 255]
         min_val = data.min()
         max_val = data.max()
         data = (data - min_val) / (max_val - min_val)
+        data *= 255
 
         return data.copy() # [n_channels, img_resolution, img_resolution, img_resolution]
 

@@ -30,14 +30,14 @@ METRICS = [
 CONFIGS = {
     # Define the path where the results should be saved.
     # This is the directory where all metric computations will be stored.
-    "RUN_DIR": "Synthetic_Images_Metrics_Toolkit/EXPERIMENT_StyleGAN2-ADA",
+    "RUN_DIR": "Synthetic_Images_Metrics_Toolkit/EXPERIMENT_PACGAN",
     # Define the number of GPUs to use for computation.
     # Set 0 for CPU mode.
     "NUM_GPUS": 1,
     # Set the batch size to use while computing the embeddings of real and synthetic images
     "BATCH_SIZE": 64,
     # Set data type ('2D' or '3D')
-    "DATA_TYPE": '3D',
+    "DATA_TYPE": '2D',
     # Enable or disable caching of feature statistics. When True, cached data is reused (if available).
     "USE_CACHE": True,
     # Set verbosity for logging and debugging.
@@ -97,7 +97,7 @@ DATASET = {
 # ----------------------------- Synthetic data configuration -----------------------------
 
 # Flag to determine the mode of operation
-USE_PRETRAINED_MODEL = False  # Set to False to load synthetic images from files
+USE_PRETRAINED_MODEL = True  # Set to False to load synthetic images from files
 
 SYNTHETIC_DATA = {
 
@@ -105,7 +105,7 @@ SYNTHETIC_DATA = {
     "pretrained_model": 
         {
         # Path to the pre-trained generator
-        "network_path": "Synthetic_Images_Metrics_Toolkit/configs/PACGAN/pre-trained_generator.pt",
+        "network_path": "Synthetic_Images_Metrics_Toolkit/configs/from_pretrained_model/PACGAN/pre-trained_generator.pt",
         # Function to load the pre-trained generator (below in this script)
         "load_network": lambda network_path: _load_network(network_path),
         # Function to generate synthetic images from the pre-trained generator (below in this script)
@@ -145,12 +145,15 @@ class NiftiDataset(BaseDataset):
     def _load_raw_labels(self):
         """
         (Optional) Function to load the labels, for multi-class datasets.
-        Expects Numpy array of shape: (N,) - e.g.,: array([0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0])
         """
         labels = pd.read_csv(self.path_labels, delimiter=',')
         labels = labels['Group'].map({'CN':0, 'AD':1}).values.astype(int)#[sel_ids]
         labels = np.array(labels)
-        labels = labels.astype({1: np.int64, 2: np.float32}[labels.ndim])
+        labels = labels.astype({1: np.int64, 2: np.float32}[labels.ndim]) # array([0, 0, 1, 1, 0, 1, 1, 1, 1, 0], dtype=int64)
+
+        # Convert to onehot-encoding (or adjust as needed by your generator architecture)
+        num_classes = np.max(labels) + 1
+        labels = np.eye(num_classes, dtype=np.int64)[labels] # array([[1., 0.], [1., 0.], [0., 1.], ... ])
         return labels
 
 DATASET["class"] = NiftiDataset
@@ -164,7 +167,7 @@ import torch
 import json
 
 
-json_path= "Synthetic_Images_Metrics_Toolkit/configs/PACGAN/config.json"
+json_path= "Synthetic_Images_Metrics_Toolkit/configs/from_pretrained_model/PACGAN/config.json"
 # Read parameters from JSON file
 with open(json_path) as f:
     config_data = json.load(f)
@@ -187,12 +190,19 @@ def _load_network(network_path):
 
 # 3. Define a custom function to generate images using the generator.
 def _run_generator(z, c, opts):
-    
-    # Generate images
+    # Move z,c to the model's device
+    device = next(opts.G.parameters()).device
+    z = z.to(device) 
+    c = c.to(device)
+
+    # Generate samples    
     img = opts.G(z, c)
 
     # Normalize pixel values to the standard [0, 255] range for image representation.
     img = (img.float() * 127.5 + 128).clamp(0, 255)#.to(torch.uint8)
     img = img.to(dtype=torch.float32)
     
+    # Flip images upside-down
+    img = torch.flip(img, dims=[2])  
+
     return img # [batch_size, n_channels, img_resolution, img_resolution]

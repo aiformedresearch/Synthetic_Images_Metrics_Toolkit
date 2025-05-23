@@ -36,7 +36,7 @@ CONFIGS = {
     # Set the batch size to use while computing the embeddings of real and synthetic images
     "BATCH_SIZE": 64,
     # Set data type ('2D' or '3D')
-    "DATA_TYPE": '3D',
+    "DATA_TYPE": '2D',
     # Enable or disable caching of feature statistics. When True, cached data is reused (if available).
     "USE_CACHE": True,
     # Set verbosity for logging and debugging.
@@ -103,7 +103,7 @@ SYNTHETIC_DATA = {
     "pretrained_model": 
         {
         # Path to the pre-trained generator
-        "network_path": "Synthetic_Images_Metrics_Toolkit/configs/StyleGAN2ADA/pre-trained_generator.pkl",
+        "network_path": "Synthetic_Images_Metrics_Toolkit/configs/from_pretrained_model/StyleGAN2ADA/pre-trained_generator.pkl",
         # Function to load the pre-trained generator (below in this script)
         "load_network": lambda network_path: _load_network(network_path),
         # Function to generate synthetic images from the pre-trained generator (below in this script)
@@ -159,6 +159,11 @@ def _load_network(network_path):
     return G
 
 def _run_generator(z, opts):
+    # Move z,c to the model's device
+    device = next(opts.G.parameters()).device
+    z = z.to(device) 
+
+    # Generate samples
     img = opts.G(z=z, c=None)
 
     # Normalize pixel values to the standard [0, 255] range for image representation.
