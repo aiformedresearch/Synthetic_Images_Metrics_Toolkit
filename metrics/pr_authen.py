@@ -18,7 +18,7 @@ import tensorflow as tf
 
 #----------------------------------------------------------------------------
 
-def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, Delta_precision_alpha, AUC_alpha_precision, Delta_coverage_beta, AUC_beta_coverage, authen, emb):
+def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, Delta_precision_alpha, AUC_alpha_precision, Delta_coverage_beta, AUC_beta_coverage, authen):
     plt.figure(figsize=(10, 6))
     
     # Plot alpha precision curve
@@ -54,7 +54,7 @@ def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authen
     plt.grid(True)
     fig_dir = os.path.join(opts.run_dir, 'figures')
     os.makedirs(fig_dir, exist_ok=True)
-    base_figname = os.path.join(fig_dir, f'alpha_precision_beta_recall_curves{emb}.png')
+    base_figname = os.path.join(fig_dir, f'alpha_precision_beta_recall_curves.png')
     figname = metric_utils.get_unique_filename(base_figname)
     plt.savefig(figname)
 
@@ -66,7 +66,7 @@ def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authen
     plt.xlabel("Authenticity for each batch", fontsize=15)
     plt.ylabel("Frequency", fontsize=15)
     plt.legend(fontsize=12)
-    base_figname = os.path.join(fig_dir, f'authenticity_distribution{emb}.png')
+    base_figname = os.path.join(fig_dir, f'authenticity_distribution.png')
     figname = metric_utils.get_unique_filename(base_figname)
     plt.savefig(figname)
 
@@ -225,61 +225,46 @@ def compute_pr_a(opts, max_real, num_gen):
      
     # Compute the metrics considering two different centers for the OC representation
     results = dict()
-    for emb_index in [0,1]:
 
-        if emb_index == 1:
-            # Embed the data into the OC representation
-            if opts.rank == 0:
-                print('Computing metrics for OC embedding')
-                print('Embedding data into OC representation')
-            OC_model.to(opts.device)
-            with torch.no_grad():
-                real_features = OC_model(real_features.float().to(opts.device))
-                gen_features = OC_model(gen_features.float().to(opts.device))
-            
-            if opts.rank == 0:
-                print('Done embedding')
-                print('real_features: mean, std - ', real_features.mean(), real_features.std(unbiased=False))
-                print('gen_features:  mean, std - ', gen_features.mean(), gen_features.std(unbiased=False))
-        else:
-            if opts.rank == 0:
-                print('Computing metrics for no additional OneClass embedding')
-
-        if emb_index==1:
-            emb = '_c'
-            emb_center = OC_model.c
-            if opts.rank == 0:
-                print('\n-> with embedding centered in c=10:')
-        else:
-            emb = '_mean'
-            emb_center = real_features.mean(dim=0)
-            if opts.rank == 0:
-                print('\n-> with as center the data center:')
-
-        # Compute the metrics
-        OC_res = compute_alpha_precision(opts, real_features, gen_features, emb_center)
-        alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, AUC_alpha_precision, AUC_beta_coverage, authenticity_values, authen = OC_res
-        
-        results[f'alphas{emb}'] = alphas
-        results[f'alpha_pc{emb}'] = alpha_precision_curve
-        results[f'beta_cv{emb}'] = beta_coverage_curve
-        results[f'auten{emb}'] = authen
-        results[f'Dap{emb}'] = Delta_precision_alpha
-        results[f'Dbr{emb}'] = Delta_coverage_beta
-        results[f'AUC_ap{emb}'] = AUC_alpha_precision
-        results[f'AUC_br{emb}'] = AUC_beta_coverage
-        results[f'Daut{emb}'] = np.mean(authen)
-        if opts.rank == 0:
-            print('OneClass: Delta_alpha-precision', results[f'Dap{emb}'])
-            print('OneClass: AUC_alpha-precision', results[f'AUC_ap{emb}'])
-            print('OneClass: Delta_beta-recall  ', results[f'Dbr{emb}'])
-            print('OneClass: AUC_beta-recall  ', results[f'AUC_br{emb}'])
-            print('OneClass: Delta_autenticity    ', results[f'Daut{emb}'])
+    # Embed the data into the OC representation
+    if opts.rank == 0:
+        print('Embedding data into OC representation')
+    OC_model.to(opts.device)
+    with torch.no_grad():
+        real_features_OC = OC_model(real_features.float().to(opts.device))
+        gen_features_OC = OC_model(gen_features.float().to(opts.device))
     
-        # Plot the curves
-        if opts.rank == 0 and emb_index==1:
-            plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, Delta_precision_alpha, AUC_alpha_precision, Delta_coverage_beta, AUC_beta_coverage, authen, emb)
+    if opts.rank == 0:
+        print('Done embedding')
+        print('real_features: mean, std - ', real_features_OC.mean(), real_features_OC.std(unbiased=False))
+        print('gen_features:  mean, std - ', gen_features_OC.mean(), gen_features_OC.std(unbiased=False))
+
+    emb_center = OC_model.c
+
+    # Compute the metrics
+    OC_res = compute_alpha_precision(opts, real_features_OC, gen_features_OC, emb_center)
+    alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, AUC_alpha_precision, AUC_beta_coverage, authenticity_values, authen = OC_res
     
-    return results['AUC_ap_c'], results['AUC_br_c'], results['Daut_c']
+    results[f'alphas'] = alphas
+    results[f'alpha_pc'] = alpha_precision_curve
+    results[f'beta_cv'] = beta_coverage_curve
+    results[f'auten'] = authen
+    results[f'Dap'] = Delta_precision_alpha
+    results[f'Dbr'] = Delta_coverage_beta
+    results[f'AUC_ap'] = AUC_alpha_precision
+    results[f'AUC_br'] = AUC_beta_coverage
+    results[f'Daut'] = np.mean(authen)
+    if opts.rank == 0:
+        print('OneClass: Delta_alpha-precision', results[f'Dap'])
+        print('OneClass: AUC_alpha-precision', results[f'AUC_ap'])
+        print('OneClass: Delta_beta-recall  ', results[f'Dbr'])
+        print('OneClass: AUC_beta-recall  ', results[f'AUC_br'])
+        print('OneClass: Delta_autenticity    ', results[f'Daut'])
+
+    # Plot the curves
+    if opts.rank == 0:
+        plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authenticity_values, Delta_precision_alpha, AUC_alpha_precision, Delta_coverage_beta, AUC_beta_coverage, authen)
+
+    return results['AUC_ap'], results['AUC_br'], results['Daut']
 
 

@@ -25,12 +25,12 @@ metric_labels = {
     "precision": "Precision",
     "pr_precision": "Precision (NVIDIA)",
     "density": "Density",
-    "a_precision_c": "α-Precision",
+    "a_precision": "α-Precision",
     "recall": "Recall",
     "pr_recall": "Recall (NVIDIA)",
     "coverage": "Coverage",
-    "b_recall_c": "β-Recall",
-    "authenticity_c": "Authenticity"
+    "b_recall": "β-Recall",
+    "authenticity": "Authenticity"
 }
 
 metric_references = {
@@ -106,15 +106,15 @@ def extract_metrics_from_csv(folder_path):
 def plot_metrics_triangle(metrics, metric_folder):
 
     # Extract fidelity, diversity, and generalization metrics while filtering out None values
-    fidelity_metrics = {k: metrics.get(k, None) for k in ["precision", "pr50k3_precision", "density", "a_precision_c"]}
+    fidelity_metrics = {k: metrics.get(k, None) for k in ["precision", "pr50k3_precision", "density", "a_precision"]}
     fidelity_metrics = {k: np.clip(v, 0, 1) for k, v in fidelity_metrics.items() if v is not None}
     fidelity_mean = np.mean(list(fidelity_metrics.values()))
 
-    diversity_metrics = {k: metrics.get(k, None) for k in ["recall", "pr50k3_recall", "coverage", "b_recall_c"]}
+    diversity_metrics = {k: metrics.get(k, None) for k in ["recall", "pr50k3_recall", "coverage", "b_recall"]}
     diversity_metrics = {k: np.clip(v, 0, 1) for k, v in diversity_metrics.items() if v is not None}
     diversity_mean = np.mean(list(diversity_metrics.values()))
 
-    generalization_metrics = {k: np.clip(metrics.get(k, None), 0, 1) for k in ["authenticity_c"] if metrics.get(k) is not None}
+    generalization_metrics = {k: np.clip(metrics.get(k, None), 0, 1) for k in ["authenticity"] if metrics.get(k) is not None}
     generalization_mean = np.mean(list(generalization_metrics.values())) if generalization_metrics else 0
 
     # Filter labels to match available metrics
@@ -343,7 +343,6 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         "<b>Metrics interpretation:</b><br/> The ideal trend for each metric is indicated by arrow direction:",
         justified_style
     )
-    small_bullet = "&#8226;"
     list_items = [
         ListItem(Paragraph(f"↑ indicates better performance with higher values;", justified_style), leftIndent=0),
         ListItem(Paragraph(f"↓ indicates better performance with lower values.", justified_style), leftIndent=0),
@@ -458,13 +457,12 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
 
     # --------------------------------------- Metrics interpretation ------------------------------------------------
 
-    if metrics.get("a_precision_c", None) is not None:
         elements.append(PageBreak())
         subtitle_pr_a = Paragraph("A closer look: α-precision, β-recall, and authenticity", styles['Heading3'])
         elements.append(subtitle_pr_a)   
 
         # Layout with the three images side by side
-        prec_rec_path = os.path.join(metric_folder, "figures/alpha_precision_beta_recall_curves_c.png")
+        prec_rec_path = os.path.join(metric_folder, "figures/alpha_precision_beta_recall_curves.png")
         additional_text1 = Paragraph(
             'The scores of <b>α-precision</b> and <b>β-recall</b> are computed from the curves shown, which are derived by computing precision and recall across several values of the α and β parameters. These parameters set thresholds to define what is considered "typical" data, helping to reduce the influence of outliers on the final evaluation. The Δ score represents the deviation from to the ideal curve (optimal performance), while the AUC (which serves as the actual score) corresponds to the area under the curve.',
             justified_style
@@ -481,7 +479,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
 
         # Additional text
         elements.append(Spacer(1, 12))
-        auth_path= os.path.join(metric_folder, "figures/authenticity_distribution_c.png")
+        auth_path= os.path.join(metric_folder, "figures/authenticity_distribution.png")
         batch_size = min(1024, num_real, num_syn)
         num_batches = int(np.ceil(num_syn / batch_size))
         additional_text_2 = Paragraph(

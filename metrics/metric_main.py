@@ -163,8 +163,8 @@ def ppl_wend(opts):
 @register_metric
 def pr_auth(opts):
     opts.dataset_kwargs.update(max_size=None)
-    a_precision_c, b_recall_c, authenticity_c  = pr_authen.compute_pr_a(opts, max_real=opts.max_size, num_gen=opts.num_gen)
-    return dict(a_precision_c=a_precision_c, b_recall_c=b_recall_c, authenticity_c=authenticity_c)
+    a_precision, b_recall, authenticity  = pr_authen.compute_pr_a(opts, max_real=opts.max_size, num_gen=opts.num_gen)
+    return dict(a_precision=a_precision, b_recall=b_recall, authenticity=authenticity)
 
 @register_metric
 def prdc(opts):
