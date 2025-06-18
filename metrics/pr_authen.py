@@ -194,24 +194,24 @@ def compute_pr_a(opts, max_real, num_gen):
     OC_hyperparams = dict({"Radius": 1, "nu": 1e-2})
 
     # Load embedder function
-    if opts.data_type in ['2d', '2D']:
+    if opts.data_type.lower() == '2d':
         detector_url = {'model': 'inceptionv3', 'randomise': False, 'dim64': False}
-    elif opts.data_type in ['3d', '3D']:
+    elif opts.data_type.lower() == '3d':
         detector_url = ('https://zenodo.org/records/15234379/files/resnet_50_23dataset_cpu.pth?download=1', '3d')
     detector_kwargs = dict(return_features=True)
     
-    if detector_url is not None and opts.data_type in ['2d', '2D']:
+    if detector_url is not None and opts.data_type.lower() == '2d':
         embedder = metric_utils.load_embedder(detector_url)
         print('Checking if embedder is using GPU')
         sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(log_device_placement=True))
         print(sess)
     
     # Compute the embedding from pre-trained detector
-    if opts.data_type in ['2d', '2D']:
+    if opts.data_type.lower() == '2d':
         real_features = metric_utils.get_activation_from_dataset(opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
                                     max_img=max_real, embedding=detector_url, embedder=embedder, verbose=True)
         gen_features = metric_utils.get_activation_synthetic(opts, num_gen, detector_url, embedder=embedder, verbose=True)
-    elif opts.data_type in ['3d', '3D']:
+    elif opts.data_type.lower() == '3d':
         real_features = metric_utils.compute_feature_stats_for_dataset(opts=opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
             detector_url=detector_url, detector_kwargs=detector_kwargs,
             rel_lo=0, rel_hi=0, dataset_kwargs=opts.dataset_kwargs, capture_all=True, max_items=max_real).get_all_torch().to(torch.float32).to(opts.device)

@@ -435,10 +435,16 @@ def validate_config(config):
             if params["size_dataset"] is not None and (not isinstance(params["size_dataset"], int) or params["size_dataset"] <= 0):
                 errors.append("size_dataset must be a positive integer or None.")
 
+    def validate_is(config):
+        if config.CONFIGS["DATA_TYPE"].lower() == '3d':
+            if 'is_' in config.METRICS:
+                config.METRICS.remove('is_')
+                print("Warning: Inception Score cannot be computed for 3D data because the ResNet-3D used as feature extractor lacks a classification layer.")
     # Validate each section
     validate_metrics(config.METRICS)
-    validate_metrics_configs(config.METRICS_CONFIGS)
     validate_configs(config.CONFIGS)
+    validate_is(config)
+    validate_metrics_configs(config.METRICS_CONFIGS)
     validate_dataset(config.DATASET)
     validate_synthetic_data_config(config.SYNTHETIC_DATA, config.USE_PRETRAINED_MODEL)
 
@@ -1120,9 +1126,9 @@ def visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, f
     synthetic_images_to_visualize = [closest_images[real_idx][:k] for real_idx in top_n_real_indices]
 
     # Now visualize the real image and the k closest synthetic images
-    if opts.data_type in ['2d','2D']:
+    if opts.data_type.lower() == '2d':
         visualize_grid(opts, real_images, synthetic_images_to_visualize, top_n_real_indices, closest_indices, fig_path, top_n, k)
-    elif opts.data_type in ['3d','3D']:
+    elif opts.data_type.lower() == '3d':
         visualize_grid_3d(opts, real_images, synthetic_images_to_visualize, top_n_real_indices, closest_indices, fig_path, top_n, k)
 
 #----------------------------------------------------------------------------

@@ -83,9 +83,9 @@ def process_batches_and_find_closest(opts, real_embeddings, detector_url, detect
 # Main function to compute embeddings, find k-NN in batches, and visualize results
 def plot_knn(opts, max_real, num_gen, k=8, top_n=6):
     #detector_url = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/inception-2015-12-05.pt'
-    if opts.data_type in ['2d', '2D']:
+    if opts.data_type.lower() == '2d':
         detector_url = ('https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/vgg16.pt', '2d')
-    elif opts.data_type in ['3d', '3D']:
+    elif opts.data_type.lower() == '3d':
         detector_url = ('https://zenodo.org/records/15234379/files/resnet_50_23dataset_cpu.pth?download=1', '3d')
     detector_kwargs = dict(return_features=True) # Return raw features before the softmax layer.
 
