@@ -24,7 +24,7 @@ from . import precision_recall
 from . import perceptual_path_length
 from . import inception_score
 from . import pr_authen
-from . import density_coverage
+from . import pr_dc
 from . import knn_analysis
 
 #----------------------------------------------------------------------------
@@ -169,7 +169,7 @@ def pr_auth(opts):
 @register_metric
 def prdc(opts):
     opts.dataset_kwargs.update(max_size=None)
-    precision, recall, density, coverage  = density_coverage.compute_prdc(opts, max_real=opts.max_size, num_gen=opts.num_gen)
+    precision, recall, density, coverage  = pr_dc.compute_prdc(opts, max_real=opts.max_size, num_gen=opts.num_gen)
     return dict(precision=precision, recall=recall, density=density, coverage=coverage)
 
 @register_metric

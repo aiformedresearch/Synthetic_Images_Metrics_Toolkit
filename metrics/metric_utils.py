@@ -326,7 +326,7 @@ def validate_config(config):
             errors.append("Missing 'nhood_size' in METRICS_CONFIGS.")
         else:
             nhood_size = metrics_configs["nhood_size"]
-            required_keys = ["pr", "prdc", "pr_auth"]
+            required_keys = ["pr", "prdc"]
             for key in required_keys:
                 if key not in nhood_size:
                     errors.append(f"Missing key in METRICS_CONFIGS['nhood_size']: {key}")
@@ -772,7 +772,7 @@ def get_activation_from_generator(opts, num_gen, embedding, embedder=None, verbo
             batch_size = n_imgs
         n_batches = (n_imgs + batch_size - 1) // batch_size
 
-        pred_arr = np.empty((n_imgs,embedder.output.shape[-1]))
+        pred_arr = torch.empty((n_imgs,embedder.output.shape[-1]))
 
         for i in range(n_batches):
             if verbose:
@@ -799,8 +799,9 @@ def get_activation_from_generator(opts, num_gen, embedding, embedder=None, verbo
             batch = adjust_size_embedder(opts, embedder, embedding, batch)
 
             batch_embedding = embedder(batch)
-            # Convert to numpy array:
-            pred_arr[start:end] = np.stack(list(batch_embedding))
+            # Convert to PyTorch:
+            pred_arr[start:end] = torch.from_numpy(batch_embedding.cpu().numpy()).to(opts.device)
+
             del batch #clean up memory
     if verbose:
         print(" done")
@@ -1034,6 +1035,7 @@ def visualize_grid(opts, real_images, synthetic_images, top_n_real_indices, clos
 
     plt.tight_layout()
     plt.savefig(fig_path)
+    plt.close()
 
 def extract_slices(volume):
     """Extract axial, coronal, sagittal central slices from 3D volume (C, D, H, W)."""
@@ -1089,6 +1091,7 @@ def visualize_grid_3d(opts, real_volumes, synthetic_volumes, top_n_real_indices,
 
     plt.tight_layout()
     plt.savefig(fig_path)
+    plt.close()
 
 def select_top_n_real_images(closest_similarities, top_n=6):
     """
@@ -1121,3 +1124,113 @@ def visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, f
         visualize_grid(opts, real_images, synthetic_images_to_visualize, top_n_real_indices, closest_indices, fig_path, top_n, k)
     elif opts.data_type in ['3d','3D']:
         visualize_grid_3d(opts, real_images, synthetic_images_to_visualize, top_n_real_indices, closest_indices, fig_path, top_n, k)
+
+#----------------------------------------------------------------------------
+# Functions for qualitative assessment
+
+def project_gaussian(mu, sigma, pca):
+    """Project high-dim mean and covariance through PCA to 2D."""
+    mu_2d = pca.transform(mu.reshape(1, -1))[0]
+    sigma_2d = pca.components_ @ sigma @ pca.components_.T
+    return mu_2d, sigma_2d
+
+def plot_gaussian_ellipse(ax, mu, sigma, n_std=2, edgecolor='black', facecolor='none', label=None, alpha=0.2):
+    """Draw a covariance ellipse given 2D mean and covariance."""
+    from scipy.linalg import eigh
+
+    # Compute eigenvalues and eigenvectors
+    vals, vecs = eigh(sigma)
+    order = vals.argsort()[::-1]
+    vals, vecs = vals[order], vecs[:, order]
+    
+    theta = np.degrees(np.arctan2(*vecs[:, 0][::-1]))
+    width, height = 2 * n_std * np.sqrt(vals)
+
+    ellipse = Ellipse(xy=mu, width=width, height=height, angle=theta,
+                    edgecolor=edgecolor, facecolor=facecolor, alpha=alpha, linewidth=2, label=label)
+    ax.add_patch(ellipse)
+
+
+def plot_pca(metric, real_features, gen_features, mu_real=None, sigma_real=None, mu_gen=None, sigma_gen=None, circle_info=None, fig_path=None):
+    # --- PCA to 2D ---
+    all_features = np.vstack([real_features, gen_features]) if real_features is not None else gen_features
+    pca = PCA(n_components=2)
+    pca.fit(all_features)
+
+    if real_features is not None:
+        real_2d = pca.transform(real_features)
+    gen_2d = pca.transform(gen_features)
+
+    if all(x is not None for x in [mu_real, sigma_real, mu_gen, sigma_gen]):
+        if real_features is not None:
+            mu_real_2d, sigma_real_2d = project_gaussian(mu_real, sigma_real, pca)
+        mu_gen_2d, sigma_gen_2d = project_gaussian(mu_gen, sigma_gen, pca)
+
+    explained_var = pca.explained_variance_ratio_.sum() * 100
+
+    # --- Plot ---
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Scatter plots
+    if real_features is not None:
+        ax.scatter(real_2d[:, 0], real_2d[:, 1], alpha=0.5, s=50, c='#1f77b4', label='Real')
+    ax.scatter(gen_2d[:, 0], gen_2d[:, 1], alpha=0.5, s=50, c='#ff7f0e', label='Synthetic')
+
+    # Gaussian ellipses
+    if all(x is not None for x in [mu_real, sigma_real, mu_gen, sigma_gen]):
+        plot_gaussian_ellipse(ax, mu_real_2d, sigma_real_2d,
+                            edgecolor='#1f77b4', facecolor='#1f77b4', alpha=0.2, label='Real Gaussian')
+        plot_gaussian_ellipse(ax, mu_gen_2d, sigma_gen_2d,
+                            edgecolor='#ff7f0e', facecolor='#ff7f0e', alpha=0.2, label='Synthetic Gaussian')
+
+    if circle_info is not None:
+        center, Radii = circle_info
+        center_2d = pca.transform(center.reshape(1, -1))[0]
+        from matplotlib.patches import Circle
+        circle = Circle(center_2d, Radii, color='black', fill=False)
+        ax.add_patch(circle)
+        ax.set_xlim(min(center_2d[0],real_2d[:,0].min(),gen_2d[:,0].min()) - Radii - .025, max(center_2d[0],real_2d[:,0].max(),gen_2d[:,0].max()) + Radii + .025)
+        ax.set_ylim(min(center_2d[1],real_2d[:,1].min(),gen_2d[:,1].min()) - Radii - .025,max(center_2d[1],real_2d[:,1].max(),gen_2d[:,1].max()) + Radii + .025)
+
+    # Final touches
+    ax.set_title(f"PCA of the embeddings for {metric}\n(Explained variance: {explained_var:.2f}%)", fontsize=22)
+    ax.set_xlabel("PCA Component 1", fontsize=20)
+    ax.set_ylabel("PCA Component 2", fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    ax.legend(fontsize=20)
+    plt.tight_layout()
+    plt.savefig(fig_path)
+    plt.close()
+
+
+def plot_tsne(metric, real_features, gen_features, fig_path):
+    all_embeddings = np.vstack([real_features, gen_features]) if real_features is not None else gen_features
+
+    # Create labels: 0 = real, 1 = synthetic
+    labels = np.array(['Real'] * len(real_features) + ['Synthetic'] * len(gen_features)) if real_features is not None else np.array(['Synthetic'] * len(gen_features))
+
+    # Run t-SNE
+    tsne = TSNE(n_components=2, perplexity=30, random_state=42, n_iter=1000)
+    tsne_results = tsne.fit_transform(all_embeddings)
+
+    # Plotting
+    plt.figure(figsize=(10, 8))
+    sns.set(style="whitegrid")
+
+    palette = {"Real": "#1f76b4", "Synthetic": "#ff7f0e"}
+
+    sns.scatterplot(
+        x=tsne_results[:, 0], y=tsne_results[:, 1],
+        hue=labels, palette=palette, alpha=0.6,
+        s=60, edgecolor='k'
+    )
+    plt.title(f"t-SNE of the embeddings for {metric}", fontsize=22)
+    plt.legend(fontsize=20)
+    plt.xlabel("t-SNE Component 1", fontsize=20)
+    plt.ylabel("t-SNE Component 2", fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.tight_layout()
+    plt.savefig(fig_path)
+    plt.close()

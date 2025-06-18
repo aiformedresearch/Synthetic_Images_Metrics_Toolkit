@@ -38,6 +38,17 @@ def compute_kid(opts, max_real, num_gen, num_subsets, max_subset_size):
     if opts.rank != 0:
         return float('nan')
 
+    # Visualize t-SNE
+    fig_path = opts.run_dir + '/figures/tsne_kid.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_tsne('KID', real_features=real_features, gen_features=gen_features, fig_path=fig_path)
+
+    # Visualize PCA
+    fig_path = opts.run_dir + '/figures/pca_kid.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_pca('KID', real_features=real_features, gen_features=gen_features, fig_path=fig_path)
+    
+    # Compute KID
     n = real_features.shape[1]
     m = min(min(real_features.shape[0], gen_features.shape[0]), max_subset_size)
     t = 0

@@ -15,6 +15,8 @@ https://github.com/openai/improved-gan/blob/master/inception_score/model.py"""
 import numpy as np
 from . import metric_utils
 import dnnlib
+import matplotlib.pyplot as plt
+import numpy as np
 
 #----------------------------------------------------------------------------
 
@@ -29,6 +31,43 @@ def compute_is(opts, num_gen, num_splits):
     gen_probs = metric_utils.compute_feature_stats_synthetic(
         opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
         capture_all=True, max_items=num_gen).get_all()
+
+    # Visualize t-SNE
+    fig_path = opts.run_dir + '/figures/tsne_is.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_tsne('IS', real_features=None, gen_features=gen_probs, fig_path=fig_path)
+
+    # Visualize PCA
+    fig_path = opts.run_dir + '/figures/pca_is.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_pca('IS', real_features=None, gen_features=gen_probs, fig_path=fig_path)
+
+    # --- Compute values ---
+    max_probs = np.max(gen_probs, axis=1)
+    top1_classes = np.argmax(gen_probs, axis=1)
+
+    # --- Create plots ---
+
+    fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+
+    # 1. Histogram of max probabilities
+    ax[0].hist(max_probs, bins=30, color='orange', edgecolor='black', alpha=0.7)
+    ax[0].set_title('Max Softmax Probabilities', fontsize=16)
+    ax[0].set_xlabel('Max Probability', fontsize=14)
+    ax[0].set_ylabel('Frequency', fontsize=14)
+    ax[0].grid(True)
+
+    # 2. Top-1 class prediction distribution
+    ax[1].hist(top1_classes, bins=100, color='orange', edgecolor='black')
+    ax[1].set_title('Top-1 Predicted Class', fontsize=16)
+    ax[1].set_xlabel('Class Index', fontsize=14)
+    ax[1].set_ylabel('Frequency', fontsize=14)
+    ax[1].grid(True)
+
+    plt.tight_layout()
+    plt.savefig(opts.run_dir + '/figures/is_probs.png')
+    plt.close()
+
 
     num_gen = len(gen_probs) if num_gen is None else num_gen
         

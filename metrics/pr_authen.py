@@ -57,6 +57,7 @@ def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authen
     base_figname = os.path.join(fig_dir, f'alpha_precision_beta_recall_curves.png')
     figname = metric_utils.get_unique_filename(base_figname)
     plt.savefig(figname)
+    plt.close()
 
     # Plot authenticity
     plt.figure(figsize=(10, 6))
@@ -69,6 +70,7 @@ def plot_curves(opts, alphas, alpha_precision_curve, beta_coverage_curve, authen
     base_figname = os.path.join(fig_dir, f'authenticity_distribution.png')
     figname = metric_utils.get_unique_filename(base_figname)
     plt.savefig(figname)
+    plt.close() 
 
 def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
 
@@ -112,7 +114,6 @@ def compute_authenticity_in_batches(real_data, synthetic_data, batch_size=1024):
 def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
 
     n_steps = 30
-    nn_size = opts.nhood_size["pr_auth"]
     alphas  = np.linspace(0, 1, n_steps)
         
     Radii   = np.quantile(torch.sqrt(torch.sum((real_data.float() - emb_center) ** 2, dim=1)).cpu().numpy(), alphas)
@@ -125,10 +126,10 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
     synth_to_center       = torch.sqrt(torch.sum((synthetic_data.float() - emb_center) ** 2, dim=1))
       
     real_data_np = real_data.cpu().numpy()
-    nbrs_real = NearestNeighbors(n_neighbors = nn_size+1, n_jobs=-1, p=2).fit(real_data_np)
+    nbrs_real = NearestNeighbors(n_neighbors = 2, n_jobs=-1, p=2).fit(real_data_np)
     real_to_real, _       = nbrs_real.kneighbors(real_data_np)
     
-    nbrs_synth = NearestNeighbors(n_neighbors = nn_size, n_jobs=-1, p=2).fit(synthetic_data.cpu().numpy())
+    nbrs_synth = NearestNeighbors(n_neighbors = 1, n_jobs=-1, p=2).fit(synthetic_data.cpu().numpy())
     real_to_synth, real_to_synth_args = nbrs_synth.kneighbors(real_data_np)
 
     # To compute authenticity, select a subset of fake images of the same number of real images
@@ -217,6 +218,16 @@ def compute_pr_a(opts, max_real, num_gen):
         gen_features = metric_utils.compute_feature_stats_synthetic(opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
             rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all_torch().to(torch.float32).to(opts.device)
 
+    # Visualize t-SNE pre OC embedding
+    fig_path = opts.run_dir + '/figures/tsne_pr_auth.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_tsne('α-precision, β-recall, and authenticity', real_features=real_features.cpu(), gen_features=gen_features.cpu(), fig_path=fig_path)
+
+    # Visualize PCA pre OC embedding
+    fig_path = opts.run_dir + '/figures/pca_pr_auth.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_pca('α-precision, β-recall, and authenticity', real_features=real_features.cpu(), gen_features=gen_features.cpu(), fig_path=fig_path)
+    
     # Get the OC model (and eventually train it on the real features)
     OC_model, OC_params, OC_hyperparams = metric_utils.get_OC_model(opts, real_features, OC_params, OC_hyperparams)
     print(OC_params)
@@ -244,7 +255,20 @@ def compute_pr_a(opts, max_real, num_gen):
     # Compute the metrics
     OC_res = compute_alpha_precision(opts, real_features_OC, gen_features_OC, emb_center)
     alphas, alpha_precision_curve, beta_coverage_curve, Delta_precision_alpha, Delta_coverage_beta, AUC_alpha_precision, AUC_beta_coverage, authenticity_values, authen = OC_res
-    
+
+    # Visualize t-SNE
+    fig_path = opts.run_dir + '/figures/tsne_pr_auth_OC.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_tsne('α-precision, β-recall, and authenticity (OC)', real_features_OC.cpu(), gen_features_OC.cpu(), fig_path)
+
+    # Visualize PCA
+    fig_path = opts.run_dir + '/figures/pca_pr_auth_OC.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    center = OC_model.c.cpu().float().detach().numpy()
+    Radii   = np.quantile(torch.sqrt(torch.sum((real_features_OC.float() - emb_center) ** 2, dim=1)).cpu().numpy(), 1 - OC_model.nu)
+    circle_info = [center, Radii]
+    metric_utils.plot_pca('α-precision, β-recall, and authenticity (OC)', real_features_OC.cpu(), gen_features_OC.cpu(), circle_info=circle_info, fig_path=fig_path)          
+
     results[f'alphas'] = alphas
     results[f'alpha_pc'] = alpha_precision_curve
     results[f'beta_cv'] = beta_coverage_curve

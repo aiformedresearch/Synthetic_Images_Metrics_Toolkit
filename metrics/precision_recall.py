@@ -52,6 +52,17 @@ def compute_pr(opts, max_real, num_gen, nhood_size, row_batch_size, col_batch_si
         opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
         rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all_torch().to(torch.float32).to(opts.device)
 
+    # Visualize t-SNE
+    fig_path = opts.run_dir + '/figures/tsne_pr.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_tsne('Precision & Recall', real_features=real_features.cpu(), gen_features=gen_features.cpu(), fig_path=fig_path)
+
+    # Visualize PCA
+    fig_path = opts.run_dir + '/figures/pca_pr.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_pca('Precision & Recall', real_features=real_features.cpu(), gen_features=gen_features.cpu(), fig_path=fig_path)
+    
+    # Compute P&R
     results = dict()
     for name, manifold, probes in [('precision', real_features, gen_features), ('recall', gen_features, real_features)]:
         kth = []

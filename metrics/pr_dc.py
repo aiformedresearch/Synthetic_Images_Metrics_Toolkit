@@ -97,6 +97,16 @@ def compute_prdc(opts, max_real, num_gen):
     distance_real_fake = compute_pairwise_distance(
         real_features, gen_features)
 
+    # Visualize t-SNE
+    fig_path = opts.run_dir + '/figures/tsne_prdc.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_tsne('Precision, Recall, Density, and Coverage', real_features.cpu(), gen_features.cpu(), fig_path)
+
+    # Visualize PCA
+    fig_path = opts.run_dir + '/figures/pca_prdc.png'
+    fig_path = metric_utils.get_unique_filename(fig_path)
+    metric_utils.plot_pca('Precision, Recall, Density, and Coverage', real_features.cpu(), gen_features.cpu(), fig_path=fig_path)
+    
     # Compute the PRDC metrics
     precision = (
             distance_real_fake <

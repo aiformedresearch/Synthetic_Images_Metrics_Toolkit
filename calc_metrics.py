@@ -127,12 +127,14 @@ def subprocess_fn(rank, args, temp_dir):
         grid_size, images_real, labels = metric_utils.setup_snapshot_image_grid(args, real_dataset)
         if args.data_type == "3D" or args.data_type == "3d":
             images_real = metric_utils.setup_grid_slices(images_real, grid_size)
-        metric_utils.plot_image_grid(args, images_real, drange=[0,255], grid_size=grid_size, group='real', rank=rank, verbose=args.verbose)
+        drange = [real_dataset._min, real_dataset._max]
+        metric_utils.plot_image_grid(args, images_real, drange=drange, grid_size=grid_size, group='real', rank=rank, verbose=args.verbose)
 
         # Synthetic samples
         if args.use_pretrained_generator:
             grid_z = torch.randn([labels.shape[0], *(args.G.z_dim if isinstance(args.G.z_dim, (list, tuple)) else [args.G.z_dim])], device=device).split(4)
             grid_c = torch.from_numpy(labels).to(device).split(4)
+            print(f"Generating a grid of {grid_size[0]} x {grid_size[1]} synthetic images...")
             if real_dataset._use_labels:
                 images_synt = torch.cat([args.run_generator(z, c, args).cpu() for z, c in zip(grid_z, grid_c)]).numpy()
             else:

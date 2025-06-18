@@ -25,17 +25,17 @@ class BidsDataset(data.Dataset):
         # Get the list of all subject directories (sub-<id>)
         self.inputfiles = sorted(glob(os.path.join(self.path_data, 'sub-*/anat/*_' + self.modality + '.nii.gz')))
         
-        # # Load dataset
-        # self._data = self._load_files()
+        # Load dataset
+        #self._data = self._load_files(self.path_data)
         self._labels = self._load_raw_labels() if use_labels and path_labels else None
 
         # Store dataset metadata
         self.name = os.path.basename(path_data)
         example_img = self._load_files(self.inputfiles[0])
         self._raw_shape = [len(self.inputfiles)] + list(example_img.shape)
-        self._dtype = self._data.dtype
-        self._min = self._data.min()
-        self._max = self._data.max()
+        self._dtype = example_img.dtype
+        self._min = example_img.min()
+        self._max = example_img.max()
 
         # Apply max_size.
         self._raw_idx = np.arange(len(self.inputfiles), dtype=np.int64)
@@ -43,12 +43,19 @@ class BidsDataset(data.Dataset):
             np.random.RandomState(random_seed).shuffle(self._raw_idx)
             self._raw_idx = np.sort(self._raw_idx[:size_dataset])
 
+    def update_minmax(self, image):
+        if image.min() < self._min:
+            self._min = image.min()
+        if image.max() > self._max:
+            self._max = image.max()
+
     def __len__(self):
         return len(self._raw_idx)
 
     def __getitem__(self, idx):
         inputfile = self.inputfiles[self._raw_idx[idx]]
         image = self._load_files(inputfile)
+        self.update_minmax(image)
         label = self._labels[idx] if self._labels is not None else -1
         return torch.tensor(image, dtype=torch.float32), torch.tensor(label, dtype=torch.int64)
 

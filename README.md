@@ -68,7 +68,6 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
     ```
       - The `--gpus all` flag enables GPU support. Specify a GPU if needed, e.g., `--gpus 0`.
       - The `-v` flag is used to mount the local directories to the working directory `Synthetic_Images_Metrics_Toolkit` inside the container. 
-      > Note: To exit from the Docker container, type: `exit`.
 
 Refer to the [Usage](#usage) section for detailed instructions about running the main script. 
 
@@ -146,7 +145,7 @@ By default, `k=5` and `top_n=3`. These parameters can be adjusted in the `knn` f
 
 - [x] 3D data support;
 
-- [ ] Implement t-SNE to qualitatively assess diversity.
+- [x] Implement PCA and t-SNE to qualitatively assess diversity.
 
 ## Licenses
 This repository complies with the [REUSE Specification](https://reuse.software/). All source files are annotated with SPDX license identifiers, and full license texts are included in the `LICENSES` directory.
