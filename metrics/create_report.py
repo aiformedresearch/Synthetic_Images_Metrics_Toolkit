@@ -412,7 +412,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     dataset_real = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
     n, ch, w_r, h_r = dataset_real._raw_shape
     real_text = Paragraph(
-        f"<b>Real samples</b> ∈ [{dataset_real._min}, {dataset_real._max}] - Size: {w_r} × {h_r} - dtype: {dataset_real._dtype}",   
+        f"<b>Real samples</b>: value range ∈ [{dataset_real._min}, {dataset_real._max}] | size: {w_r} × {h_r} | dtype: {dataset_real._dtype}",   
         styles['BodyText']
     )
     elements.append(real_text)
@@ -445,14 +445,14 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             batch = args.run_generator(z, args).to(device)
         n, ch, w_s, h_s = batch.shape
         synt_text = Paragraph(
-            f"<b>Synthetic samples</b> ∈ [{batch.min()}, {batch.max()}] - Size: {w_s} × {h_s} - dtype: {batch.dtype}",  
+            f"<b>Synthetic samples</b>: value range ∈ [{batch.min()}, {batch.max()}] | size: {w_s} × {h_s} | dtype: {batch.dtype}",  
             styles['BodyText']
         )
     else:
         dataset_synt = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
         n, ch, w_s, h_s = dataset_synt._raw_shape
         synt_text = Paragraph(
-            f"<b>Synthetic samples</b> ∈ [{dataset_synt._min}, {dataset_synt._max}] - Size: {w_s} × {h_s} - dtype: {dataset_synt._dtype}",  
+            f"<b>Synthetic samples</b>: value range ∈ [{dataset_synt._min}, {dataset_synt._max}] | size: {w_s} × {h_s} | dtype: {dataset_synt._dtype}",  
             styles['BodyText']
         )
 
