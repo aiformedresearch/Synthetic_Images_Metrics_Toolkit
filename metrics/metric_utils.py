@@ -38,6 +38,7 @@ from sklearn.decomposition import PCA
 import seaborn as sns
 from sklearn.manifold import TSNE
 import PIL.Image
+from matplotlib import gridspec
 
 #----------------------------------------------------------------------------
 
@@ -1054,49 +1055,67 @@ def extract_slices(volume):
 
 def visualize_grid_3d(opts, real_volumes, synthetic_volumes, top_n_real_indices, closest_synthetic_indices, fig_path, top_n, k):
     n_slices = 3  # Axial, Coronal, Sagittal
-    fig, axes = plt.subplots(top_n * n_slices, k + 1, figsize=(5 * (k + 1), 5 * top_n * n_slices))
-    base_fontsize = max(35, 30 - k)
+    total_cols = k + 1
+    base_fontsize = max(20, 30 - k)
 
+    fig = plt.figure(figsize=(3 * total_cols, 3 * top_n * n_slices))
+    outer = gridspec.GridSpec(top_n, total_cols, wspace=0.2, hspace=0.05)
+    
     for row_idx in range(top_n):
-        real_volume = real_volumes[row_idx][0].cpu()  # Shape (C, D, H, W)
-        real_slices = extract_slices(real_volume)
+        real_volume = real_volumes[row_idx][0].cpu()
+        real_slices = extract_slices(real_volume)  # List of 3 slices: axial, coronal, sagittal
 
-        for slice_idx, (real_slice, slice_title) in enumerate(zip(real_slices, ['Axial', 'Coronal', 'Sagittal'])):
-            ax = axes[row_idx * n_slices + slice_idx, 0]
-            ax.imshow(real_slice, cmap='gray')
-            ax.axis('off')
-            if row_idx == 0:
-                ax.set_title(f"Real\n{slice_title}", fontsize=base_fontsize)
-            # Add index annotation below the real slices (using the first slice's axes)
-            if slice_idx == 0:
-                ax.text(
-                    0.5, -0.1, str(top_n_real_indices[row_idx]),
-                    fontsize=base_fontsize - 10, color='black', ha='center', va='bottom',
-                    transform=ax.transAxes
-                )
+        for col_idx in range(total_cols):
+            # Determine whether it's real or synthetic
+            if col_idx == 0:
+                volume = real_volume
+                slices = real_slices
+                is_real = True
+                title = f"Real {top_n_real_indices[row_idx]}"
+            else:
+                volume = synthetic_volumes[row_idx][col_idx - 1]
+                slices = extract_slices(volume)
+                is_real = False
+                title = f"Synth {col_idx}"
 
-            # Show the top k synthetic images
-            for col_idx in range(k):
-                synth_volume = synthetic_volumes[row_idx][col_idx]
+            inner = gridspec.GridSpecFromSubplotSpec(n_slices, 1, subplot_spec=outer[row_idx, col_idx], hspace=0)
+            for slice_idx in range(n_slices):
+                ax = plt.Subplot(fig, inner[slice_idx])
+                ax.imshow(slices[slice_idx], cmap='gray')
+                ax.axis('off')
 
-                synth_slices = extract_slices(synth_volume)
-                synth_slice = synth_slices[slice_idx] # Get the corresponding slice
+                # Only label the top slice of each volume
+                if slice_idx == 0:
+                    ax.set_title(title, fontsize=base_fontsize)
 
-                ax_synth = axes[row_idx * n_slices + slice_idx, col_idx + 1]
-                ax_synth.imshow(synth_slice, cmap='gray')
-                ax_synth.axis('off')
-                if row_idx == 0:
-                    ax_synth.set_title(f"Synth {col_idx + 1}\n{slice_title}", fontsize=base_fontsize)
+                # Add real/synthetic index below the bottom slice
+                if slice_idx == 2:
+                    if is_real:
+                        # Real index below real volume
+                        ax.text(
+                            0.5, -0.2,
+                            str(top_n_real_indices[row_idx]),
+                            fontsize=base_fontsize - 8,
+                            color='black',
+                            ha='center', va='bottom',
+                            transform=ax.transAxes
+                        )
+                    elif not opts.use_pretrained_generator:
+                        # Synthetic index below synthetic volume
+                        ax.text(
+                            0.5, -0.2,
+                            str(closest_synthetic_indices[top_n_real_indices[row_idx]][col_idx - 1]),
+                            fontsize=base_fontsize - 8,
+                            color='black',
+                            ha='center', va='bottom',
+                            transform=ax.transAxes
+                        )
 
-                if not opts.use_pretrained_generator and slice_idx == 0:
-                    ax_synth.text(
-                        0.5, -0.1, str(closest_synthetic_indices[top_n_real_indices[row_idx]][col_idx]),
-                        fontsize=base_fontsize - 10, color='black', ha='center', va='bottom',
-                        transform=ax_synth.transAxes
-                    )
+                fig.add_subplot(ax)
 
     plt.tight_layout()
-    plt.savefig(fig_path)
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+    plt.savefig(fig_path, bbox_inches='tight', pad_inches=0)
     plt.close()
 
 def select_top_n_real_images(closest_similarities, top_n=6):
