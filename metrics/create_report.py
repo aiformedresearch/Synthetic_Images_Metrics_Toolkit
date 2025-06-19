@@ -410,8 +410,9 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
 
     # Real images visualization
     dataset_real = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
+    n, ch, w_r, h_r = dataset_real._raw_shape
     real_text = Paragraph(
-        f"<b>Real samples</b> ∈ [{dataset_real._min}, {dataset_real._max}] - dtype: {dataset_real._dtype}",   
+        f"<b>Real samples</b> ∈ [{dataset_real._min}, {dataset_real._max}] - Size: {w_r} × {h_r} - dtype: {dataset_real._dtype}",   
         styles['BodyText']
     )
     elements.append(real_text)
@@ -442,14 +443,16 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             batch = args.run_generator(z, c, args).to(device)
         else:
             batch = args.run_generator(z, args).to(device)
+        n, ch, w_s, h_s = batch.shape
         synt_text = Paragraph(
-            f"<b>Synthetic samples</b> ∈ [{batch.min()}, {batch.max()}] - dtype: {batch.dtype}",  
+            f"<b>Synthetic samples</b> ∈ [{batch.min()}, {batch.max()}] - Size: {w_s} × {h_s} - dtype: {batch.dtype}",  
             styles['BodyText']
         )
     else:
         dataset_synt = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
+        n, ch, w_s, h_s = dataset_synt._raw_shape
         synt_text = Paragraph(
-            f"<b>Synthetic samples</b> ∈ [{dataset_synt._min}, {dataset_synt._max}] - dtype: {dataset_synt._dtype}",  
+            f"<b>Synthetic samples</b> ∈ [{dataset_synt._min}, {dataset_synt._max}] - Size: {w_s} × {h_s} - dtype: {dataset_synt._dtype}",  
             styles['BodyText']
         )
 
@@ -732,8 +735,30 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elif args.data_type in ['3d', '3D']:
             embedder = "3D-ResNet"
             link = "https://github.com/Tencent/MedicalNet"
+
         text_prdc = Paragraph(
-            f'Precision, Recall (P&amp;R), density and coverage (D&amp;C) are complementary metrics used to assess the fidelity and diversity of synthetic images by comparing their feature embeddings to those of real images, obtained using a pretrained <a href="{link}" color="blue">{embedder}</a>. '
+            f'Precision, Recall (P&amp;R), density and coverage (D&amp;C) are complementary metrics used to assess the fidelity and diversity of synthetic images by comparing their feature embeddings to those of real images, obtained using a pretrained <a href="{link}" color="blue">{embedder}</a>. ',
+            justified_style
+        )
+        elements.append(text_prdc)   
+
+        if args.data_type.lower()=='2d':
+            if args.padding:
+                if (w_r<224 or h_r<224):
+                    method = "zero-padding. Alternatively, you can set to use the PIL.BICUBIC resizer through the configuration file."
+                else:
+                    method = "PIL.BICUBIC resizer."
+            elif not args.padding:
+                if (w_r<224 or h_r<224):
+                    method = "PIL.BICUBIC resizer. Alternatively, you can set to perform zero-padding through the configuration file."
+                else:
+                    method = "PIL.BICUBIC resizer."
+            text_prdc = Paragraph(
+            f'Given that the pretrained network requires input of size 224 x 224, images are adapted via {method} '
+            )
+            elements.append(text_prdc)  
+
+        text_prdc = Paragraph(
             f'The support of each distribution (real and synthetic) is estimated using a k-nearest neighbors (NN) approach, with k = {args.nhood_size["prdc"]}. '
             'For each sample, a hypersphere is defined with radius equal to the distance to its k-th nearest neighbor within the same set. '
             'Repeating this process for every sample, a local manifold is built to approximates the support of the underlying distribution. '
@@ -785,8 +810,28 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elif args.data_type in ['3d', '3D']:
             embedder = "3D-ResNet"
             link = "https://github.com/Tencent/MedicalNet"
+        
         text_pr_auth = Paragraph(
             f'α-precision, β-recall, and authenticity are computed using embeddings extracted from a pretrained <a href="{link}" color="blue">{embedder}</a>, which maps each image into a 2028-dimensional feature space. '
+        )
+        elements.append(text_pr_auth)  
+
+        if args.data_type.lower()=='2d':
+            if args.padding:
+                if (w_r<299 or h_r<299):
+                    method = "zero-padding. Alternatively, you can set to use the PIL.BICUBIC resizer through the configuration file."
+                else:
+                    method = "PIL.BICUBIC resizer."
+            elif not args.padding:
+                if (w_r<299 or h_r<299):
+                    method = "PIL.BICUBIC resizer. Alternatively, you can set to perform zero-padding through the configuration file."
+                else:
+                    method = "PIL.BICUBIC resizer."
+            text_pr_auth = Paragraph(
+            f'Given that the pretrained network requires input of size 299 x 299, images are adapted via {method} '
+            )
+            elements.append(text_pr_auth)     
+        text_pr_auth = Paragraph(    
             'For a qualitative assessment, we visualize the distribution of real and synthetic embeddings in a reduced 2-dimensional space using PCA and t-SNE:',
             justified_style
         )
@@ -814,7 +859,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         )
         elements.append(text_pr_auth)   
 
-        elements.append(Spacer(1, 24))
+        elements.append(Spacer(1, 10))
 
         pr_auth_tsne = Table(
             [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(pr_auth_OC_pca_path), max_width=225), 
