@@ -109,7 +109,7 @@ The following quantitative metrics are available:
 | `fid` | Fr&eacute;chet inception distance<sup>[1]</sup> against the full dataset | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
 | `kid` | Kernel inception distance<sup>[2]</sup> against the full dataset         | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
 | `pr` | Precision and recall<sup>[3]</sup> againt the full dataset               | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
-| `is_`       | Inception score<sup>[4]</sup> against the full dataset                              | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `is_`       | Inception score<sup>[4]</sup> against the full dataset (only 2D)                            | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
 | `prdc`    |  Precision, recall, density, and coverage<sup>[5]</sup>  against the full dataset                    | [Naeem et al.](https://github.com/clovaai/generative-evaluation-prdc)
 | `pr_auth`    |  	$\alpha$-precision, 	$\beta$-recall, and authenticity<sup>[6]</sup> against the full dataset  | [Alaa et al.](https://github.com/vanderschaarlab/evaluating-generative-models)
 
@@ -126,6 +126,11 @@ References:
 Sample-level Metrics for Evaluating and Auditing Generative Models](https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf), Alaa et al., 2022
 
 ### Qualitative metrics
+The SIM Toolkit automatically generates **t-SNE** and **PCA** visualizations of real and synthetic image embeddings for each metric, to qualitatively assess the fidelity and diversity of the synthetic images. These plots are included in the final report, which also provides detailed guidance to help users interpret the resulting metric scores.
+You can view an example report [here](https://drive.google.com/file/d/1K_H0KCjjqr6rfi1tHYk03Gy3WhdcyKjk/view?usp=sharing).
+
+In addition, the toolkit supports **k-NN analysis**, enabling users to qualitatively evaluate how well synthetic samples generalize with respect to real data:
+
 | Metric flag      | Description | Original implementation |
 | :-----        | :-----: | :---------- |
 | `knn` | k-nearest neighbors (k-NN) analysis, to assess potential memorization of the model | [Lai et al.](https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit) |
@@ -136,7 +141,7 @@ Sample-level Metrics for Evaluating and Auditing Generative Models](https://proc
 
 The k-NN analysis identifies and visualizes the `top_n` real images most similar to any synthetic sample (from a set of 50,000 generated samples). For each real image, the visualization displays the top `k` synthetic images ranked by their cosine similarity to the corresponding real image.
 
-By default, `k=5` and `top_n=3`. These parameters can be adjusted in the `knn` function within the [metric_main.py](metrics/metric_main.py) file.
+By default, `k=5` and `top_n=3`. These parameters can be customized in the *Metrics configurations* section of the configuration file.
 
 ## 🚧To-do list:
 - [x] Simplify the procedure for data loading;
