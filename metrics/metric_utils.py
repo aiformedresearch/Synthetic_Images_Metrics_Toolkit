@@ -39,6 +39,7 @@ import seaborn as sns
 from sklearn.manifold import TSNE
 import PIL.Image
 from matplotlib import gridspec
+from tqdm import tqdm
 
 #----------------------------------------------------------------------------
 
@@ -135,9 +136,7 @@ def get_feature_detector_name(url):
     - "url" is a string with the path to the detector (NVIDIA pretrained models)
     - "url" is a dictionary with the model name (to exploit tf pretrained models)
     """
-    if type(url)== tuple and url[1] == '2d':
-        detector_name = os.path.splitext(url[0].split('/')[-1])[0]
-    elif type(url)== tuple and url[1] == '3d':
+    if type(url)== tuple:
         detector_name = os.path.splitext(url[0].split('/')[-1])[0]
     elif type(url)==dict:
         detector_name = url['model']
@@ -517,9 +516,13 @@ def pad_image(batch, output_shape, input_shape='nhwc'):
         padded_batch = np.pad(batch, pad_width=((0, 0), (pad_top, pad_bottom), (pad_left, pad_right)), mode='constant')
     return padded_batch
 
-def setup_grid_slices(images_3d, grid_size):
+def setup_grid_slices(images_3d, grid_size, drange):
     n, c, d, h, w = images_3d.shape
     assert c == 1, "Only single-channel 3D volumes supported"
+    lo, hi = drange
+    images_3d = np.asarray(images_3d, dtype=np.float32)
+    images_3d = (images_3d - lo) * (255 / (hi - lo))
+    images_3d = np.rint(images_3d).clip(0, 255).astype(np.uint8) 
     assert images_3d.min() >= 0 and images_3d.max() <= 255
 
     gw, gh = grid_size
@@ -591,6 +594,34 @@ def setup_snapshot_image_grid(args, dataset, random_seed=0):
 
     images, labels = zip(*[dataset[i] for i in grid_indices])
     return (gw, gh), np.stack(images), np.stack(labels)
+
+def setup_grid_generated(args, G, labels, grid_size, num_images, real_dataset, device):
+    # Latent vectors
+    grid_z = torch.randn([labels.shape[0], *(G.z_dim if isinstance(G.z_dim, (list, tuple)) else [G.z_dim])], device=device)
+    grid_c = torch.from_numpy(labels).to(device) if real_dataset._use_labels else None
+
+    # Batching
+    num_batches = (num_images + args.batch_size - 1) // args.batch_size
+    print(f"Generating a grid of {grid_size[0]} x {grid_size[1]} synthetic images...")
+    
+    image_tensors = []
+    with torch.no_grad():
+        for i in tqdm(range(num_batches)):
+            start = i * args.batch_size
+            end = min(start + args.batch_size, num_images)
+
+            z_batch = grid_z[start:end]
+            if grid_c is not None:
+                c_batch = grid_c[start:end]
+                out = args.run_generator(z_batch, c_batch, args)
+            else:
+                out = args.run_generator(z_batch, args)
+
+            image_tensors.append(out)
+
+    # Combine
+    images_synt = torch.cat(image_tensors, dim=0).cpu().numpy()
+    return images_synt
 
 #----------------------------------------------------------------------------
 
@@ -709,13 +740,13 @@ def get_activation_from_dataset(opts, dataset, max_img, embedding, embedder=None
         if opts.batch_size is None:
             batch_size = n_imgs
         else:
-            batch_size = opts.batch_size*2
+            batch_size = opts.batch_size
         if batch_size > n_imgs:
             print("warning: batch size is bigger than the data size. Setting batch size to data size")
             batch_size = n_imgs
         n_batches = (n_imgs + batch_size - 1) // batch_size
     
-        pred_arr = torch.empty((n_imgs, embedder.output.shape[-1]), dtype=torch.float32).to(opts.device)
+        preds = []
         if opts.num_gpus>0:
             item_subset = [(i * opts.num_gpus + opts.rank) % n_imgs for i in range((n_imgs - 1) // opts.num_gpus + 1)]
         else:
@@ -737,11 +768,13 @@ def get_activation_from_dataset(opts, dataset, max_img, embedding, embedder=None
             batch_embedding = embedder(batch)
 
             # Convert to PyTorch:
-            pred_arr[start:end] = torch.from_numpy(batch_embedding.numpy()).to(opts.device)
+            torch_embedding = torch.from_numpy(batch_embedding.numpy())
+            preds.append(torch_embedding)
             del batch #clean up memory        
         if verbose:
             print(" done")
-        act = pred_arr
+        act = torch.cat(preds, dim=0).to(opts.device)
+        
         # Save embeddings
         if save_act:
             np.savez(f'{act_filename}', act=act,embedding=embedding)
@@ -773,15 +806,15 @@ def get_activation_from_generator(opts, num_gen, embedding, embedder=None, verbo
         if opts.batch_size is None:
             batch_size = n_imgs
         else:
-            batch_size = opts.batch_size*2
+            batch_size = opts.batch_size
         if batch_size > n_imgs:
             print("warning: batch size is bigger than the data size. setting batch size to data size")
             batch_size = n_imgs
         n_batches = (n_imgs + batch_size - 1) // batch_size
 
-        pred_arr = torch.empty((n_imgs,embedder.output.shape[-1]))
+        preds = []
 
-        for i in range(n_batches):
+        for i in tqdm(range(n_batches), desc="Propagating batches", unit="batch"):
             if verbose:
                 print("\rPropagating batch %d/%d" % (i+1, n_batches), end="", flush=True)
             start = i*batch_size
@@ -807,12 +840,12 @@ def get_activation_from_generator(opts, num_gen, embedding, embedder=None, verbo
 
             batch_embedding = embedder(batch)
             # Convert to PyTorch:
-            pred_arr[start:end] = torch.from_numpy(batch_embedding.cpu().numpy()).to(opts.device)
-
+            torch_embedding = torch.from_numpy(batch_embedding.numpy())
+            preds.append(torch_embedding)
             del batch #clean up memory
     if verbose:
         print(" done")
-    return pred_arr
+    return torch.cat(preds, dim=0).to(opts.device)
 
 
 def get_activation_synthetic(opts, num_gen, detector_url, embedder, verbose=True):
@@ -964,7 +997,7 @@ def compute_feature_stats_for_generator(opts, detector_url, detector_kwargs, rel
     # Main loop.
     while not stats.is_full():
         images = []
-        for _i in range(opts.batch_size // batch_gen):
+        for _i in tqdm(range(opts.batch_size // batch_gen), desc="Generating images", unit="batch"):
             z = torch.randn([batch_gen, *(G.z_dim if isinstance(G.z_dim, (list, tuple)) else [G.z_dim])], device=opts.device)
             if dataset._use_labels:
                 c = [dataset.get_label(np.random.randint(len(dataset))) for _i in range(batch_gen)]

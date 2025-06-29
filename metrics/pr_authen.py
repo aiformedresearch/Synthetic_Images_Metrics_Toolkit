@@ -250,7 +250,7 @@ def compute_pr_a(opts, max_real, num_gen):
         print('real_features: mean, std - ', real_features_OC.mean(), real_features_OC.std(unbiased=False))
         print('gen_features:  mean, std - ', gen_features_OC.mean(), gen_features_OC.std(unbiased=False))
 
-    emb_center = OC_model.c
+    emb_center = OC_model.c.to(opts.device)
 
     # Compute the metrics
     OC_res = compute_alpha_precision(opts, real_features_OC, gen_features_OC, emb_center)

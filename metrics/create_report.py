@@ -410,11 +410,18 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
 
     # Real images visualization
     dataset_real = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
-    n, ch, w_r, h_r = dataset_real._raw_shape
-    real_text = Paragraph(
-        f"<b>Real samples</b>: value range ∈ [{dataset_real._min}, {dataset_real._max}] | size: {w_r} × {h_r} | dtype: {dataset_real._dtype}",   
-        styles['BodyText']
-    )
+    if args.data_type.lower()=='2d':
+        n, ch, w_r, h_r = dataset_real._raw_shape
+        real_text = Paragraph(
+            f"<b>Real samples</b>: value range ∈ [{dataset_real._min}, {dataset_real._max}] | size: {w_r} × {h_r} | dtype: {dataset_real._dtype}",   
+            styles['BodyText']
+        )
+    elif args.data_type.lower()=='3d':
+        n, ch, w_r, h_r, z_r = dataset_real._raw_shape
+        real_text = Paragraph(
+            f"<b>Real samples</b>: value range ∈ [{dataset_real._min}, {dataset_real._max}] | size: {w_r} × {h_r} × {z_r} | dtype: {dataset_real._dtype}",   
+            styles['BodyText']
+        )
     elements.append(real_text)
     elements.append(Spacer(1, 5))
 
@@ -443,19 +450,32 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             batch = args.run_generator(z, c, args).to(device)
         else:
             batch = args.run_generator(z, args).to(device)
-        n, ch, w_s, h_s = batch.shape
-        synt_text = Paragraph(
-            f"<b>Synthetic samples</b>: value range ∈ [{batch.min()}, {batch.max()}] | size: {w_s} × {h_s} | dtype: {batch.dtype}",  
-            styles['BodyText']
-        )
+        if args.data_type.lower()=='2d':
+            n, ch, w_s, h_s = batch.shape
+            synt_text = Paragraph(
+                f"<b>Synthetic samples</b>: value range ∈ [{batch.min()}, {batch.max()}] | size: {w_s} × {h_s} | dtype: {batch.dtype}",  
+                styles['BodyText'])
+        elif args.data_type.lower()=='3d':
+            n, ch, w_s, h_s, z_s= batch.shape
+            synt_text = Paragraph(
+                f"<b>Synthetic samples</b>: value range ∈ [{batch.min()}, {batch.max()}] | size: {w_s} × {h_s} × {z_s} | dtype: {batch.dtype}",  
+                styles['BodyText']
+                )
     else:
         dataset_synt = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
-        n, ch, w_s, h_s = dataset_synt._raw_shape
-        synt_text = Paragraph(
-            f"<b>Synthetic samples</b>: value range ∈ [{dataset_synt._min}, {dataset_synt._max}] | size: {w_s} × {h_s} | dtype: {dataset_synt._dtype}",  
-            styles['BodyText']
-        )
-
+        if args.data_type.lower()=='2d':
+            n, ch, w_s, h_s = dataset_synt._raw_shape
+            synt_text = Paragraph(
+                f"<b>Synthetic samples</b>: value range ∈ [{dataset_synt._min}, {dataset_synt._max}] | size: {w_s} × {h_s} | dtype: {dataset_synt._dtype}",  
+                styles['BodyText']
+            )
+        elif args.data_type.lower()=='3d':
+            n, ch, w_s, h_s, z_s= dataset_synt._raw_shape
+            synt_text = Paragraph(
+                f"<b>Synthetic samples</b>: value range ∈ [{dataset_synt._min}, {dataset_synt._max}] | size: {w_s} × {h_s} × {z_s} | dtype: {dataset_synt._dtype}",  
+                styles['BodyText']
+                )
+            
     elements.append(synt_text)
     elements.append(Spacer(1, 5))
     
@@ -554,11 +574,11 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         subtitle_is = Paragraph("Inception Score (IS)", styles['Heading4'])
         elements.append(subtitle_is)   
 
-        if args.data_type in ['2d', '2D']:
+        if args.data_type.lower() == '2d':
             embedder = "Inception Net"
             link = "https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/"
             dataset_embedder = "ImageNet"
-        elif args.data_type in ['3d', '3D']:
+        elif args.data_type.lower() == '3d':
             embedder = "3D-ResNet"
             link = "https://github.com/Tencent/MedicalNet"
             dataset_embedder = "23 medical imaging datasets from different modalities (MRI and CT) and distinctive scan regions (e.g. brain, heart, prostate, spleen, etc.)"
@@ -605,10 +625,10 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         subtitle_fid = Paragraph("Fréchet Inception Distance (FID)", styles['Heading4'])
         elements.append(subtitle_fid)   
 
-        if args.data_type in ['2d', '2D']:
+        if args.data_type.lower() == '2d':
             embedder = "Inception Net"
             link = "https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/"
-        elif args.data_type in ['3d', '3D']:
+        elif args.data_type.lower() == '3d':
             embedder = "3D-ResNet"
             link = "https://github.com/Tencent/MedicalNet"
         text_fid = Paragraph(
@@ -644,10 +664,10 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         subtitle_kid = Paragraph("Kernel Inception Distance (KID)", styles['Heading4'])
         elements.append(subtitle_kid)   
 
-        if args.data_type in ['2d', '2D']:
+        if args.data_type.lower() == '2d':
             embedder = "Inception Net"
             link = "https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/"
-        elif args.data_type in ['3d', '3D']:
+        elif args.data_type.lower() == '3d':
             embedder = "3D-ResNet"
             link = "https://github.com/Tencent/MedicalNet"
 
@@ -685,10 +705,10 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         subtitle_pr = Paragraph("Precision and Recall (from NVIDIA)", styles['Heading4'])
         elements.append(subtitle_pr)   
 
-        if args.data_type in ['2d', '2D']:
+        if args.data_type.lower() == '2d':
             embedder = "VGG-16"
             link = "https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/"
-        elif args.data_type in ['3d', '3D']:
+        elif args.data_type.lower() == '3d':
             embedder = "3D-ResNet"
             link = "https://github.com/Tencent/MedicalNet"
         text_pr = Paragraph(
@@ -729,10 +749,10 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         subtitle_prdc = Paragraph("Precision, recall, density, and coverage", styles['Heading4'])
         elements.append(subtitle_prdc)   
 
-        if args.data_type in ['2d', '2D']:
+        if args.data_type.lower() == '2d':
             embedder = "VGG-16 (from Tensorflow)"
             link = "https://www.tensorflow.org/api_docs/python/tf/keras/applications/VGG16"
-        elif args.data_type in ['3d', '3D']:
+        elif args.data_type.lower() == '3d':
             embedder = "3D-ResNet"
             link = "https://github.com/Tencent/MedicalNet"
 
@@ -804,10 +824,10 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         subtitle_pr_auth = Paragraph("α-precision, β-recall, and authenticity", styles['Heading4'])
         elements.append(subtitle_pr_auth)   
 
-        if args.data_type in ['2d', '2D']:
+        if args.data_type.lower() == '2d':
             embedder = "Inception V3 (from Tensorflow)"
             link = "https://www.tensorflow.org/api_docs/python/tf/keras/applications/InceptionV3"
-        elif args.data_type in ['3d', '3D']:
+        elif args.data_type.lower() == '3d':
             embedder = "3D-ResNet"
             link = "https://github.com/Tencent/MedicalNet"
         
@@ -859,7 +879,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         )
         elements.append(text_pr_auth)   
 
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 5))
 
         pr_auth_tsne = Table(
             [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(pr_auth_OC_pca_path), max_width=225), 

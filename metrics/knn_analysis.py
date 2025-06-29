@@ -105,5 +105,3 @@ def plot_knn(opts, max_real, num_gen, k=8, top_n=6):
     fig_path = metric_utils.get_unique_filename(fig_path)
     top_n_real_indices = metric_utils.select_top_n_real_images(closest_similarities, top_n=top_n)
     metric_utils.visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, fig_path, top_n=top_n, k=k)
-
-    return fig_path

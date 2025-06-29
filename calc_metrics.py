@@ -16,6 +16,7 @@ sys.path.insert(0, repo_root)
 import click
 import tempfile
 import torch
+import torch.distributed as dist
 import dnnlib
 
 from metrics import metric_main
@@ -26,6 +27,7 @@ from torch_utils import custom_ops
 import importlib 
 from metrics.create_report import generate_metrics_report
 
+from copy import deepcopy
 if not sys.warnoptions:
     import warnings 
     warnings.filterwarnings("ignore")
@@ -109,6 +111,7 @@ def subprocess_fn(rank, args, temp_dir):
             init_method = f'file://{init_file}'
             torch.distributed.init_process_group(backend='nccl', init_method=init_method, rank=rank, world_size=args.num_gpus)
 
+
     # Init torch_utils.
     sync_device = torch.device('cuda', rank) if args.num_gpus > 1 else None
     training_stats.init_multiprocessing(rank=rank, sync_device=sync_device)
@@ -125,27 +128,28 @@ def subprocess_fn(rank, args, temp_dir):
         # Real samples
         real_dataset = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
         grid_size, images_real, labels = metric_utils.setup_snapshot_image_grid(args, real_dataset)
-        if args.data_type == "3D" or args.data_type == "3d":
+        if args.data_type.lower() == "3d":
             images_real = metric_utils.setup_grid_slices(images_real, grid_size)
         drange = [real_dataset._min, real_dataset._max]
         metric_utils.plot_image_grid(args, images_real, drange=drange, grid_size=grid_size, group='real', rank=rank, verbose=args.verbose)
 
         # Synthetic samples
-        if args.use_pretrained_generator:
-            grid_z = torch.randn([labels.shape[0], *(args.G.z_dim if isinstance(args.G.z_dim, (list, tuple)) else [args.G.z_dim])], device=device).split(4)
-            grid_c = torch.from_numpy(labels).to(device).split(4)
-            print(f"Generating a grid of {grid_size[0]} x {grid_size[1]} synthetic images...")
-            if real_dataset._use_labels:
-                images_synt = torch.cat([args.run_generator(z, c, args).cpu() for z, c in zip(grid_z, grid_c)]).numpy()
-            else:
-                images_synt = torch.cat([args.run_generator(z, args).cpu() for z in grid_z]).numpy()
+        if args.use_pretrained_generator:   
+            G = deepcopy(args.G).eval().to(torch.device("cuda:0")) 
+            device_ = torch.device("cuda:0")
+            num_images = labels.shape[0]
+
+            synt_dataset = metric_utils.setup_grid_generated(args, G, labels, grid_size, num_images, real_dataset, device_)
         else:
             synt_dataset = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
             grid_size, images_synt, _ = metric_utils.setup_snapshot_image_grid(args, synt_dataset)
-        if args.data_type == "3D" or args.data_type == "3d":
+        if args.data_type.lower() == "3d":
             images_synt = metric_utils.setup_grid_slices(images_synt, grid_size)
         metric_utils.plot_image_grid(args, images_synt, drange=[0,255], grid_size=grid_size, group='synt', rank=rank, verbose=args.verbose)
 
+    if args.num_gpus > 1 and dist.is_initialized():
+        dist.barrier()
+        
     # Calculate each metric.
     for metric in args.metrics:
         if rank == 0 and args.verbose:

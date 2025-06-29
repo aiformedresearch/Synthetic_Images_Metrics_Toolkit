@@ -175,5 +175,5 @@ def prdc(opts):
 @register_metric
 def knn(opts):
     opts.dataset_kwargs.update(max_size=None)
-    path_to_img = knn_analysis.plot_knn(opts, max_real=opts.max_size, num_gen=opts.num_gen, k=opts.knn_config["num_synth"], top_n=opts.knn_config["num_real"])
-    return dict(path_to_knn=path_to_img)
+    knn_analysis.plot_knn(opts, max_real=opts.max_size, num_gen=opts.num_gen, k=opts.knn_config["num_synth"], top_n=opts.knn_config["num_real"])
+    return {}
