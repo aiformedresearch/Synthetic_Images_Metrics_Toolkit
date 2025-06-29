@@ -139,7 +139,7 @@ def subprocess_fn(rank, args, temp_dir):
             device_ = torch.device("cuda:0")
             num_images = labels.shape[0]
 
-            synt_dataset = metric_utils.setup_grid_generated(args, G, labels, grid_size, num_images, real_dataset, device_)
+            images_synt = metric_utils.setup_grid_generated(args, G, labels, grid_size, num_images, real_dataset, device_)
         else:
             synt_dataset = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
             grid_size, images_synt, _ = metric_utils.setup_snapshot_image_grid(args, synt_dataset)
