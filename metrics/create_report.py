@@ -901,7 +901,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         )
         elements.append(text_pr_auth)  
 
-        elements.append(PageBreak())
+        #elements.append(PageBreak())
         text_pr_auth = Paragraph(
             'By varying these thresholds from 0 (no samples considered <i>typical</i>) to 1 (all samples considered <i>typical</i>), we generate two curves:<br/>'
             f'- <b>α-precision curve</b>: at each α level, we compute the proportion of synthetic samples that fall within the α-quantile radius of the real data distribution — reflecting how well synthetic data matches the distribution of the <i>typical</i> real data;<br/>'
