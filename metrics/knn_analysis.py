@@ -56,7 +56,9 @@ def process_batches_and_find_closest(opts, real_embeddings, detector_url, detect
     batch_size = min(num_gen, opts.batch_size)
     num_batches = num_gen // batch_size
 
+    print(f"Iteratively comparing {num_batches} of synthetic images with the real ones...")
     for batch_idx in range(num_batches):
+        print(f"Batch {batch_idx+1}/{num_batches}")
         batch_indices = np.arange(batch_idx * batch_size, (batch_idx + 1) * batch_size)
         if opts.use_pretrained_generator:
             batch_embeddings, batch_synthetic_images = metric_utils.compute_feature_stats_for_generator(
