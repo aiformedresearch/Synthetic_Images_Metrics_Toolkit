@@ -10,13 +10,12 @@ from dataset import BaseDataset
 # ----------------------------------- Metrics --------------------------------------
 
 # Define the metrics to compute.
-# Available options: fid50k,kid50k,pr50k3,ppl_zfull,pr_auth,prdc,knn
+# Available options: fid,kid,is_,pr_auth,prdc,knn
 METRICS = [
     # QUANTITATIVE METRICS:
         "fid",             # Frechét Inception distance (FID) (Karras et al.)
         "kid",             # Kernel Inception distance (KID) (Karras et al.)
         "is_",             # Inception score (IS) (Karras et al.)
-        "pr",              # Improved Precision & Recall (Karras et al.)
         "pr_auth",         # alpha-precision, beta-recall, authenticity (Alaa et al.)
         "prdc",            # Precision, recall, density, coverage (Naeem et al.)
     
