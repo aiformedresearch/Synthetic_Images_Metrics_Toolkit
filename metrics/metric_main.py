@@ -131,32 +131,6 @@ def kid(opts):
     kid = kernel_inception_distance.compute_kid(opts, max_real=opts.max_size, num_gen=opts.num_gen, num_subsets=100, max_subset_size=1000)
     return dict(kid=kid)
 
-@register_metric
-def pr(opts):
-    opts.dataset_kwargs.update(max_size=None)
-    precision, recall = precision_recall.compute_pr(opts, max_real=opts.max_size, num_gen=opts.num_gen, nhood_size=opts.nhood_size["pr"], row_batch_size=10000, col_batch_size=10000)
-    return dict(pr_precision=precision, pr_recall=recall)
-
-@register_metric
-def ppl_zfull(opts):
-    ppl = perceptual_path_length.compute_ppl(opts, num_samples=opts.num_gen, epsilon=1e-4, space='z', sampling='full', crop=True, batch_size=2)
-    return dict(ppl_zfull=ppl)
-
-@register_metric
-def ppl_wfull(opts):
-    ppl = perceptual_path_length.compute_ppl(opts, num_samples=opts.num_gen, epsilon=1e-4, space='w', sampling='full', crop=True, batch_size=2)
-    return dict(ppl_wfull=ppl)
-
-@register_metric
-def ppl_zend(opts):
-    ppl = perceptual_path_length.compute_ppl(opts, num_samples=opts.num_gen, epsilon=1e-4, space='z', sampling='end', crop=True, batch_size=2)
-    return dict(ppl_zend=ppl)
-
-@register_metric
-def ppl_wend(opts):
-    ppl = perceptual_path_length.compute_ppl(opts, num_samples=opts.num_gen, epsilon=1e-4, space='w', sampling='end', crop=True, batch_size=2)
-    return dict(ppl_wend=ppl)
-
 #----------------------------------------------------------------------------
 # Extra metrics, from Lai et al.
 
