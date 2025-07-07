@@ -55,7 +55,7 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
 
 1. Pull the Docker image
     ```
-    docker pull aiformedresearch/metrics_toolkit
+    docker pull aiformedresearch/metrics_toolkit:3.0
     ```
 
 2. Run the Docker container
@@ -108,9 +108,8 @@ The following quantitative metrics are available:
 | :-----        | :-----: | :---------- |
 | `fid` | Fr&eacute;chet inception distance<sup>[1]</sup> against the full dataset | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
 | `kid` | Kernel inception distance<sup>[2]</sup> against the full dataset         | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
-| `pr` | Precision and recall<sup>[3]</sup> againt the full dataset               | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
-| `is_`       | Inception score<sup>[4]</sup> against the full dataset (only 2D)                            | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
-| `prdc`    |  Precision, recall, density, and coverage<sup>[5]</sup>  against the full dataset                    | [Naeem et al.](https://github.com/clovaai/generative-evaluation-prdc)
+| `is_`       | Inception score<sup>[3]</sup> against the full dataset (only 2D)                            | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
+| `prdc`    |  Precision, recall<sup>[4]</sup>, density, and coverage<sup>[5]</sup>  against the full dataset                    | [Naeem et al.](https://github.com/clovaai/generative-evaluation-prdc)
 | `pr_auth`    |  	$\alpha$-precision, 	$\beta$-recall, and authenticity<sup>[6]</sup> against the full dataset  | [Alaa et al.](https://github.com/vanderschaarlab/evaluating-generative-models)
 
 > ⚠️ 3D metrics rely on a 3D-ResNet50 feature extractor from [MedicalNet](https://github.com/Tencent/MedicalNet/tree/master), pre-trained on 23 medical imaging datasets. Before using these metrics, please verify that your data domain is represented among those datasets. If your dataset differs significantly from the pretraining domains, the resulting embeddings $-$ and therefore the computed metrics $-$ may not be meaningful. 
@@ -118,8 +117,8 @@ The following quantitative metrics are available:
 References:
 1. [GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium](https://arxiv.org/abs/1706.08500), Heusel et al. 2017
 2. [Demystifying MMD GANs](https://arxiv.org/abs/1801.01401), Bi&nacute;kowski et al. 2018
-3. [Improved Precision and Recall Metric for Assessing Generative Models](https://arxiv.org/abs/1904.06991), Kynk&auml;&auml;nniemi et al. 2019
-4. [Improved Techniques for Training GANs](https://arxiv.org/abs/1606.03498), Salimans et al. 2016
+3. [Improved Techniques for Training GANs](https://arxiv.org/abs/1606.03498), Salimans et al. 2016
+4. [Improved Precision and Recall Metric for Assessing Generative Models](https://arxiv.org/abs/1904.06991), Kynk&auml;&auml;nniemi et al. 2019
 5. [A Style-Based Generator Architecture for Generative Adversarial Networks](https://arxiv.org/abs/1812.04948), Karras et al. 2018
 6. [Reliable Fidelity and Diversity Metrics for Generative Models](https://proceedings.mlr.press/v119/naeem20a/naeem20a.pdf), Naeem et al., 2020
 7. [How Faithful is your Synthetic Data?

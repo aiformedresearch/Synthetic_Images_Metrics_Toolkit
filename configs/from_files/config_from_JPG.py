@@ -10,13 +10,12 @@ from dataset import BaseDataset
 # ----------------------------------- Metrics --------------------------------------
 
 # Define the metrics to compute.
-# Available options: fid50k,kid50k,pr50k3,ppl_zfull,pr_auth,prdc,knn
+# Available options: fid,kid,is_,pr_auth,prdc,knn
 METRICS = [
     # QUANTITATIVE METRICS:
         "fid",             # Frechét Inception distance (FID) (Karras et al.)
         "kid",             # Kernel Inception distance (KID) (Karras et al.)
         "is_",             # Inception score (IS) (Karras et al.)
-        "pr",              # Improved Precision & Recall (Karras et al.)
         "pr_auth",         # alpha-precision, beta-recall, authenticity (Alaa et al.)
         "prdc",            # Precision, recall, density, coverage (Naeem et al.)
     
@@ -54,9 +53,7 @@ METRICS_CONFIGS = {
     # Set the size of k (nhood_size):
     "nhood_size":
         {
-            "pr": 5,      # For improved Precision & Recall (Karras et al.)
             "prdc": 5,    # For precision, recall, density, coverage (Naeem et al.)
-            "pr_auth": 5  # For alpha-precision, beta-recall, authenticity (Alaa et al.)
         },
 
     # If you are perfroming the k-NN analysis, set the number of images to visualize in a num_real x num_synth grid.
