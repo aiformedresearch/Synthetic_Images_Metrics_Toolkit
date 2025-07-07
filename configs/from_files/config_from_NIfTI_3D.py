@@ -86,6 +86,8 @@ DATASET = {
         "use_labels": False,
         # Number of real images to use, if None using all
         "size_dataset": None,
+        # BIDS structure
+        "structure": "*.nii.gz"
     }
 }
 
@@ -112,6 +114,8 @@ SYNTHETIC_DATA = {
             "use_labels": False,
             # Number of synthetic images to use, if None using all
             "size_dataset": None,  
+            # BIDS structure
+            "structure": "*.nii.gz"
             }
         }
 }
