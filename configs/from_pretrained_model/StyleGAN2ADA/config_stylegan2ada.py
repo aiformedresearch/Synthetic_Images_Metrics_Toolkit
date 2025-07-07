@@ -53,9 +53,7 @@ METRICS_CONFIGS = {
     # Set the size of k (nhood_size):
     "nhood_size":
         {
-            "pr": 5,      # For improved Precision & Recall (Karras et al.)
             "prdc": 5,    # For precision, recall, density, coverage (Naeem et al.)
-            "pr_auth": 5  # For alpha-precision, beta-recall, authenticity (Alaa et al.)
         },
 
     # If you are perfroming the k-NN analysis, set the number of images to visualize in a num_real x num_synth grid.
