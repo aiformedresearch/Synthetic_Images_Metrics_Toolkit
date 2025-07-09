@@ -697,50 +697,6 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             )
             elements.append(caption)
 
-    # ----------------- P&R ---------------------
-    pr_tsne_path = os.path.join(metric_folder, "figures/tsne_pr.png")
-    pr_pca_path = os.path.join(metric_folder, "figures/pca_pr.png")
-    if os.path.exists(pr_tsne_path):
-        elements.append(PageBreak())
-        subtitle_pr = Paragraph("Precision and Recall (from NVIDIA)", styles['Heading4'])
-        elements.append(subtitle_pr)   
-
-        if args.data_type.lower() == '2d':
-            embedder = "VGG-16"
-            link = "https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/"
-        elif args.data_type.lower() == '3d':
-            embedder = "3D-ResNet"
-            link = "https://github.com/Tencent/MedicalNet"
-        text_pr = Paragraph(
-            f'Precision and Recall (P&amp;R) assess the fidelity and diversity of synthetic images by comparing their feature embeddings to those of real images, obtained using a pretrained <a href="{link}" color="blue">{embedder}</a>. '
-            f'The support of each distribution (real and synthetic) is estimated using a k-nearest neighbors (NN) approach, with k = {args.nhood_size["pr"]}. '
-            'For each sample, a hypersphere is defined with radius equal to the distance to its k-th nearest neighbor within the same set. '
-            'Repeating this process for every sample constructs a local manifold that approximates the support of the underlying distribution. '
-            'It is important to note that this method is sensitive to outliers, since an outlier may produce a large k-NN radius, leading to overastimation of the distribution\'s support.<br/><br/>'
-            '<b>- Precision</b> measures the proportion of synthetic samples that fall within the support of the real data distribution — reflecting fidelity. <br/>'
-            '<b>- Recall</b> measures the proportion of real samples that are covered by the synthetic distribution — indicating diversity. <br/>'
-            'Both metrics have values in [0,1], with higher values indicating a closer match between real and synthetic data.<br/><br/>'
-            f'P&amp;R scores:<br/>'
-            f'- <b>Precision</b>: {metrics["pr_precision"]}<br/>'
-            f'- <b>Recall</b>: {metrics["pr_recall"]}<br/>',
-            justified_style
-        )
-        elements.append(text_pr)   
-
-        pr_tsne = Table(
-            [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(pr_pca_path), max_width=225), 
-            get_image_with_scaled_dimensions(metric_utils.get_latest_figure(pr_tsne_path), max_width=225)]],
-            colWidths=[225, 225] 
-        )
-        elements.append(pr_tsne) 
-
-        caption = Table(
-            [[Paragraph(f"<font color='gray'><i>From: {pr_pca_path}</i></font>", styles['BodyText']), 
-            Paragraph(f"<font color='gray'><i>From: {pr_tsne_path}</i></font>", styles['BodyText'])]],
-            colWidths=[225, 225] 
-        )
-        elements.append(caption)
-
     # ----------------- PRDC ---------------------
     prdc_tsne_path = os.path.join(metric_folder, "figures/tsne_prdc.png")
     prdc_pca_path = os.path.join(metric_folder, "figures/pca_prdc.png")
@@ -757,7 +713,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             link = "https://github.com/Tencent/MedicalNet"
 
         text_prdc = Paragraph(
-            f'Precision, Recall (P&amp;R), density and coverage (D&amp;C) are complementary metrics used to assess the fidelity and diversity of synthetic images by comparing their feature embeddings to those of real images, obtained using a pretrained <a href="{link}" color="blue">{embedder}</a>. ',
+            f'Precision, Recall (P&amp;R), density and coverage (D&amp;C) are complementary metrics used to assess the fidelity and diversity of synthetic images by comparing their feature embeddings to those of real images, obtained using a pretrained <a href="{link}" color="blue">{embedder}</a>, which maps each image into a 4096-dimensional feature space. ',
             justified_style
         )
         elements.append(text_prdc)   
@@ -832,7 +788,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             link = "https://github.com/Tencent/MedicalNet"
         
         text_pr_auth = Paragraph(
-            f'α-precision, β-recall, and authenticity are computed using embeddings extracted from a pretrained <a href="{link}" color="blue">{embedder}</a>, which maps each image into a 2028-dimensional feature space. '
+            f'α-precision, β-recall, and authenticity are computed using embeddings extracted from a pretrained <a href="{link}" color="blue">{embedder}</a>, which maps each image into a 2048-dimensional feature space. '
         )
         elements.append(text_pr_auth)  
 
