@@ -326,7 +326,7 @@ def validate_config(config):
             errors.append("Missing 'nhood_size' in METRICS_CONFIGS.")
         else:
             nhood_size = metrics_configs["nhood_size"]
-            required_keys = ["pr", "prdc"]
+            required_keys = ["prdc"]
             for key in required_keys:
                 if key not in nhood_size:
                     errors.append(f"Missing key in METRICS_CONFIGS['nhood_size']: {key}")
@@ -516,45 +516,54 @@ def pad_image(batch, output_shape, input_shape='nhwc'):
         padded_batch = np.pad(batch, pad_width=((0, 0), (pad_top, pad_bottom), (pad_left, pad_right)), mode='constant')
     return padded_batch
 
-def setup_grid_slices(images_3d, grid_size, drange):
+def setup_grid_slices(images_3d, grid_size, drange, line_thickness=2):
     n, c, d, h, w = images_3d.shape
     assert c == 1, "Only single-channel 3D volumes supported"
     lo, hi = drange
     images_3d = np.asarray(images_3d, dtype=np.float32)
     images_3d = (images_3d - lo) * (255 / (hi - lo))
-    images_3d = np.rint(images_3d).clip(0, 255).astype(np.uint8) 
+    images_3d = np.rint(images_3d).clip(0, 255).astype(np.uint8)
     assert images_3d.min() >= 0 and images_3d.max() <= 255
 
     gw, gh = grid_size
-    # Split the grid in thirds: 1/3 sagittal, 1/3 coronal, 1/3 axial
-    third = max(1, int(gh / 3)) 
+    third = max(1, int(gh / 3))  # vertical thirds
 
     slices = []
 
-    for i in range(n):
-        image_3d = images_3d[i, 0]  # shape: [D, H, W]
+    for i in range(gh * gw):
+        image_3d = images_3d[i % n, 0]  # cycle through volumes if needed
+        row = i // gw
 
-        # Decide which slice to take based on column group
-        col = i % gw
-        if col < third:
-            slice_img = image_3d[:, :, w // 2]  # [D, H] - sagittal
-        elif col < 2 * third:
-            slice_img = image_3d[:, h // 2, :]  # [D, W] - coronal
+        if row < third:
+            slice_img = image_3d[d // 2, :, :]      # axial: [H, W]
+        elif row < 2 * third:
+            slice_img = image_3d[:, h // 2, :]      # coronal: [D, W]
         else:
-            slice_img = image_3d[d // 2, :, :]  # [H, W] - axial
+            slice_img = image_3d[:, :, w // 2]      # sagittal: [D, H]
 
-        # Ensure shape [1, H, W]
-        slice_img = np.expand_dims(slice_img, axis=0)
+        slice_img = np.expand_dims(slice_img, axis=0)  # shape: [1, H, W]
         slices.append(slice_img)
 
-        # Zero-padding to have all slices of the same shape
-        max_h = max(img.shape[1] for img in slices)
-        max_w = max(img.shape[2] for img in slices)
-        target_shape = (slices[0].shape[0], max_h, max_w)
+    # Pad all slices to same shape
+    max_h = max(img.shape[1] for img in slices)
+    max_w = max(img.shape[2] for img in slices)
+    target_shape = (1, max_h, max_w)
+    slices = [pad_image(img, target_shape, input_shape='chw') for img in slices]
 
-        # Pad all images to the same shape
-        slices = [pad_image(img, target_shape, input_shape='chw') for img in slices]
-    return slices
+    # Overwrite white horizontal lines at third boundaries
+    for row in [third, 2 * third]:
+        if row >= gh:
+            continue
+        for col in range(gw):
+            idx = row * gw + col
+            if idx < len(slices):
+                img = slices[idx]
+                img[:, :line_thickness, :] = 255  # top few rows white
+                slices[idx] = img
+
+    # Final check
+    assert len(slices) == gh * gw, f"Expected {gh*gw} slices, got {len(slices)}"
+    return np.stack(slices, axis=0)  # [N, 1, H, W]
 
 def setup_snapshot_image_grid(args, dataset, random_seed=0):
     rnd = np.random.RandomState(random_seed)
