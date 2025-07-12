@@ -829,7 +829,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
 
         text_pr_auth = Paragraph(
             f'The 2048-dimensional embeddings are then projected onto a 32-dimensional hypersphere using a <b>One-Class (OC)</b> classifier. '
-            'In this transformes space, samples considered "typical" lie near the center of the hypersphere, while outliers are located closer to the boundary. '
+            'In this transformed space, samples considered "typical" lie near the center of the hypersphere, while outliers are located closer to the boundary. '
             f'Below, we visualize the OC-transformed embeddings using PCA and the t-SNE:',
             justified_style
         )
@@ -852,7 +852,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(caption)
         text_pr_auth = Paragraph(
             f'In this space, α-precision and β-recall are computed by varying the values of α and β, which act as thresholds to define concentric regions around the data center. '
-            'These thresholds determine which samples are considered <i>typical</i> (i.e., within the hyphersphere of radius α or β).<br/><br/>',
+            'These thresholds determine which samples are considered <i>typical</i> (i.e., within the hypersphere of radius α or β).<br/><br/>',
             justified_style
         )
         elements.append(text_pr_auth)  
