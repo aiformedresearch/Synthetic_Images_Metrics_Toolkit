@@ -207,15 +207,13 @@ def compute_pr_a(opts, max_real, num_gen):
         print(sess)
     
     # Compute the embedding from pre-trained detector
-    if opts.data_type.lower() == '2d':
-        real_features = metric_utils.get_activation_from_dataset(opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
-                                    max_img=max_real, embedding=detector_url, embedder=embedder, verbose=True)
-        gen_features = metric_utils.get_activation_synthetic(opts, num_gen, detector_url, embedder=embedder, verbose=True)
-    elif opts.data_type.lower() == '3d':
-        real_features = metric_utils.compute_feature_stats_for_dataset(opts=opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
-            detector_url=detector_url, detector_kwargs=detector_kwargs,
-            rel_lo=0, rel_hi=0, dataset_kwargs=opts.dataset_kwargs, capture_all=True, max_items=max_real).get_all_torch().to(torch.float32).to(opts.device)
-        gen_features = metric_utils.compute_feature_stats_synthetic(opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
+    real_features = metric_utils.compute_feature_stats_for_dataset(
+        opts=opts, dataset=dnnlib.util.construct_class_by_name(**opts.dataset_kwargs), 
+        detector_url=detector_url, detector_kwargs=detector_kwargs,
+        rel_lo=0, rel_hi=0, dataset_kwargs=opts.dataset_kwargs, capture_all=True, max_items=max_real).get_all_torch().to(torch.float32).to(opts.device)
+
+    gen_features = metric_utils.compute_feature_stats_synthetic(
+        opts=opts, detector_url=detector_url, detector_kwargs=detector_kwargs,
             rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all_torch().to(torch.float32).to(opts.device)
 
     # Visualize t-SNE pre OC embedding
