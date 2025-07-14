@@ -28,11 +28,25 @@ import importlib
 from metrics.create_report import generate_metrics_report
 
 from copy import deepcopy
+import random
+import numpy as np
 if not sys.warnoptions:
     import warnings 
     warnings.filterwarnings("ignore")
 
 #----------------------------------------------------------------------------
+
+def set_global_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 def load_config_from_path(config_path):
     """Dynamically loads a config.py file from the given path."""
@@ -98,6 +112,10 @@ def get_module_path(file_path):
 
 def subprocess_fn(rank, args, temp_dir):
     dnnlib.util.Logger(should_flush=True)
+
+    # Set seed globally for reproducibility
+    set_global_seed(args.seed)
+
     # define device
     device = torch.device(f'cuda:{rank}' if torch.cuda.is_available() and args.num_gpus > 0 else 'cpu')
 
@@ -127,11 +145,11 @@ def subprocess_fn(rank, args, temp_dir):
     if rank == 0:
         # Real samples
         real_dataset = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
+        drange_real = [real_dataset._min, real_dataset._max]
         grid_size, images_real, labels = metric_utils.setup_snapshot_image_grid(args, real_dataset)
         if args.data_type.lower() == "3d":
-            images_real = metric_utils.setup_grid_slices(images_real, grid_size)
-        drange = [real_dataset._min, real_dataset._max]
-        metric_utils.plot_image_grid(args, images_real, drange=drange, grid_size=grid_size, group='real', rank=rank, verbose=args.verbose)
+            images_real = metric_utils.setup_grid_slices(images_real, grid_size, drange_real)
+        metric_utils.plot_image_grid(args, images_real, drange=drange_real, grid_size=grid_size, group='real', rank=rank, verbose=args.verbose)
 
         # Synthetic samples
         if args.use_pretrained_generator:   
@@ -143,9 +161,10 @@ def subprocess_fn(rank, args, temp_dir):
         else:
             synt_dataset = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
             grid_size, images_synt, _ = metric_utils.setup_snapshot_image_grid(args, synt_dataset)
+        drange_synt = [images_synt.min(), images_synt.max()]
         if args.data_type.lower() == "3d":
-            images_synt = metric_utils.setup_grid_slices(images_synt, grid_size)
-        metric_utils.plot_image_grid(args, images_synt, drange=[0,255], grid_size=grid_size, group='synt', rank=rank, verbose=args.verbose)
+            images_synt = metric_utils.setup_grid_slices(images_synt, grid_size, drange_synt)
+        metric_utils.plot_image_grid(args, images_synt, drange=drange_synt, grid_size=grid_size, group='synt', rank=rank, verbose=args.verbose)
 
     if args.num_gpus > 1 and dist.is_initialized():
         dist.barrier()
@@ -175,6 +194,7 @@ def subprocess_fn(rank, args, temp_dir):
             batch_size=args.batch_size,
             data_type=args.data_type,
             cache=args.cache,
+            seed=args.seed,
             G=args.G, 
             dataset_kwargs=args.dataset_kwargs,
             dataset_synt_kwargs=args.dataset_synt_kwargs,
@@ -243,7 +263,8 @@ def calc_metrics(ctx, config):
         'dataset_synt': config.SYNTHETIC_DATA["from_files"] if not config.USE_PRETRAINED_MODEL else None,
         'dataset': config.DATASET,
         'use_pretrained_generator': config.USE_PRETRAINED_MODEL,
-        'config_path': config_path
+        'config_path': config_path,
+        'seed': config.CONFIGS.get("SEED", 42),
     })
 
     # Print configuration values

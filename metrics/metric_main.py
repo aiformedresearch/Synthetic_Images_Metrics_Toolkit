@@ -44,10 +44,10 @@ def list_valid_metrics():
 
 #----------------------------------------------------------------------------
 
-def calc_metric(metric, use_pretrained_generator, run_generator, num_gen, nhood_size, knn_configs, padding, oc_detector_path, train_OC, snapshot_pkl, run_dir, batch_size, data_type, cache, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
+def calc_metric(metric, use_pretrained_generator, run_generator, num_gen, nhood_size, knn_configs, padding, oc_detector_path, train_OC, snapshot_pkl, run_dir, batch_size, data_type, cache, seed, **kwargs): # See metric_utils.MetricOptions for the full list of arguments.
     
     assert is_valid_metric(metric)
-    opts = metric_utils.MetricOptions(run_dir, batch_size, data_type, use_pretrained_generator, run_generator, snapshot_pkl, num_gen, nhood_size, knn_configs, padding, oc_detector_path, train_OC, cache, **kwargs)
+    opts = metric_utils.MetricOptions(run_dir, batch_size, data_type, use_pretrained_generator, run_generator, snapshot_pkl, num_gen, nhood_size, knn_configs, padding, oc_detector_path, train_OC, cache, seed, **kwargs)
 
     # Calculate.
     start_time = time.time()

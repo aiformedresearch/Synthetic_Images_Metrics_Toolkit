@@ -40,11 +40,12 @@ from sklearn.manifold import TSNE
 import PIL.Image
 from matplotlib import gridspec
 from tqdm import tqdm
+import random
 
 #----------------------------------------------------------------------------
 
 class MetricOptions:
-    def __init__(self, run_dir, batch_size, data_type, use_pretrained_generator, run_generator, network_pkl, num_gen, nhood_size, knn_config, padding, oc_detector_path, train_OC, cache, G=None, G_kwargs={}, dataset_kwargs={}, dataset_synt_kwargs={}, num_gpus=1, rank=0, device=None, progress=None):
+    def __init__(self, run_dir, batch_size, data_type, use_pretrained_generator, run_generator, network_pkl, num_gen, nhood_size, knn_config, padding, oc_detector_path, train_OC, cache, seed, G=None, G_kwargs={}, dataset_kwargs={}, dataset_synt_kwargs={}, num_gpus=1, rank=0, device=None, progress=None):
         assert 0 <= rank <= num_gpus
         self.G              = G
         self.G_kwargs       = dnnlib.EasyDict(G_kwargs)
@@ -69,6 +70,7 @@ class MetricOptions:
         self.use_pretrained_generator = use_pretrained_generator
         self.data_type      = data_type
         self.batch_size     = batch_size
+        self.seed           = seed
 
 #----------------------------------------------------------------------------
 
@@ -454,8 +456,11 @@ def validate_config(config):
 
 
 #----------------------------------------------------------------------------
-# Functions added to manage the different types of detectors
-#--------------------------------------------------------------------------------
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 def get_unique_filename(base_figname):
     """
@@ -762,7 +767,7 @@ def get_activation_from_dataset(opts, dataset, max_img, embedding, embedder=None
             item_subset = list(range(n_imgs))
         data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2) if platform.system() != 'Windows' else dict(pin_memory=True, num_workers=0)
         i=0
-        for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, **data_loader_kwargs):
+        for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=batch_size, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(opts.seed), **data_loader_kwargs):
             if verbose:
                 print("\rPropagating batch %d/%d" % (i+1, n_batches), end="", flush=True)
             start = i*batch_size
@@ -898,7 +903,8 @@ def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None):
         OC_hyperparams['center'] = torch.ones(OC_params['rep_dim'])*10
         
         OC_model = OneClassLayer(params=OC_params, 
-                                 hyperparams=OC_hyperparams)
+                                 hyperparams=OC_hyperparams,
+                                 seed=opts.seed)
         OC_model.fit(X,verbosity=True)
         
         # Check that the folder exists
@@ -960,7 +966,7 @@ def compute_feature_stats_for_dataset(opts, dataset, detector_url, detector_kwar
         else:
             item_subset = list(range(num_items))
         
-    for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=opts.batch_size, **data_loader_kwargs):
+    for images, _labels in torch.utils.data.DataLoader(dataset=dataset, sampler=item_subset, batch_size=opts.batch_size, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(opts.seed), **data_loader_kwargs):
         if images.shape[1] == 1 and opts.data_type in ['2d', '2D']:
             images = images.repeat([1, 3, 1, 1])
         features = extract_features_from_detector(opts, images, detector, detector_url, detector_kwargs)
@@ -1181,7 +1187,7 @@ def visualize_top_k(opts, closest_images, closest_indices, top_n_real_indices, f
     dataset = dnnlib.util.construct_class_by_name(**opts.dataset_kwargs)
 
     # Use the indices of the closest synthetic images to load the real images from the dataset
-    real_images, _ = next(iter(torch.utils.data.DataLoader(dataset=dataset, sampler=top_n_real_indices, batch_size=opts.batch_size)))
+    real_images, _ = next(iter(torch.utils.data.DataLoader(dataset=dataset, sampler=top_n_real_indices, batch_size=opts.batch_size, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(opts.seed))))
 
     # Collect the synthetic images corresponding to each real image from closest_images
     synthetic_images_to_visualize = [closest_images[real_idx][:k] for real_idx in top_n_real_indices]

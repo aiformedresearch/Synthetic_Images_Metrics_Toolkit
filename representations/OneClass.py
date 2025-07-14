@@ -27,6 +27,7 @@ if not sys.warnoptions:
 from representations.networks import *  
 
 from torch.autograd import Variable
+import random
 
 # One-class loss functions
 # ------------------------
@@ -95,7 +96,7 @@ def get_radius(dist:torch.Tensor, nu:float):
 
 class OneClassLayer(BaseNet):
 
-    def __init__(self, params=None, hyperparams=None):
+    def __init__(self, params=None, hyperparams=None, seed=42):
         
         super().__init__()
         
@@ -121,6 +122,7 @@ class OneClassLayer(BaseNet):
         # set up the network
         
         self.model          = build_network(network_name="feedforward", params=params).to(self.device)
+        self.seed = seed
 
         # create the loss function
 
@@ -139,7 +141,11 @@ class OneClassLayer(BaseNet):
     
     
     def fit(self, x_train, verbosity=True):
-       
+
+        torch.manual_seed(self.seed)
+        np.random.seed(self.seed)
+        random.seed(self.seed)
+
         self.optimizer      = torch.optim.AdamW(self.model.parameters(), lr=self.learningRate, weight_decay = self.weight_decay)
         self.X              = torch.tensor(x_train.reshape((-1, self.input_dim))).float()
         
