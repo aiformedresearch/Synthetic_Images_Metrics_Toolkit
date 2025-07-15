@@ -3,23 +3,30 @@
 
 # For Synthetic_Images_Metrics_Toolkit
 typing-extensions==4.12.2 
+numpy==1.23.5
 torch==2.3.1+cu118
 torchvision==0.18.1+cu118
 matplotlib==3.5.3
 tqdm==4.64.1
 tensorflow==2.12.0
-click==7.1.2
+keras==2.12.0
+click==8.1.8
 requests==2.24
 pyspng==0.1.1
 imageio-ffmpeg==0.4.3
 psutil==5.7.2
 scikit-learn==1.0.2
 reportlab==4.3.1
+seaborn==0.13.2 
+protobuf==4.25.6 
+scipy==1.15.2 
+# For data loading (NIfTI, TIFF and CSV files)
+nibabel==4.0.2 
+pandas==1.3.5 
+tifffile==2025.3.13 
+imagecodecs==2025.3.30 
+opencv-python==4.11.0.86 
 -f https://download.pytorch.org/whl/cu118/torch_stable.html
-
-# For data loading (NIfTI and CSV files):
-nibabel==4.0.2
-pandas==1.3.5
 
 # For computing metrics for Mediffusion:
 mediffusion==0.7.1
