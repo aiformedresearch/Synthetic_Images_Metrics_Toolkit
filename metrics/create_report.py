@@ -25,11 +25,9 @@ metric_labels = {
     "kid": "KID",
     "is_mean": "IS",
     "precision": "Precision",
-    "pr_precision": "Precision (NVIDIA)",
     "density": "Density",
     "a_precision": "α-Precision",
     "recall": "Recall",
-    "pr_recall": "Recall (NVIDIA)",
     "coverage": "Coverage",
     "b_recall": "β-Recall",
     "authenticity": "Authenticity"
@@ -39,8 +37,6 @@ metric_references = {
     "FID": "<b>Paper</b>: <a href='https://arxiv.org/abs/1706.08500'>\"GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium\"</a>, Heusel et al. 2017. <br/>  <b>Implementation</b>: Karras et al., https://github.com/NVlabs/stylegan2-ada-pytorch",
     "KID": "<b>Paper</b>: <a href='https://arxiv.org/abs/1801.01401'>\"Demystifying MMD GANs\"</a>, Binkowski et al. 2018 <br/>  <b>Implementation</b>: Karras et al., https://github.com/NVlabs/stylegan2-ada-pytorch",
     "IS": "<b>Paper</b>: <a href='https://arxiv.org/abs/1606.03498'>\"Improved Techniques for Training GANs\"</a>, Salimans et al. 2016 <br/>  <b>Implementation</b>: Karras et al., https://github.com/NVlabs/stylegan2-ada-pytorch",
-    "Precision (NVIDIA)": "<b>Paper</b>: <a href='https://arxiv.org/abs/1904.06991'>\"Improved Precision and Recall Metric for Assessing Generative Models\"</a>, Kynkäänniemi et al. 2019 <br/>  <b>Implementation</b>: Karras et al, https://github.com/NVlabs/stylegan2-ada-pytorch",
-    "Recall (NVIDIA)": "<b>Paper</b>: <a href='https://arxiv.org/abs/1904.06991'>\"Improved Precision and Recall Metric for Assessing Generative Models\"</a>, Kynkäänniemi et al. 2019 <br/>  <b>Implementation</b>: Karras et al, https://github.com/NVlabs/stylegan2-ada-pytorch",
     "Precision": "<b>Paper</b>: <a href='https://arxiv.org/abs/1904.06991'>\"Improved Precision and Recall Metric for Assessing Generative Models\"</a>, Kynkäänniemi et al. 2019 <br/>  <b>Implementation</b>: Naeem et al., https://github.com/clovaai/generative-evaluation-prdc",
     "Recall": "<b>Paper</b>: <a href='https://arxiv.org/abs/1904.06991'>\"Improved Precision and Recall Metric for Assessing Generative Models\"</a>, Kynkäänniemi et al. 2019 <br/>  <b>Implementation</b>: Naeem et al., https://github.com/clovaai/generative-evaluation-prdc",
     "Density": "<b>Paper</b>: <a href='https://proceedings.mlr.press/v119/naeem20a/naeem20a.pdf'>\"Reliable Fidelity and Diversity Metrics for Generative Models\"</a>, Naeem et al., 2020 <br/>  <b>Implementation</b>: Naeem et al., https://github.com/clovaai/generative-evaluation-prdc",
@@ -82,7 +78,7 @@ def extract_metrics_from_csv(folder_path):
         print(f"No CSV file found at {csv_path}")
         return {}
 
-    known_flags = {"fid", "kid", "is_", "pr", "prdc", "pr_auth"}
+    known_flags = {"fid", "kid", "is_", "prdc", "pr_auth"}
     metrics = {}
 
     with open(csv_path, newline='') as csvfile:
@@ -108,11 +104,11 @@ def extract_metrics_from_csv(folder_path):
 def plot_metrics_triangle(metrics, metric_folder):
 
     # Extract fidelity, diversity, and generalization metrics while filtering out None values
-    fidelity_metrics = {k: metrics.get(k, None) for k in ["precision", "pr50k3_precision", "density", "a_precision"]}
+    fidelity_metrics = {k: metrics.get(k, None) for k in ["precision", "density", "a_precision"]}
     fidelity_metrics = {k: np.clip(v, 0, 1) for k, v in fidelity_metrics.items() if v is not None}
     fidelity_mean = np.mean(list(fidelity_metrics.values()))
 
-    diversity_metrics = {k: metrics.get(k, None) for k in ["recall", "pr50k3_recall", "coverage", "b_recall"]}
+    diversity_metrics = {k: metrics.get(k, None) for k in ["recall", "coverage", "b_recall"]}
     diversity_metrics = {k: np.clip(v, 0, 1) for k, v in diversity_metrics.items() if v is not None}
     diversity_mean = np.mean(list(diversity_metrics.values()))
 
@@ -610,7 +606,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             'To support qualitative interpretation, the embeddings are visualized in a reduced two-dimensional space using PCA and t-SNE. '
             'Being PCA a linear transformation, it allows for the projection of the multidimensional Gaussian distributions into 2D, which is shown in the corresponding plot. '
             'However, this projection captures only a portion of the total variance, which is indicated in the image title.<br/>'
-            'Lower FID values reflect a smaller distance between the two distributions, indicating greater similarity in terms of image fidelity and diversity.<br/><br/>'
+            'Lower FID values reflect a smaller distance between the two distributions, indicating greater similarity in terms of image <b>fidelity and diversity</b>.<br/><br/>'
             f'<b>FID score</b>: {metrics["fid"]}',
             justified_style
         )
@@ -649,7 +645,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             'Unlike FID, KID does not assume a Gaussian distribution. '
             'Instead, it computes the Maximum Mean Discrepancy (MMD) with a polynomial kernel to quantify the difference between the feature distributions of real and generated images. '
             'This makes KID an unbiased estimator that is particularly well-suited for small sample sizes.<br/>'
-            'Like FID, lower KID values indicate closer alignment between the real and synthetic data distributions.<br/><br/>'
+            'Like FID, lower KID values indicate closer alignment between the real and synthetic data distributions, capturing both <b>fidelity and diversity</b> in a single score.<br/><br/>'
             f'<b>KID score</b>: {metrics["kid"]}',
             justified_style
         )
@@ -686,7 +682,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             link = "https://github.com/Tencent/MedicalNet"
 
         text_prdc = Paragraph(
-            f'Precision, Recall (P&amp;R), density and coverage (D&amp;C) are complementary metrics used to assess the fidelity and diversity of synthetic images by comparing their feature embeddings to those of real images, obtained using a pretrained <a href="{link}" color="blue">{embedder}</a>, which maps each image into a 4096-dimensional feature space. ',
+            f'Precision, Recall (P&amp;R), density and coverage (D&amp;C) are complementary metrics used to assess the fidelity and diversity of synthetic images. These metrics compare feature embeddings of real and synthetic images extracted via a pretrained <a href="{link}" color="blue">{embedder}</a>, which maps each image into a 4096-dimensional space. ',
             justified_style
         )
         elements.append(text_prdc)   
@@ -710,13 +706,13 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         text_prdc = Paragraph(
             f'The support of each distribution is estimated using a k-nearest neighbors (k-NN) approach, with k = {args.nhood_size["prdc"]}. '
             'For each sample, a hypersphere is defined by the distance to its k-th nearest neighbor within the same set, approximating the local manifold of the distribution. '
-            'Note that this method is sensitive to outliers, since an outlier may produce a large k-NN radius, leading to overastimation of the distribution\'s support.<br/><br/>'
+            'Note that this method is sensitive to outliers, since an outlier can inflate the estimated support.<br/><br/>'
             'Given the estimated supports of real and synthetic distributions, P&amp;R are computed:<br/>'
-            '- <b>Precision</b>: <i>what fraction of synthetic images look realistic?</i> Precision measures the proportion of synthetic samples that fall within the support of the real data distribution, reflecting fidelity.<br/>'
-            '- <b>Recall</b>: <i>how much variety from the real distribution do synthetic images capture?</i> Recall quantifies the proportion of real samples that are covered by the synthetic distribution, indicating diversity.<br/><br/>'
+            '- <b>Precision</b>: <i>what fraction of synthetic images look realistic?</i> Precision measures the proportion of synthetic samples that fall within the support of the real data distribution, reflecting <b>fidelity</b>.<br/>'
+            '- <b>Recall</b>: <i>how much variety from the real distribution do synthetic images capture?</i> Recall quantifies the proportion of real samples that are covered by the synthetic distribution, indicating <b>diversity</b>.<br/><br/>'
             'To mitigate the sensitivity of P&amp;R to outliers, D&amp;C were introduced as more robust alternatives:<br/>'
-            '- <b>Density</b>: <i>how well do synthetic images populate realistic regions?</i> Density counts how many real-sample neighborhoods contain synthetic images.<br/>'
-            '- <b>Coverage</b>: <i>to what extent do synthetic images represent the full variety of real image types?</i> Coverage evaluates how much of the real distribution is covered by at least one synthetic sample\'s neighborhood.<br/><br/>'
+            '- <b>Density</b>: <i>how well do synthetic images populate realistic regions?</i> Density counts how many real-sample neighborhoods contain synthetic images, representing <b>fidelity</b>.<br/>'
+            '- <b>Coverage</b>: <i>to what extent do synthetic images represent the full variety of real image types?</i> Coverage evaluates how much of the real distribution is covered by at least one synthetic sample\'s neighborhood, serving as a proxy for <b>diversity</b>.<br/><br/>'
             'All four metrics range from 0 to 1, with higher values indicating a better match between the real and synthetic distributions.<br/><br/>'
             f'Current scores:<br/>'
             f'- <b>Precision</b>: {metrics["precision"]}<br/>'
@@ -832,8 +828,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         #elements.append(PageBreak())
         text_pr_auth = Paragraph(
             'By varying these thresholds from 0 (no samples considered <i>typical</i>) to 1 (all samples considered <i>typical</i>), we generate two curves:<br/>'
-            f'- <b>α-precision curve</b>: at each α level, we compute the proportion of synthetic samples that fall within the α-quantile radius of the real data distribution — reflecting how well synthetic data matches the distribution of the <i>typical</i> real data;<br/>'
-            f'- <b>β-recall curve</b>: at each β level, we compute the proportion of real samples that are (i) closer to a synthetic neighbor than a real one, and (ii) whose closest synthetic neighbor lies within the β-quantile region of the synthetic distribution — reflecting how well synthetic data covers the typical real samples. <br/><br/>'
+            f'- <b>α-precision curve</b>: at each α level, we compute the proportion of synthetic samples that fall within the α-quantile radius of the real data distribution — reflecting how well synthetic data matches the distribution of the <i>typical</i> real data  (i.e., <b>fidelity</b>);<br/>'
+            f'- <b>β-recall curve</b>: at each β level, we compute the proportion of real samples that are (i) closer to a synthetic neighbor than a real one, and (ii) whose closest synthetic neighbor lies within the β-quantile region of the synthetic distribution — reflecting how well synthetic data covers the typical real samples (i.e., <b>diversity</b>). <br/><br/>'
             f'The final scores correspond to the area under the curve (AUC):<br/>'
             f'- <b>α-precision</b>: {metrics["a_precision"]}<br/>'
             f'- <b>β-recall</b>: {metrics["b_recall"]}<br/>',
@@ -896,16 +892,18 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(subtitle_knn)
 
         generalization_text = Paragraph(
-            "The k-nearest neighbors (k-NN) visualization provides a qualitative assessment of <b>generalization</b>, aiming to identify potential memorization of training data by the generative model. In this analysis:<br/>"
+            "The k-nearest neighbors (k-NN) visualization provides a qualitative assessment of <b>generalization</b>, aiming to identify potential memorization of training data by the generative model. <br/>"
+            "In this analysis:<br/>"
             f"- The first column shows the {args.knn_configs['num_real']} real images that have the highest cosine similarity to any synthetic sample. <br/>"
-            f"- Each subsequent column presents the top {args.knn_configs['num_synth']} most similar synthetic images (from {num_syn} generated samples) for each real image.",
+            f"- Each subsequent column presents the top {args.knn_configs['num_synth']} most similar synthetic images (from {num_syn} generated samples) for each real image. ",
             justified_style
         )
         elements.append(generalization_text)
 
         if os.path.exists(pr_auth_tsne_path):
             generalization_text2 = Paragraph(
-                "Similarity is computed using the same embedding space used for the authenticity score, enabling to visually inspect which synthetic samples are closest to real data points and could have contributed to a lower authenticity score.",
+                "Similarity is computed using the same embedding space used for the authenticity score, enabling to visually inspect which synthetic samples are closest to real data points and could have contributed to a lower authenticity score. "
+                "If the retrieved synthetic samples in a row are very similar to one another, this may indicate limited <b>diversity</b> in the generated set. ",
                 justified_style
             )
             elements.append(generalization_text2)
