@@ -71,7 +71,21 @@ class MetricOptions:
         self.data_type      = data_type
         self.batch_size     = batch_size
         self.seed           = seed
+        self.OC_params  = dict({"rep_dim": 32, 
+                    "num_layers": 3, 
+                    "num_hidden": 128, 
+                    "activation": "ReLU",
+                    "dropout_prob": 0.5, 
+                    "dropout_active": False,
+                    "LossFn": "SoftBoundary",
+                    "lr": 2e-3,
+                    "epochs": 2000,
+                    "warm_up_epochs" : 10,
+                    "train_prop" : 0.8,
+                    "weight_decay": 1e-2}   
+                    )   
 
+        self.OC_hyperparams = dict({"Radius": 1, "nu": 1e-2})
 #----------------------------------------------------------------------------
 
 _feature_detector_cache = dict()

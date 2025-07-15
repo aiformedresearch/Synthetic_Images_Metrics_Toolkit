@@ -177,21 +177,6 @@ def compute_alpha_precision(opts, real_data, synthetic_data, emb_center):
 #----------------------------------------------------------------------------
 
 def compute_pr_a(opts, max_real, num_gen):
-    OC_params  = dict({"rep_dim": 32, 
-                "num_layers": 3, 
-                "num_hidden": 128, 
-                "activation": "ReLU",
-                "dropout_prob": 0.5, 
-                "dropout_active": False,
-                "LossFn": "SoftBoundary",
-                "lr": 2e-3,
-                "epochs": 2000,
-                "warm_up_epochs" : 10,
-                "train_prop" : 0.8,
-                "weight_decay": 1e-2}   
-                )   
-
-    OC_hyperparams = dict({"Radius": 1, "nu": 1e-2})
 
     # Load embedder function
     if opts.data_type.lower() == '2d':
@@ -227,7 +212,7 @@ def compute_pr_a(opts, max_real, num_gen):
     metric_utils.plot_pca('α-precision, β-recall, and authenticity', real_features=real_features.cpu(), gen_features=gen_features.cpu(), fig_path=fig_path)
     
     # Get the OC model (and eventually train it on the real features)
-    OC_model, OC_params, OC_hyperparams = metric_utils.get_OC_model(opts, real_features, OC_params, OC_hyperparams)
+    OC_model, OC_params, OC_hyperparams = metric_utils.get_OC_model(opts, real_features, opts.OC_params, opts.OC_hyperparams)
     print(OC_params)
     print(OC_hyperparams)
     OC_model.eval()
