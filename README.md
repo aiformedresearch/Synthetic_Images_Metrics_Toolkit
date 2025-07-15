@@ -31,14 +31,14 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
 0. Install [Anaconda](https://docs.anaconda.com/free/anaconda/install/index.html) for your operating system.
 1. Clone the repository:
     ```
-    cd /path_to/metrics_toolkit_repo
+    cd /path_to/sim_toolkit_repo
     git clone https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit.git
     cd Synthetic_Images_Metrics_Toolkit
     ```
 2. Create and activate the Conda environment:
     ```
-    conda create -n metrics_toolkit python=3.10 -y
-    conda activate metrics_toolkit
+    conda create -n sim_toolkit python=3.10 -y
+    conda activate sim_toolkit
     ```
 3. Install dependencies:
     ```
