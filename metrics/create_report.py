@@ -939,7 +939,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
 def generate_metrics_report(args):
     metric_folder = args.run_dir
 
-    out_file_path = metric_folder+"/report_metrics_toolkit.pdf"
+    out_file_path = metric_folder+"/report_sim_toolkit.pdf"
     out_file_path = metric_utils.get_unique_filename(out_file_path)
 
     if not os.path.isdir(metric_folder):
