@@ -402,11 +402,16 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
 
     # Subtitle for Qualitative assessment
     elements.append(PageBreak())
-    subtitle_qual = Paragraph("Qualitative assessment", styles['Heading2'])
-    elements.append(subtitle_qual)
     
-    subtitle_vis = Paragraph("Images visualization", styles['Heading3'])
+    subtitle_vis = Paragraph("Visualization of real and synthetic samples", styles['Heading2'])
     elements.append(subtitle_vis)
+
+    intro_text = Paragraph(
+        f"To qualitatively assess <b>fidelity</b> and <b>diversity</b>, compare the real and synthetic image grids below. "
+        "For valid metric computation, ensure matching shape, value range, and data type.",   
+        justified_style
+    )
+    elements.append(intro_text)
 
     # Real images visualization
     dataset_real = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
@@ -486,43 +491,11 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     synt_caption = Paragraph(f"<font color='gray'><i>Full resolution file: {synt_path}</i></font>", styles['BodyText'])
     elements.append(synt_caption)
 
-    # ---------------------------------------
-    elements.append(PageBreak())
-
-    # Text for generalization assessment
-    generalization_path = os.path.join(metric_folder, "figures/knn_analysis.png")
-    if os.path.exists(generalization_path):
-        generalization_path = metric_utils.get_latest_figure(generalization_path)
-        subtitle_knn = Paragraph("k-NN analysis", styles['Heading3'])
-        elements.append(subtitle_knn)
-
-        generalization_text = Paragraph(
-            "The k-nearest neighbors (k-NN) visualization performs a qualitative assessment of generalization, to assess whether the model memorizes training data. "
-            f"The first column shows the {args.knn_configs['num_real']} real images that have the highest cosine similarity to any synthetic sample. "
-            f"Each subsequent column presents the top {args.knn_configs['num_synth']} most similar synthetic images (out of {num_syn} generated samples) for each real image.",
-            justified_style
-        )
-        elements.append(generalization_text)
-        elements.append(Spacer(1, 12))
-
-        # Layout with qualitative generalization assessment
-        generalization_image = get_image_with_scaled_dimensions(generalization_path, max_width=450)
-        elements.append(generalization_image)
-        knn_caption = Paragraph(f"<font color='gray'><i>From: {generalization_path}</i></font>", styles['BodyText'])
-        elements.append(knn_caption)
-
-        if args.use_pretrained_generator:
-            text_knn = "The number below each real image indicates its index in the original dataset."
-        else:
-            text_knn = "The number below each image indicates its index in the original dataset. This allows users to locate and view the corresponding image at full resolution, enabling a more detailed comparison between real and synthetic samples."
-
-        idx_text = Paragraph(text_knn, justified_style)
-        elements.append(idx_text)
 
     # --------------------------------------- Metrics interpretation ------------------------------------------------
  
     elements.append(PageBreak())
-    subtitle_2d_emb = Paragraph("Embedding space visualization: PCA and t-SNE", styles['Heading3'])
+    subtitle_2d_emb = Paragraph("Embedding space visualization: PCA and t-SNE", styles['Heading2'])
     elements.append(subtitle_2d_emb)
     elements.append(Spacer(1, 12))
 
@@ -571,7 +544,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(caption)
 
         elements.append(PageBreak())
-        subtitle_is = Paragraph("Inception Score (IS)", styles['Heading4'])
+        subtitle_is = Paragraph("Inception Score (IS)", styles['Heading3'])
         elements.append(subtitle_is)   
 
         if args.data_type.lower() == '2d':
@@ -622,7 +595,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     fid_pca_path = os.path.join(metric_folder, "figures/pca_fid.png")
     if os.path.exists(fid_tsne_path):
         elements.append(PageBreak())
-        subtitle_fid = Paragraph("Fréchet Inception Distance (FID)", styles['Heading4'])
+        subtitle_fid = Paragraph("Fréchet Inception Distance (FID)", styles['Heading3'])
         elements.append(subtitle_fid)   
 
         if args.data_type.lower() == '2d':
@@ -661,7 +634,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     kid_tsne_path = os.path.join(metric_folder, "figures/tsne_kid.png")
     kid_pca_path = os.path.join(metric_folder, "figures/pca_kid.png")
     if os.path.exists(kid_tsne_path):
-        subtitle_kid = Paragraph("Kernel Inception Distance (KID)", styles['Heading4'])
+        subtitle_kid = Paragraph("Kernel Inception Distance (KID)", styles['Heading3'])
         elements.append(subtitle_kid)   
 
         if args.data_type.lower() == '2d':
@@ -702,7 +675,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     prdc_pca_path = os.path.join(metric_folder, "figures/pca_prdc.png")
     if os.path.exists(prdc_tsne_path):
         elements.append(PageBreak())
-        subtitle_prdc = Paragraph("Precision, recall, density, and coverage", styles['Heading4'])
+        subtitle_prdc = Paragraph("Precision, recall, density, and coverage", styles['Heading3'])
         elements.append(subtitle_prdc)   
 
         if args.data_type.lower() == '2d':
@@ -730,15 +703,14 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
                 else:
                     method = "PIL.BICUBIC resizer."
             text_prdc = Paragraph(
-            f'Given that the pretrained network requires input of size 224 x 224, images are adapted via {method} '
+            f'Images are resized to 224 x 224 to meet the network\'s input requirements using {method} ', justified_style
             )
             elements.append(text_prdc)  
 
         text_prdc = Paragraph(
-            f'The support of each distribution (real and synthetic) is estimated using a k-nearest neighbors (NN) approach, with k = {args.nhood_size["prdc"]}. '
-            'For each sample, a hypersphere is defined with radius equal to the distance to its k-th nearest neighbor within the same set. '
-            'Repeating this process for every sample, a local manifold is built to approximates the support of the underlying distribution. '
-            'It is important to note that this method is sensitive to outliers, since an outlier may produce a large k-NN radius, leading to overastimation of the distribution\'s support.<br/><br/>'
+            f'The support of each distribution is estimated using a k-nearest neighbors (k-NN) approach, with k = {args.nhood_size["prdc"]}. '
+            'For each sample, a hypersphere is defined by the distance to its k-th nearest neighbor within the same set, approximating the local manifold of the distribution. '
+            'Note that this method is sensitive to outliers, since an outlier may produce a large k-NN radius, leading to overastimation of the distribution\'s support.<br/><br/>'
             'Given the estimated supports of real and synthetic distributions, P&amp;R are computed:<br/>'
             '- <b>Precision</b>: <i>what fraction of synthetic images look realistic?</i> Precision measures the proportion of synthetic samples that fall within the support of the real data distribution, reflecting fidelity.<br/>'
             '- <b>Recall</b>: <i>how much variety from the real distribution do synthetic images capture?</i> Recall quantifies the proportion of real samples that are covered by the synthetic distribution, indicating diversity.<br/><br/>'
@@ -777,7 +749,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     pr_auth_OC_pca_path = os.path.join(metric_folder, "figures/pca_pr_auth_OC.png")
     if os.path.exists(pr_auth_tsne_path):
         elements.append(PageBreak())
-        subtitle_pr_auth = Paragraph("α-precision, β-recall, and authenticity", styles['Heading4'])
+        subtitle_pr_auth = Paragraph("α-precision, β-recall, and authenticity", styles['Heading3'])
         elements.append(subtitle_pr_auth)   
 
         if args.data_type.lower() == '2d':
@@ -896,7 +868,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         batch_size = min(1024, num_real, num_syn)
         num_batches = int(np.ceil(num_syn / batch_size))
         text_pr_auth = Paragraph(
-            f"<b>Authenticity</b> measures the fraction of synthetic data not memorized from the training set. "
+            f"<b>Authenticity</b> measures the fraction of synthetic data not memorized from the training set, quantitatively assessyng <b>generalization</b>. "
             "A synthetic image is considered authentic if its closest synthetic neighbor is farther awar than its closest real neighbor. "
             f"To compute this score, batches of {batch_size} synthetic images are compared with batches of {batch_size} real ones (with batch_size = min(1024, #real_imgs, #synth_imgs)), and the final score is calculated as the average across these {num_batches} batches.<br/><br/>"
             f'Score: <br/>'
@@ -912,6 +884,46 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(auth_images)
         caption = Paragraph(f'<font color="gray"><i>From: {auth_path}</i></font>', styles['BodyText'])
         elements.append(caption)
+
+    # ---------------------------------------
+    elements.append(PageBreak())
+
+    # Text for generalization assessment
+    generalization_path = os.path.join(metric_folder, "figures/knn_analysis.png")
+    if os.path.exists(generalization_path):
+        generalization_path = metric_utils.get_latest_figure(generalization_path)
+        subtitle_knn = Paragraph("k-NN analysis", styles['Heading3'])
+        elements.append(subtitle_knn)
+
+        generalization_text = Paragraph(
+            "The k-nearest neighbors (k-NN) visualization provides a qualitative assessment of <b>generalization</b>, aiming to identify potential memorization of training data by the generative model. In this analysis:<br/>"
+            f"- The first column shows the {args.knn_configs['num_real']} real images that have the highest cosine similarity to any synthetic sample. <br/>"
+            f"- Each subsequent column presents the top {args.knn_configs['num_synth']} most similar synthetic images (from {num_syn} generated samples) for each real image.",
+            justified_style
+        )
+        elements.append(generalization_text)
+
+        if os.path.exists(pr_auth_tsne_path):
+            generalization_text2 = Paragraph(
+                "Similarity is computed using the same embedding space used for the authenticity score, enabling to visually inspect which synthetic samples are closest to real data points and could have contributed to a lower authenticity score.",
+                justified_style
+            )
+            elements.append(generalization_text2)
+        elements.append(Spacer(1, 12))
+
+        # Layout with qualitative generalization assessment
+        generalization_image = get_image_with_scaled_dimensions(generalization_path, max_width=450)
+        elements.append(generalization_image)
+        knn_caption = Paragraph(f"<font color='gray'><i>From: {generalization_path}</i></font>", styles['BodyText'])
+        elements.append(knn_caption)
+
+        if args.use_pretrained_generator:
+            text_knn = "The number below each real image indicates its index in the original dataset."
+        else:
+            text_knn = "The number below each image indicates its index in the original dataset. This allows users to locate and view the corresponding image at full resolution, enabling a more detailed comparison between real and synthetic samples."
+
+        idx_text = Paragraph(text_knn, justified_style)
+        elements.append(idx_text)
 
     # --------------------------------------- References ------------------------------------------------
 

@@ -39,8 +39,9 @@ def update_closest_images(closest_images, closest_similarities, closest_indices,
     return closest_images, closest_similarities, closest_indices
 
 # Generate batches of synthetic images and compare to real embeddings
-def process_batches_and_find_closest(opts, real_embeddings, detector_url, detector_kwargs, num_gen, k=8):
-    num_real_images = real_embeddings.shape[0]
+def process_batches_and_find_closest(opts, real_embeddings_OC, detector_url, detector_kwargs, OC_model, num_gen, k=8):
+    num_real_images = real_embeddings_OC.shape[0]
+    OC_model.eval().to(opts.device)
 
     if not opts.use_pretrained_generator:
         synt_dataset = dnnlib.util.construct_class_by_name(**opts.dataset_synt_kwargs)
@@ -72,8 +73,12 @@ def process_batches_and_find_closest(opts, real_embeddings, detector_url, detect
         batch_embeddings = batch_embeddings.get_all_torch().to(torch.float16).to(opts.device)
         batch_synthetic_images = batch_synthetic_images.to(opts.device)
 
+        # Map the extracted embeddings to the hyperspherical space
+        with torch.no_grad():
+            batch_embeddings_OC = OC_model(batch_embeddings.float().to(opts.device))
+
         # Compute similarity between real embeddings and this batch of synthetic embeddings
-        similarities = cosine_similarity(real_embeddings.cpu(), batch_embeddings.cpu())
+        similarities = cosine_similarity(real_embeddings_OC.cpu(), batch_embeddings_OC.cpu())
         
         # Update the closest images and similarities for each real image
         closest_images, closest_similarities, closest_indices = update_closest_images(
@@ -86,7 +91,7 @@ def process_batches_and_find_closest(opts, real_embeddings, detector_url, detect
 def plot_knn(opts, max_real, num_gen, k=8, top_n=6):
     #detector_url = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/inception-2015-12-05.pt'
     if opts.data_type.lower() == '2d':
-        detector_url = ('https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/vgg16.pt', '2d')
+        detector_url = {'model': 'inceptionv3', 'randomise': False, 'dim64': False}
     elif opts.data_type.lower() == '3d':
         detector_url = ('https://zenodo.org/records/15234379/files/resnet_50_23dataset_cpu.pth?download=1', '3d')
     detector_kwargs = dict(return_features=True) # Return raw features before the softmax layer.
@@ -97,9 +102,15 @@ def plot_knn(opts, max_real, num_gen, k=8, top_n=6):
         detector_url=detector_url, detector_kwargs=detector_kwargs,
         rel_lo=0, rel_hi=0, dataset_kwargs=opts.dataset_kwargs, capture_all=True, max_items=max_real).get_all_torch().to(torch.float16).to(opts.device)
 
-    # Step 2: Process synthetic images in batches and find the closest synthetic images
+    # Step 2: load/train the OC-classifier to map the features to the hypherspherical space
+    OC_model, _, _ = metric_utils.get_OC_model(opts, real_embeddings, opts.OC_params, opts.OC_hyperparams)
+    OC_model.eval().to(opts.device)
+    with torch.no_grad():
+        real_embeddings_OC = OC_model(real_embeddings.float().to(opts.device))
+
+    # Step 3: Process synthetic images in batches and find the closest synthetic images
     closest_images, closest_similarities, closest_indices = process_batches_and_find_closest(
-        opts, real_embeddings, detector_url, detector_kwargs, num_gen=num_gen, k=k
+        opts, real_embeddings_OC, detector_url, detector_kwargs, OC_model, num_gen=num_gen, k=k
     )
 
     # Step 3: Select the top_n real images with the smallest distance to any synthetic image
