@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import dnnlib
 from sklearn.metrics.pairwise import cosine_similarity
+import os
 
 from metrics import metric_utils
 
@@ -103,7 +104,8 @@ def plot_knn(opts, max_real, num_gen, k=8, top_n=6):
         rel_lo=0, rel_hi=0, dataset_kwargs=opts.dataset_kwargs, capture_all=True, max_items=max_real).get_all_torch().to(torch.float16).to(opts.device)
 
     # Step 2: load/train the OC-classifier to map the features to the hypherspherical space
-    OC_model, _, _ = metric_utils.get_OC_model(opts, real_embeddings, opts.OC_params, opts.OC_hyperparams)
+    use_pretrained = "pr_auth" in opts.comp_metrics and os.path.exists(opts.oc_detector_path)
+    OC_model, _, _ = metric_utils.get_OC_model(opts, real_embeddings, opts.OC_params, opts.OC_hyperparams, use_pretrained=use_pretrained)
     OC_model.eval().to(opts.device)
     with torch.no_grad():
         real_embeddings_OC = OC_model(real_embeddings.float().to(opts.device))

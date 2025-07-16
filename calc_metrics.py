@@ -195,6 +195,7 @@ def subprocess_fn(rank, args, temp_dir):
             data_type=args.data_type,
             cache=args.cache,
             seed=args.seed,
+            comp_metrics=args.metrics,
             G=args.G, 
             dataset_kwargs=args.dataset_kwargs,
             dataset_synt_kwargs=args.dataset_synt_kwargs,

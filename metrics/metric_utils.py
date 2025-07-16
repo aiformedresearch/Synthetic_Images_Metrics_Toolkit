@@ -45,7 +45,7 @@ import random
 #----------------------------------------------------------------------------
 
 class MetricOptions:
-    def __init__(self, run_dir, batch_size, data_type, use_pretrained_generator, run_generator, network_pkl, num_gen, nhood_size, knn_config, padding, oc_detector_path, train_OC, cache, seed, G=None, G_kwargs={}, dataset_kwargs={}, dataset_synt_kwargs={}, num_gpus=1, rank=0, device=None, progress=None):
+    def __init__(self, run_dir, batch_size, data_type, use_pretrained_generator, run_generator, network_pkl, num_gen, nhood_size, knn_config, padding, oc_detector_path, train_OC, cache, seed, comp_metrics, G=None, G_kwargs={}, dataset_kwargs={}, dataset_synt_kwargs={}, num_gpus=1, rank=0, device=None, progress=None):
         assert 0 <= rank <= num_gpus
         self.G              = G
         self.G_kwargs       = dnnlib.EasyDict(G_kwargs)
@@ -71,6 +71,7 @@ class MetricOptions:
         self.data_type      = data_type
         self.batch_size     = batch_size
         self.seed           = seed
+        self.comp_metrics   = comp_metrics
         self.OC_params  = dict({"rep_dim": 32, 
                     "num_layers": 3, 
                     "num_hidden": 128, 
@@ -768,9 +769,10 @@ def define_detector(opts, detector_url, progress):
         detector = get_feature_detector(url=detector_url, device=opts.device, num_gpus=opts.num_gpus, rank=opts.rank, verbose=progress.verbose)
     return detector
 
-def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None):
+def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None, use_pretrained=None):
 
-    if opts.train_OC or not os.path.exists(opts.oc_detector_path):
+    train_OC = opts.train_OC if use_pretrained is None else not use_pretrained
+    if train_OC or not os.path.exists(opts.oc_detector_path):
         
         OC_params['input_dim'] = X.shape[1]
 
@@ -796,6 +798,8 @@ def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None):
     
     OC_model.to(opts.device)
     if opts.rank == 0:
+        if use_pretrained:
+            print(f"Using pretrained OC classifier from {opts.oc_detector_path}")
         print(OC_params)
         print(OC_hyperparams)
     OC_model.eval()
