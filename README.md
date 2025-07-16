@@ -55,7 +55,7 @@ Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-download
 
 1. Pull the Docker image
     ```
-    docker pull aiformedresearch/metrics_toolkit:3.0
+    docker pull aiformedresearch/metrics_toolkit:3.1
     ```
 
 2. Run the Docker container
