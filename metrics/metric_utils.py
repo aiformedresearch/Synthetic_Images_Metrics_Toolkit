@@ -33,11 +33,11 @@ from pathlib import Path
 import inspect
 from metrics import metric_main
 from representations import resnet3d
-from matplotlib.patches import Ellipse
 from sklearn.decomposition import PCA
 import seaborn as sns
 from sklearn.manifold import TSNE
 import PIL.Image
+from matplotlib.patches import Ellipse, Circle
 from matplotlib import gridspec
 from tqdm import tqdm
 import random
@@ -1140,7 +1140,6 @@ def plot_pca(metric, real_features, gen_features, mu_real=None, sigma_real=None,
     if circle_info is not None:
         center, Radii = circle_info
         center_2d = pca.transform(center.reshape(1, -1))[0]
-        from matplotlib.patches import Circle
         circle = Circle(center_2d, Radii, color='black', fill=False)
         ax.add_patch(circle)
         ax.set_xlim(min(center_2d[0],real_2d[:,0].min(),gen_2d[:,0].min()) - Radii - .025, max(center_2d[0],real_2d[:,0].max(),gen_2d[:,0].max()) + Radii + .025)

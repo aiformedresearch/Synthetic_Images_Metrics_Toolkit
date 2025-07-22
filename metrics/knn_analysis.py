@@ -92,7 +92,7 @@ def process_batches_and_find_closest(opts, real_embeddings_OC, detector_url, det
 def plot_knn(opts, max_real, num_gen, k=8, top_n=6):
     #detector_url = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/inception-2015-12-05.pt'
     if opts.data_type.lower() == '2d':
-        detector_url = {'model': 'inceptionv3', 'randomise': False, 'dim64': False}
+        detector_url = {'model': 'vgg16', 'randomise': False, 'dim64': False}
     elif opts.data_type.lower() == '3d':
         detector_url = ('https://zenodo.org/records/15234379/files/resnet_50_23dataset_cpu.pth?download=1', '3d')
     detector_kwargs = dict(return_features=True) # Return raw features before the softmax layer.

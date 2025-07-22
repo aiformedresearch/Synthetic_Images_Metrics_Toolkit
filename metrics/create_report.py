@@ -299,7 +299,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     elements.append(Spacer(1, 50))
     intro_paragraph = Paragraph(
         'This report was generated using the <b><a href="https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit" color="blue">'
-        'Synthetic Images Metrics (SIM) Toolkit</a></b>, created at the University of Bologna. This toolkit provides a comprehensive evaluation of synthetic image quality using established quantitative and qualitative metrics.<br/><br/>'
+        'Synthetic Images Metrics (SIM) Toolkit</a></b> (v3.2), created at the University of Bologna. This toolkit provides a comprehensive evaluation of synthetic image quality using established quantitative and qualitative metrics.<br/><br/>'
         'The SIM Toolkit evaluates synthetic images based on the following key dimensions:',
         justified_style)
     elements.append(intro_paragraph)
@@ -749,8 +749,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(subtitle_pr_auth)   
 
         if args.data_type.lower() == '2d':
-            embedder = "Inception V3 (from Tensorflow)"
-            link = "https://www.tensorflow.org/api_docs/python/tf/keras/applications/InceptionV3"
+            embedder = "VGG-16 (from Tensorflow)"
+            link = "https://www.tensorflow.org/api_docs/python/tf/keras/applications/VGG16"
         elif args.data_type.lower() == '3d':
             embedder = "3D-ResNet"
             link = "https://github.com/Tencent/MedicalNet"
