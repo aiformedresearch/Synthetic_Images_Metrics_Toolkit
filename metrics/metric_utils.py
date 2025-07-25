@@ -809,7 +809,7 @@ def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None, use_pretrain
 
 def compute_feature_stats_for_dataset(opts, dataset, detector_url, detector_kwargs, rel_lo=0, rel_hi=1, dataset_kwargs=None, data_loader_kwargs=None, max_items=None, return_imgs=False, item_subset=None, **stats_kwargs):
     if data_loader_kwargs is None:
-        data_loader_kwargs = dict(pin_memory=True, num_workers=3, prefetch_factor=2) if platform.system() != 'Windows' else dict(pin_memory=True, num_workers=0)
+        data_loader_kwargs = dict(pin_memory=True, num_workers=0)
 
     # Try to lookup from cache.
     cache_file = None
@@ -1000,7 +1000,7 @@ def visualize_grid_3d(opts, real_volumes, synthetic_volumes, top_n_real_indices,
                 volume = real_volume
                 slices = real_slices
                 is_real = True
-                title = f"Real {top_n_real_indices[row_idx]}"
+                title = f"Real {row_idx}"
             else:
                 volume = synthetic_volumes[row_idx][col_idx - 1]
                 slices = extract_slices(volume)
