@@ -916,9 +916,9 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(knn_caption)
 
         if args.use_pretrained_generator:
-            text_knn = "The number below each real image indicates its index in the original dataset."
+            text_knn = "The number below each real image indicates its index in the original dataset, starting from 0."
         else:
-            text_knn = "The number below each image indicates its index in the original dataset. This allows users to locate and view the corresponding image at full resolution, enabling a more detailed comparison between real and synthetic samples."
+            text_knn = "The number below each image indicates its index in the original dataset, starting from 0. This allows users to locate and view the corresponding image at full resolution, enabling a more detailed comparison between real and synthetic samples."
 
         idx_text = Paragraph(text_knn, justified_style)
         elements.append(idx_text)
