@@ -255,9 +255,9 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
                 data.append([metric_display, f"{value:.4f}", "[0, 1]", "↑"])
             elif label == "IS":
                 mean, std = metrics.get("is_mean"), metrics.get("is_std")
-                data.append([metric_display, f"{mean:.4f} ± {std:.4f}", "[0, ∞]", "↑"])
+                data.append([metric_display, f"{mean:.4f} ± {std:.4f}", "[0, ∞)", "↑"])
             elif label in ["FID", "KID"]:
-                data.append([metric_display, f"{value:.4f}", "[0, ∞]", "↓"])
+                data.append([metric_display, f"{value:.4f}", "[0, ∞)", "↓"])
    
     table = Table(data)
     
