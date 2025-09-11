@@ -204,12 +204,12 @@ def compute_pr_a(opts, max_real, num_gen):
     # Visualize t-SNE pre OC embedding
     fig_path = opts.run_dir + '/figures/tsne_pr_auth.png'
     fig_path = metric_utils.get_unique_filename(fig_path)
-    metric_utils.plot_tsne('α-precision, β-recall, and authenticity', real_features=real_features.cpu(), gen_features=gen_features.cpu(), fig_path=fig_path)
+    metric_utils.plot_tsne('α-precision, β-recall, & authenticity', real_features=real_features.cpu(), gen_features=gen_features.cpu(), fig_path=fig_path)
 
     # Visualize PCA pre OC embedding
     fig_path = opts.run_dir + '/figures/pca_pr_auth.png'
     fig_path = metric_utils.get_unique_filename(fig_path)
-    metric_utils.plot_pca('α-precision, β-recall, and authenticity', real_features=real_features.cpu(), gen_features=gen_features.cpu(), fig_path=fig_path)
+    metric_utils.plot_pca('α-precision, β-recall, & authenticity', real_features=real_features.cpu(), gen_features=gen_features.cpu(), fig_path=fig_path)
     
     # Get the OC model (and eventually train it on the real features)
     OC_model, OC_params, OC_hyperparams = metric_utils.get_OC_model(opts, real_features, opts.OC_params, opts.OC_hyperparams)
@@ -242,7 +242,7 @@ def compute_pr_a(opts, max_real, num_gen):
     # Visualize t-SNE
     fig_path = opts.run_dir + '/figures/tsne_pr_auth_OC.png'
     fig_path = metric_utils.get_unique_filename(fig_path)
-    metric_utils.plot_tsne('α-precision, β-recall, and authenticity (OC)', real_features_OC.cpu(), gen_features_OC.cpu(), fig_path)
+    metric_utils.plot_tsne('α-precision, β-recall, & authenticity (OC)', real_features_OC.cpu(), gen_features_OC.cpu(), fig_path)
 
     # Visualize PCA
     fig_path = opts.run_dir + '/figures/pca_pr_auth_OC.png'
@@ -250,7 +250,7 @@ def compute_pr_a(opts, max_real, num_gen):
     center = OC_model.c.cpu().float().detach().numpy()
     Radii   = np.quantile(torch.sqrt(torch.sum((real_features_OC.float() - emb_center) ** 2, dim=1)).cpu().numpy(), 1 - OC_model.nu)
     circle_info = [center, Radii]
-    metric_utils.plot_pca('α-precision, β-recall, and authenticity (OC)', real_features_OC.cpu(), gen_features_OC.cpu(), circle_info=circle_info, fig_path=fig_path)          
+    metric_utils.plot_pca('α-precision, β-recall, & authenticity (OC)', real_features_OC.cpu(), gen_features_OC.cpu(), circle_info=circle_info, fig_path=fig_path)          
 
     results[f'alphas'] = alphas
     results[f'alpha_pc'] = alpha_precision_curve

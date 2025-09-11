@@ -346,7 +346,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     #elements.append(Spacer(1, 12))
 
     intro_paragraph = Paragraph(
-        "<b>Metrics interpretation:</b><br/> The ideal trend for each metric is indicated by arrow direction:",
+        "<b>Metrics interpretation:</b><br/> The arrow direction indicates the ideal trend for each metric:",
         justified_style
     )
     list_items = [
@@ -379,7 +379,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     elements.append(Spacer(1, 20))
     triangle_path = metric_utils.get_latest_figure(os.path.join(metric_folder, "figures/metrics_triangle.png"))
     additional_text1 = Paragraph(
-        "<b>Plot interpretation:</b><br/> Metrics are grouped into categories. Each metric has value in [0,1], with 1 representing the optimal value. To provide an overall assessment of the model's performance in each category, the average value of all metrics within that category is displayed.",
+        "<b>Plot interpretation:</b><br/> Metrics are grouped into categories. Each metric has a value in [0,1], with 1 representing the optimal value. To provide an overall assessment of the model's performance in each category, the average value of all metrics within that category is displayed.",
         justified_style
     )
     traingle = Table(
@@ -798,7 +798,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         text_pr_auth = Paragraph(
             f'The 2048-dimensional embeddings are then projected onto a 32-dimensional hypersphere using a <b>One-Class (OC)</b> classifier. '
             'In this transformed space, samples considered "typical" lie near the center of the hypersphere, while outliers are located closer to the boundary. '
-            f'Below, we visualize the OC-transformed embeddings using PCA and the t-SNE:',
+            f'Below, we visualize the OC-transformed embeddings using PCA and t-SNE:',
             justified_style
         )
         elements.append(text_pr_auth)   
@@ -864,11 +864,10 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         batch_size = min(1024, num_real, num_syn)
         num_batches = int(np.ceil(num_syn / batch_size))
         text_pr_auth = Paragraph(
-            f"<b>Authenticity</b> measures the fraction of synthetic data not memorized from the training set, quantitatively assessyng <b>generalization</b>. "
-            "A synthetic image is considered authentic if its closest synthetic neighbor is farther awar than its closest real neighbor. "
+            f"<b>Authenticity</b> measures the fraction of synthetic data not memorized from the training set, quantitatively assessing <b>generalization</b>. "
+            "A synthetic image is considered authentic if its closest synthetic neighbor is farther away than its closest real neighbor. "
             f"To compute this score, batches of {batch_size} synthetic images are compared with batches of {batch_size} real ones (with batch_size = min(1024, #real_imgs, #synth_imgs)), and the final score is calculated as the average across these {num_batches} batches.<br/><br/>"
-            f'Score: <br/>'
-            f'<b>Authenticity</b>: {metrics["authenticity"]}<br/>',
+            f"<b>Authenticity score</b>: {metrics["authenticity"]}<br/>",
             justified_style
         )
         elements.append(text_pr_auth)   
@@ -902,7 +901,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
 
         if os.path.exists(pr_auth_tsne_path):
             generalization_text2 = Paragraph(
-                "Similarity is computed using the same embedding space used for the authenticity score, enabling to visually inspect which synthetic samples are closest to real data points and could have contributed to a lower authenticity score. "
+                "Similarity is computed using the same embedding space used for the authenticity score, enabling one to visually inspect which synthetic samples are closest to real data points and could have contributed to a lower authenticity score. "
                 "If the retrieved synthetic samples in a row are very similar to one another, this may indicate limited <b>diversity</b> in the generated set. ",
                 justified_style
             )
