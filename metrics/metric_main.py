@@ -20,8 +20,6 @@ import dnnlib
 from . import metric_utils
 from . import frechet_inception_distance
 from . import kernel_inception_distance
-from . import precision_recall
-from . import perceptual_path_length
 from . import inception_score
 from . import pr_authen
 from . import pr_dc
