@@ -867,7 +867,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             f"<b>Authenticity</b> measures the fraction of synthetic data not memorized from the training set, quantitatively assessing <b>generalization</b>. "
             "A synthetic image is considered authentic if its closest synthetic neighbor is farther away than its closest real neighbor. "
             f"To compute this score, batches of {batch_size} synthetic images are compared with batches of {batch_size} real ones (with batch_size = min(1024, #real_imgs, #synth_imgs)), and the final score is calculated as the average across these {num_batches} batches.<br/><br/>"
-            f"<b>Authenticity score</b>: {metrics["authenticity"]}<br/>",
+            f"<b>Authenticity score</b>: {metrics['authenticity']}<br/>",
             justified_style
         )
         elements.append(text_pr_auth)   
