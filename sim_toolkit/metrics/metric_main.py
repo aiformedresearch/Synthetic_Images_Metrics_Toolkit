@@ -15,7 +15,7 @@ import os
 import time
 import csv
 import torch
-import dnnlib
+from .. import dnnlib
 
 from . import metric_utils
 from . import frechet_inception_distance

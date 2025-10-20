@@ -3,11 +3,11 @@
  
 import numpy as np
 import torch
-import dnnlib
 from sklearn.metrics.pairwise import cosine_similarity
 import os
 
-from metrics import metric_utils
+from . import metric_utils
+from .. import dnnlib
 
 # Function to update the list of closest images
 def update_closest_images(closest_images, closest_similarities, closest_indices, batch_synthetic_images, similarities, batch_indices, k=8):

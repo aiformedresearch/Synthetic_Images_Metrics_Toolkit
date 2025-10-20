@@ -6,15 +6,15 @@ alpha-Precision, beta-Recall and authenticity from the paper "How Faithful is yo
 Matches the original implementation by Alaa et al. at https://github.com/vanderschaarlab/evaluating-generative-models
 """
 
+import tensorflow as tf
 import torch
 import os
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
-from . import metric_utils
 import matplotlib.pyplot as plt
 
-import dnnlib
-import tensorflow as tf
+from . import metric_utils
+from .. import dnnlib
 
 #----------------------------------------------------------------------------
 

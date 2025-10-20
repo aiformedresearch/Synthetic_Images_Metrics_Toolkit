@@ -10,12 +10,11 @@ MIT license
 """
 
 import torch
-import os
 import numpy as np
-from sklearn.neighbors import NearestNeighbors
-from . import metric_utils
 import sklearn.metrics
-import dnnlib
+
+from . import metric_utils
+from .. import dnnlib
 
 #----------------------------------------------------------------------------
 
@@ -83,7 +82,7 @@ def compute_prdc(opts, max_real, num_gen):
             rel_lo=0, rel_hi=1, capture_all=True, max_items=num_gen).get_all_torch().to(torch.float32).to(opts.device)
     
     # Define the value of k for the kth nearest neighbour
-    nearest_k = opts.nhood_size["prdc"]
+    nearest_k = opts.nhood_size
 
     # Compute pairwise distances between real features and fake features
     # Compute the kth nearest neighbour distances for both real features
