@@ -71,5 +71,9 @@ dev = [
   "mkdocs-material>=9.5"
 ]
 
-[project.scripts]
-sim-toolkit = "sim_toolkit.cli:app"
+[tool.hatch.build.targets.wheel]
+packages = ["sim_toolkit"]
+include = ["LICENSES/**"]
+
+[tool.hatch.build.targets.sdist]
+include = ["sim_toolkit", "README.md", "LICENSES/**"]
