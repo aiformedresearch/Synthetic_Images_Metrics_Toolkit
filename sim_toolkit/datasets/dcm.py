@@ -9,14 +9,24 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from .base import BaseDataset
 
+class UserError(RuntimeError):
+    """Compact, user-facing error (suppresses long trace)."""
+
+class MissingExtraError(UserError):
+    """Required optional dependency is missing (e.g., pydicom)."""
+
+class DataLoadError(UserError):
+    """Dataset could not be loaded/decoded."""
+
 # -------- lazy deps --------
 def _require_pydicom():
     try:
         import pydicom  # noqa: F401
-    except Exception as e:
-        raise RuntimeError(
-            "DICOM support requires 'pydicom'. Install with: pip install 'sim_toolkit[dicom]'"
-        ) from e
+    except Exception:
+        raise MissingExtraError(
+            "\nDICOM support requires pydicom.\n\n"
+            "Install with: pip install \"sim_toolkit[dicom]\""
+        ) from None
 
 # -------- helpers --------
 def _read_dicom_pixel(path: str) -> Tuple[np.ndarray, dict]:
@@ -122,8 +132,10 @@ class DicomDataset2D(BaseDataset):
     def _load_files(self):
         paths = sorted(set(self._iter_dicom_paths()))
         if not paths:
-            raise RuntimeError(f"No DICOM files found in {os.path.abspath(self.path_data)} "
-                               f"(looked for .dcm/.DCM/.dicom/.DICOM; recursive={self.recursive}).")
+            raise DataLoadError(
+                f"No DICOM files found in {os.path.abspath(self.path_data)} "
+                f"(extensions: .dcm/.DCM/.dicom; recursive={self.recursive})."
+            ) from None
 
         images: List[np.ndarray] = []
         bad: List[Tuple[str, str]] = []  # (path, reason)
@@ -133,6 +145,8 @@ class DicomDataset2D(BaseDataset):
                 arr, meta = _read_dicom_pixel(p)
                 if not self.allow_derived and _is_derived(meta):
                     continue  # skip scouts/derived
+            except MissingExtraError as e:
+                raise e 
             except Exception as e:
                 # Try to give a helpful Transfer Syntax hint
                 try:
@@ -173,31 +187,23 @@ class DicomDataset2D(BaseDataset):
 
         if not images:
             # Summarize why nothing was loaded and offer concrete fixes
-            msg_lines = [
-                "No readable 2D DICOM images were loaded.",
-                f"Scanned files: {len(paths)}; rejected: {len(bad)}.",
-            ]
-            # Show up to 5 reasons
-            for path, reason in bad[:5]:
-                msg_lines.append(f"  - {os.path.basename(path)} → {reason}")
-            msg_lines += [
-                "",
-                "Common fixes:",
-                "  • If TransferSyntax is JPEG-Lossless/JPEG-LS/JPEG2000: install a decoder",
-                "      - conda install -c conda-forge gdcm",
-                "      - or: pip install pylibjpeg pylibjpeg-libjpeg",
-                "  • If shapes look like (frames,H,W): this is multi-frame → use a 3D DICOM dataset.",
-                "  • To include DERIVED/LOCALIZER series: set allow_derived=True.",
-            ]
-            raise RuntimeError("\n".join(msg_lines))
+            raise DataLoadError(
+                "No readable 2D DICOM images were loaded.\n"
+                "\nCommon fixes:\n"
+                "  • If TransferSyntax is JPEG-Lossless/JPEG-LS/JPEG2000, install a decoder:\n"
+                "      - conda install -c conda-forge gdcm [recommanded]\n"
+                "      - or: pip install pylibjpeg pylibjpeg-libjpeg\n"
+                "  • If shapes look like (frames,H,W), use the 3D DICOM dataset.\n"
+                "  • To include DERIVED/LOCALIZER series, set allow_derived=True."
+            ) from None
 
         # Ensure consistent spatial size across loaded images
         shapes = {im.shape for im in images}  # shapes like (C, H, W)
         if len(shapes) != 1:
-            raise ValueError(
+            raise DataLoadError(
                 f"Inconsistent image shapes {sorted(shapes)}. "
-                "Please resample/crop upstream to uniform (C, H, W)."
-            )
+                "Please resample/crop to uniform (C,H,W)."
+            ) from None
 
         data = np.stack(images, axis=0).astype(np.float32, copy=False)  # (N, C, H, W)
         return data
@@ -228,7 +234,9 @@ class DicomDataset3D(BaseDataset):
         pattern = "**/*.dcm" if self.recursive else "*.dcm"
         paths = sorted(glob(os.path.join(self.path_data, pattern), recursive=self.recursive))
         if not paths:
-            raise RuntimeError(f"No DICOM files (.dcm) found in {os.path.abspath(self.path_data)}")
+            raise DataLoadError(
+                f"No DICOM files (.dcm) found in {os.path.abspath(self.path_data)}"
+            ) from None
 
         # 1) read all slices, bucket by SeriesInstanceUID
         series_pixels: Dict[str, List[np.ndarray]] = defaultdict(list)
@@ -253,7 +261,9 @@ class DicomDataset3D(BaseDataset):
             series_meta[sid].append(meta)
 
         if not series_pixels:
-            raise RuntimeError("No valid DICOM series found (after filtering derived/localizer).")
+            raise DataLoadError(
+                "No valid DICOM series found (after filtering derived/localizer)."
+            ) from None
 
         # 2) sort and stack each series into (H, W, D)
         volumes: List[np.ndarray] = []
@@ -282,15 +292,17 @@ class DicomDataset3D(BaseDataset):
             volumes.append(vol[None, ...])  # (1, H, W, D)
 
         if not volumes:
-            raise RuntimeError("No stackable DICOM series were found with consistent geometry.")
+            raise DataLoadError(
+                "No stackable DICOM series with consistent geometry."
+            ) from None
 
         # 3) ensure consistent spatial sizes across series (H, W, D)
         shapes = {v.shape for v in volumes}
         if len(shapes) != 1:
-            raise ValueError(
+            raise DataLoadError(
                 f"Inconsistent volume shapes across series: {sorted(shapes)}. "
-                "Please resample/crop upstream to uniform (H, W, D)."
-            )
+                "Please resample/crop to uniform (H,W,D)."
+            ) from None
 
         data = np.stack(volumes, axis=0).astype(np.float32, copy=False)  # (N, 1, H, W, D)
         return data
