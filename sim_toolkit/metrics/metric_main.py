@@ -15,15 +15,9 @@ import os
 import time
 import csv
 import torch
-from .. import dnnlib
 
+from .. import dnnlib
 from . import metric_utils
-from . import frechet_inception_distance
-from . import kernel_inception_distance
-from . import inception_score
-from . import pr_authen
-from . import pr_dc
-from . import knn_analysis
 
 #----------------------------------------------------------------------------
 
@@ -113,18 +107,21 @@ def report_metric(result_dict, run_dir=None, real_source=None, synt_source=None)
 
 @register_metric
 def is_(opts):
+    from . import inception_score
     opts.dataset_kwargs.update(max_size=None, xflip=False)
     mean, std = inception_score.compute_is(opts, num_gen=opts.num_gen, num_splits=10)
     return dict(is_mean=mean, is_std=std)
 
 @register_metric
 def fid(opts):
+    from . import frechet_inception_distance
     opts.dataset_kwargs.update(max_size=None)
     fid = frechet_inception_distance.compute_fid(opts, max_real=opts.max_size, num_gen=opts.num_gen)
     return dict(fid=fid)
 
 @register_metric
 def kid(opts):
+    from . import kernel_inception_distance
     opts.dataset_kwargs.update(max_size=None)
     kid = kernel_inception_distance.compute_kid(opts, max_real=opts.max_size, num_gen=opts.num_gen, num_subsets=100, max_subset_size=1000)
     return dict(kid=kid)
@@ -134,18 +131,21 @@ def kid(opts):
 
 @register_metric
 def pr_auth(opts):
+    from . import pr_authen
     opts.dataset_kwargs.update(max_size=None)
     a_precision, b_recall, authenticity  = pr_authen.compute_pr_a(opts, max_real=opts.max_size, num_gen=opts.num_gen)
     return dict(a_precision=a_precision, b_recall=b_recall, authenticity=authenticity)
 
 @register_metric
 def prdc(opts):
+    from . import pr_dc
     opts.dataset_kwargs.update(max_size=None)
     precision, recall, density, coverage  = pr_dc.compute_prdc(opts, max_real=opts.max_size, num_gen=opts.num_gen)
     return dict(precision=precision, recall=recall, density=density, coverage=coverage)
 
 @register_metric
 def knn(opts):
+    from . import knn_analysis
     opts.dataset_kwargs.update(max_size=None)
     knn_analysis.plot_knn(opts, max_real=opts.max_size, num_gen=opts.num_gen, k=opts.knn_config["num_synth"], top_n=opts.knn_config["num_real"])
     return {}
