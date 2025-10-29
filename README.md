@@ -89,23 +89,25 @@ import sim_toolkit as sim
 sim.compute(
     metrics=["fid", "kid", "is_", "prdc", "pr_auth", "knn"],
     run_dir="./runs/exp1",
-    num_gpus=1,          # set 0 to force CPU
+    num_gpus=1,              # set 0 to force CPU
     batch_size=64,
-    data_type="2D",      # or "3D"
+    data_type="2D",          # or "3D"
     use_cache=True,
     padding=False,
 
-    # Real data
-    real_dataset="auto",   # "nifti" | "jpeg" | "tiff" | "dicom" | "auto"
-    real_params={"path_data": "data/real_images",
+    ## Real data
+    real_dataset="auto",     # "nifti" | "dicom" | "tiff" | "jpeg" | "png" | "auto"
+    real_params={
+        "path_data": "data/real_images",
         "path_labels": None, 
         "use_labels": False, 
         "size_dataset": None # (int) if None, using all 
         },
 
-    # Synthetic data (from files)
-    synth_dataset="auto",
-    synth_params={"path_data": "data/synt_images",
+    ## Synthetic data (from files)
+    synth_dataset="auto",    # "nifti" | "dicom" | "tiff" | "jpeg" | "png" | "auto"
+    synth_params={
+        "path_data": "data/synt_images",
         "path_labels": None, 
         "use_labels": False, 
         "size_dataset": None # (int) if None, using all 
@@ -136,11 +138,11 @@ sim.compute(
     metrics=["fid", "kid", "is_", "prdc", "pr_auth", "knn"],
     run_dir="./runs/gen",
 
-    # Real data
+    ## Real data
     real_dataset="auto", # "nifti" | "jpeg" | "tiff" | "dicom" | "auto"
     real_params={"path_data": "data/real_images_simulation.nii.gz"},
 
-    # Synthetic data (from pre-trained generator)
+    ## Synthetic data (from pre-trained generator)
     use_pretrained_generator=True,
     network_path="checkpoints/G.pkl",
     load_network=load_network,
