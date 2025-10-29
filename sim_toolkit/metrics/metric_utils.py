@@ -20,8 +20,6 @@ import uuid
 import numpy as np
 import torch
 import torch.nn as nn
-import tensorflow as tf
-from tensorflow.keras.models import Model
 import inspect
 import re
 from pathlib import Path
@@ -681,6 +679,7 @@ def plot_image_grid(args, img, drange, grid_size, group, rank=0, verbose=True):
 
 def reset_weights(model):
     for layer in model.layers: 
+        import tensorflow as tf
         if isinstance(layer, tf.keras.Model):
             reset_weights(layer)
             continue
@@ -701,6 +700,8 @@ def load_embedder(embedding):
     """
     Load embedder to compute density and coverage metrics
     """
+    import tensorflow as tf
+    from tensorflow.keras.models import Model
     if embedding['model'] == 'vgg16' or embedding['model'] == 'vgg':
         model = tf.keras.applications.VGG16(include_top = True, weights='imagenet')
         model = remove_layer(model)
