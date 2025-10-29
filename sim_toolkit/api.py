@@ -7,17 +7,12 @@ import os
 import tempfile
 from typing import Dict, List, Optional, Any, Callable
 
-import torch
-import torch.distributed as dist
-
-from sim_toolkit import dnnlib
 from copy import deepcopy
 import random
 import numpy as np
 
-from .metrics import metric_main, metric_utils
-from .metrics.create_report import generate_metrics_report
-from .torch_utils import training_stats, custom_ops
+from . import dnnlib
+from ._deps import require_backends
 
 
 # ---------------------------------------------------------------------
@@ -25,6 +20,7 @@ from .torch_utils import training_stats, custom_ops
 # ---------------------------------------------------------------------
 
 def set_global_seed(seed: int):
+    import torch
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -144,6 +140,12 @@ def _mk_dataset_kwargs(dataset, params: dict | None, *, data_type: str) -> dnnli
 # ---------------------------------------------------------------------
 
 def _subprocess_fn(rank: int, args: dnnlib.EasyDict, temp_dir: str):
+    import torch
+    import torch.distributed as dist
+    from .torch_utils import training_stats, custom_ops
+    from .metrics import metric_main, metric_utils
+    from .metrics.create_report import generate_metrics_report
+
     dnnlib.util.Logger(should_flush=True)
 
     # Seed & device
@@ -317,13 +319,28 @@ def compute(
         real_params={"path_data": "data/real.nii.gz"},
         use_pretrained_generator=True,
         network_path="path/to/network.pkl",
-        load_network=my_loader_fn,          # def my_loader_fn(pth) -> G
-        run_generator=my_runner_fn,         # optional
+        load_network=my_loader_fn,          # def my_loader_fn(network_path) -> G
+        run_generator=my_runner_fn,         # def my_runner_fn(opts) -> Tensor[N,H,W] or Tensor[N,D,H,W]
         num_gen=5000,
     )
     """
     os.makedirs(run_dir, exist_ok=True)
 
+    metrics_norm = {m.lower() for m in metrics}
+
+    # Always need torch; tf only if pr_auth is requested
+    need_torch = True
+    need_tf = "pr_auth" in metrics_norm
+
+    require_backends(
+        need_torch=need_torch,
+        need_tf=need_tf,
+        reason=("core pipeline" if need_torch and not need_tf else "metric 'pr_auth'")
+    )
+
+    import torch
+    set_global_seed(seed)
+    
     # Validate mode selection
     if use_pretrained_generator:
         if network_path is None or load_network is None:
