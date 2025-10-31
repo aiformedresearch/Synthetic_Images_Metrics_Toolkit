@@ -3,7 +3,7 @@ requires = ["hatchling>=1.18"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sim_toolkit"           # what appears on PyPI / pip install name
+name = "sim_toolkit"
 version = "4.0.0"
 description = "Synthetic Images Metrics Toolkit (SIM Toolkit)"
 readme = "README.md"
@@ -22,7 +22,8 @@ classifiers = [
 
 # == Core dependencies ==
 dependencies = [
-    "numpy>=1.23,<1.24",
+    "numpy>=1.23,<1.24 ; python_version < '3.12'",
+    "numpy>=1.24,<2 ; python_version >= '3.12'",
     "scipy>=1.15",
     "scikit-learn>=1.0,<1.3",
     "tqdm>=4.64",
@@ -46,6 +47,7 @@ torch = [
 
 # TensorFlow backend
 tf = [
+  "typing-extensions>=4.12",
   "protobuf>=3.20,<4.0",
   "keras>=2.12,<2.13",
   "tensorflow>=2.12,<2.13; platform_machine == 'x86_64' and sys_platform != 'darwin'",
@@ -69,6 +71,29 @@ dev = [
   "build>=1.0",
   "twine>=5.0",
   "mkdocs-material>=9.5"
+]
+
+[tool.hatch.build]
+
+exclude = [
+  "data/**",
+  "datasets/**/samples/**",
+  "Images/**",
+  "notebooks/**",
+  "checkpoints/**",
+  "weights/**",
+  "models/**",
+  ".github/**",
+  "**/__pycache__/**",
+  "*.ipynb",
+
+  # Large binary formats
+  "**/*.pt", "**/*.pth", "**/*.ckpt", "**/*.pkl", "**/*.npz",
+  "**/*.onnx", "**/*.h5",
+  "**/*.nii", "**/*.nii.gz", "**/*.dcm", "**/*.tif", "**/*.tiff",
+
+  # Big media
+  "**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.bmp", "**/*.gif", "**/*.mp4",
 ]
 
 [tool.hatch.build.targets.wheel]
