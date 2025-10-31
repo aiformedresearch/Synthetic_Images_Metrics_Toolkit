@@ -692,6 +692,7 @@ def reset_weights(model):
     return model
 
 def remove_layer(model):
+        from tensorflow.keras.models import Model
         new_input = model.input
         hidden_layer = model.layers[-2].output
         return Model(new_input, hidden_layer)   
