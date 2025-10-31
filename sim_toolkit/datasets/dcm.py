@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from .base import BaseDataset
+from .._utils import warn_once
 
 class UserError(RuntimeError):
     """Compact, user-facing error (suppresses long trace)."""
@@ -209,6 +210,19 @@ class DicomDataset2D(BaseDataset):
         return data
 
     def _load_raw_labels(self):
+        if self.path_labels is not None and self._use_labels:
+            warn_once(
+                (
+                    f"Labels were requested (use_labels=True, path_labels='{self.path_labels}'), "
+                    "but a label loader is not provided by default.\n"
+                    "→ Labels will be ignored for this run.\n"
+                    "To enable labels, implement `_load_raw_labels(self)` in "
+                    " `sim_toolkit/datasets/dcm.py` for `DicomDataset2D` and return a NumPy "
+                    "array of shape (N,) or (N, K) aligned with your images.\n"
+                    "Set `use_labels=False` or `path_labels=None` to silence this warning."
+                ),
+                key="dcm2D.labels.unimplemented",
+            )
         pass
 
 # ===============================
@@ -308,4 +322,17 @@ class DicomDataset3D(BaseDataset):
         return data
 
     def _load_raw_labels(self):
+        if self.path_labels is not None and self._use_labels:
+            warn_once(
+                (
+                    f"Labels were requested (use_labels=True, path_labels='{self.path_labels}'), "
+                    "but a label loader is not provided by default.\n"
+                    "→ Labels will be ignored for this run.\n"
+                    "To enable labels, implement `_load_raw_labels(self)` in "
+                    " `sim_toolkit/datasets/dcm.py` for `DicomDataset3D` and return a NumPy "
+                    "array of shape (N,) or (N, K) aligned with your images.\n"
+                    "Set `use_labels=False` or `path_labels=None` to silence this warning."
+                ),
+                key="dcm3D.labels.unimplemented",
+            )
         pass
