@@ -142,7 +142,11 @@ def _mk_dataset_kwargs(dataset, params: dict | None, *, data_type: str) -> dnnli
 def _subprocess_fn(rank: int, args: dnnlib.EasyDict, temp_dir: str):
     import torch
     import torch.distributed as dist
-    from .torch_utils import training_stats, custom_ops
+    from .torch_utils import training_stats
+    try:
+        from .torch_utils import custom_ops
+    except Exception:
+        custom_ops = None
     from .metrics import metric_main, metric_utils
     from .metrics.create_report import generate_metrics_report
 
@@ -169,8 +173,12 @@ def _subprocess_fn(rank: int, args: dnnlib.EasyDict, temp_dir: str):
     # Init torch_utils
     sync_device = torch.device("cuda", rank) if args.num_gpus > 1 else None
     training_stats.init_multiprocessing(rank=rank, sync_device=sync_device)
-    if rank != 0 or not args.verbose:
-        custom_ops.verbosity = "none"
+    if custom_ops is not None:
+        if rank != 0 or not args.verbose:
+            custom_ops.verbosity = "none"
+    else:
+        if rank == 0 and args.verbose:
+            print("[SIM] custom_ops unavailable; running without compiled extensions.")
 
     if torch.cuda.is_available():
         torch.backends.cudnn.benchmark = True
@@ -327,15 +335,16 @@ def compute(
     os.makedirs(run_dir, exist_ok=True)
 
     metrics_norm = {m.lower() for m in metrics}
+    dtype_norm = str(data_type).lower()
 
-    # Always need torch; tf only if pr_auth is requested
+    # Always need torch; tf only for the computation of 2D pr_auth and prdc
     need_torch = True
-    need_tf = "pr_auth" in metrics_norm
+    need_tf = (dtype_norm == "2d") and bool({"pr_auth", "prdc"} & metrics_norm)
 
     require_backends(
         need_torch=need_torch,
         need_tf=need_tf,
-        reason=("core pipeline" if need_torch and not need_tf else "metric 'pr_auth'")
+        reason=("core pipeline" if need_torch and not need_tf else "metrics 'pr_auth' and 'prdc'")
     )
 
     import torch

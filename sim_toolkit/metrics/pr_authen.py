@@ -6,7 +6,6 @@ alpha-Precision, beta-Recall and authenticity from the paper "How Faithful is yo
 Matches the original implementation by Alaa et al. at https://github.com/vanderschaarlab/evaluating-generative-models
 """
 
-import tensorflow as tf
 import torch
 import os
 import numpy as np
@@ -186,6 +185,7 @@ def compute_pr_a(opts, max_real, num_gen):
     detector_kwargs = dict(return_features=True)
     
     if detector_url is not None and opts.data_type.lower() == '2d':
+        import tensorflow as tf
         embedder = metric_utils.load_embedder(detector_url)
         print('Checking if embedder is using GPU')
         sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(log_device_placement=True))
