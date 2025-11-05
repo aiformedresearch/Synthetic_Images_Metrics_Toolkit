@@ -13,11 +13,7 @@ import numpy as np
 
 from . import dnnlib
 from ._deps import require_backends
-
-
-# ---------------------------------------------------------------------
-# Utilities
-# ---------------------------------------------------------------------
+from ._utils import _normalize_params, _mk_dataset_kwargs
 
 def set_global_seed(seed: int):
     import torch
@@ -31,109 +27,6 @@ def set_global_seed(seed: int):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-
-def _class_path_from_obj(cls) -> str:
-    return f"{cls.__module__}.{cls.__name__}"
-
-def _infer_dataset_from_path(path: str) -> str:
-    p = str(path).lower()
-    if p.endswith((".nii", ".nii.gz")):
-        return "nifti"
-    if p.endswith((".jpg", ".jpeg")):
-        return "jpeg"
-    if p.endswith((".png")):
-        return "png"
-    if p.endswith((".tif", ".tiff")):
-        return "tiff"
-    # fallback
-    return "image_folder"
-
-def _dataset_class_name(
-    name_or_obj,
-    *,
-    data_type: str,                 # "2D" or "3D"
-    path_data: str | None = None,
-) -> str:
-    """
-    Return a fully-qualified class path for dnnlib.util.construct_class_by_name().
-
-    Accepts:
-      - short names: "nifti", "jpeg", "tiff", "image_folder", "auto"
-      - fully-qualified strings: "pkg.mod.Class" or "pkg.mod:Class"
-      - a class object (e.g., NiftiDataset2D)
-    Uses `data_type` to pick 2D vs 3D variants where applicable (NIfTI).
-    """
-    # class object -> use as-is
-    if hasattr(name_or_obj, "__mro__"):
-        return _class_path_from_obj(name_or_obj)
-
-    name = str(name_or_obj).strip()
-    dtype = str(data_type).lower()
-
-    if ":" in name:
-        name = name.replace(":", ".")
-
-    # If it's already fully-qualified, trust it and don't override based on data_type
-    if "." in name and name not in {"nifti", "jpeg", "tiff", "image_folder", "auto"}:
-        return name
-
-    # auto-detect base dataset by extension
-    if name == "auto":
-        if not path_data:
-            raise ValueError("dataset='auto' requires path_data to infer the format.")
-        name = _infer_dataset_from_path(path_data)
-
-    # Per-data_type mapping
-    mapping_2d = {
-        "nifti":        "sim_toolkit.datasets.nifti.NiftiDataset2D",       # 2D
-        "png":          "sim_toolkit.datasets.png.PNGDataset",
-        "jpeg":         "sim_toolkit.datasets.jpeg.JPEGDataset",
-        "tiff":         "sim_toolkit.datasets.tiff.TifDataset",
-        "dcm":          "sim_toolkit.datasets.dcm.DicomDataset2D",
-    }
-    mapping_3d = {
-        "nifti":        "sim_toolkit.datasets.nifti.NiftiDataset3D",     # 3D
-        "tiff":         "sim_toolkit.datasets.tiff.TifDataset",
-        "dcm":          "sim_toolkit.datasets.dcm.DicomDataset3D",
-    }
-
-    if dtype == "3d":
-        if name in mapping_3d:
-            return mapping_3d[name]
-        if name in mapping_2d:
-            raise ValueError(
-                f"Dataset '{name}' has no 3D loader. "
-                f"Choose a supported 3D dataset (e.g., 'nifti') or switch data_type='2D'."
-            )
-        raise ValueError(f"Unknown dataset '{name}' for 3D.")
-    else:
-        # default 2D
-        if name in mapping_2d:
-            return mapping_2d[name]
-        raise ValueError(f"Unknown dataset '{name}' for 2D.")
-
-_DEFAULT_DS_PARAMS: Dict[str, Any] = {
-    "path_data": None,     # REQUIRED later for file-based mode
-    "path_labels": None,   # default
-    "use_labels": False,   # default
-    "size_dataset": None,  # default
-}
-
-def _normalize_params(params: Optional[Dict[str, Any]],
-                      *,
-                      require_path: bool,
-                      who: str) -> Dict[str, Any]:
-    """
-    Merge user-supplied dataset params with defaults and validate.
-    """
-    merged = {**_DEFAULT_DS_PARAMS, **(params or {})}
-    if require_path and not merged.get("path_data"):
-        raise ValueError(f"{who}: 'path_data' is required for file-based mode.")
-    return merged
-
-def _mk_dataset_kwargs(dataset, params: dict | None, *, data_type: str) -> dnnlib.EasyDict:
-    class_name = _dataset_class_name(dataset, data_type=data_type, path_data=(params or {}).get("path_data"))
-    return dnnlib.EasyDict(class_name=class_name, **(params or {}))
 
 # ---------------------------------------------------------------------
 # Core worker (single rank)
@@ -291,11 +184,11 @@ def compute(
     knn_num_real: int = 3,
     knn_num_synth: int = 5,
     # REAL data
-    real_dataset: str = "auto",                         # "nifti" | "tif" | "png" | "jpg" | "image_folder" | fully-qualified class
+    real_dataset: str = "auto",                         # "nifti" | "dicom" | "tiff" | "jpeg" | "png" | "auto"
     real_params: Optional[Dict[str, Any]] = None,       # must include path_data
     # SYNTH data (choose one mode)
     # (A) from files:
-    synth_dataset: Optional[str] = "auto",               # "nifti" | "tif" | "png" | "jpg" | "image_folder" | fully-qualified class
+    synth_dataset: Optional[str] = "auto",               # "nifti" | "dicom" | "tiff" | "jpeg" | "png" | "auto"
     synth_params: Optional[Dict[str, Any]] = None,       # must include path_data
     # (B) pretrained generator:
     use_pretrained_generator: bool = False,
