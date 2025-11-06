@@ -6,7 +6,7 @@ import numpy as np
 from glob import glob
 
 from .base import BaseDataset, BidsDataset
-from .._utils import warn_once, _to_chw
+from .._utils import  _to_chw
 
 def _require_nibabel():
     try:
@@ -107,19 +107,6 @@ class NiftiDataset2D(BaseDataset):
         )
 
     def _load_raw_labels(self):
-        if self.path_labels is not None and self._use_labels:
-            warn_once(
-                (
-                    f"Labels were requested (use_labels=True, path_labels='{self.path_labels}'), "
-                    "but a label loader is not provided by default.\n"
-                    "→ Labels will be ignored for this run.\n"
-                    "To enable labels, implement `_load_raw_labels(self)` in "
-                    " `sim_toolkit/datasets/nifti.py` for `NiftiDataset2D` and return a NumPy "
-                    "array of shape (N,) or (N, K) aligned with your images.\n"
-                    "Set `use_labels=False` or `path_labels=None` to silence this warning."
-                ),
-                key="nifti2d.labels.unimplemented",
-            )
         pass
 
 
@@ -149,17 +136,4 @@ class NiftiDataset3D(BidsDataset):
         return data.copy() # [n_channels, img_resolution, img_resolution, img_resolution]
 
     def _load_raw_labels(self):
-        if self.path_labels is not None and self._use_labels:
-            warn_once(
-                (
-                    f"Labels were requested (use_labels=True, path_labels='{self.path_labels}'), "
-                    "but a label loader is not provided by default.\n"
-                    "→ Labels will be ignored for this run.\n"
-                    "To enable labels, implement `_load_raw_labels(self)` in "
-                    " `sim_toolkit/datasets/nifti.py` for `NiftiDataset3D` and return a NumPy "
-                    "array of shape (N,) or (N, K) aligned with your images.\n"
-                    "Set `use_labels=False` or `path_labels=None` to silence this warning."
-                ),
-                key="nifti3d.labels.unimplemented",
-            )
         pass

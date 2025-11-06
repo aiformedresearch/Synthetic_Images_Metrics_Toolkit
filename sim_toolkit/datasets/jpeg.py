@@ -6,7 +6,6 @@ from glob import glob
 import numpy as np
 
 from .base import BaseDataset
-from .._utils import warn_once
 
 def _require_pillow():
     try:
@@ -58,17 +57,4 @@ class JPEGDataset(BaseDataset):
         return data  # [batch_size, n_channels, H, W]
 
     def _load_raw_labels(self):
-        if self.path_labels is not None and self._use_labels:
-            warn_once(
-                (
-                    f"Labels were requested (use_labels=True, path_labels='{self.path_labels}'), "
-                    "but a label loader is not provided by default.\n"
-                    "→ Labels will be ignored for this run.\n"
-                    "To enable labels, implement `_load_raw_labels(self)` in "
-                    " `sim_toolkit/datasets/jpeg.py` and return a NumPy "
-                    "array of shape (N,) or (N, K) aligned with your images.\n"
-                    "Set `use_labels=False` or `path_labels=None` to silence this warning."
-                ),
-                key="jpg.labels.unimplemented",
-            )
         pass
