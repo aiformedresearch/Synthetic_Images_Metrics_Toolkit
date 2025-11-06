@@ -7,7 +7,7 @@ name = "sim_toolkit"
 version = "4.0.0"
 description = "Synthetic Images Metrics Toolkit (SIM Toolkit)"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10,<3.11"
 license = { text = "NPOSL-3.0" }
 authors = [{ name = "Matteo Lai", email = "matteo.lai3@unibo.it" }]
 keywords = ["generative", "synthetic images", "images", "metrics", "validation", "medical-imaging"]
@@ -22,8 +22,7 @@ classifiers = [
 
 # == Core dependencies ==
 dependencies = [
-    "numpy>=1.23,<1.24 ; python_version < '3.12'",
-    "numpy>=1.24,<2 ; python_version >= '3.12'",
+    "numpy>=1.23,<2",
     "scipy>=1.15",
     "scikit-learn>=1.0,<1.3",
     "tqdm>=4.64",
