@@ -213,8 +213,9 @@ def compute_pr_a(opts, max_real, num_gen):
     
     # Get the OC model (and eventually train it on the real features)
     OC_model, OC_params, OC_hyperparams = metric_utils.get_OC_model(opts, real_features, opts.OC_params, opts.OC_hyperparams)
-    print(OC_params)
-    print(OC_hyperparams)
+    if opts.rank == 0:
+        print(OC_params)
+        print(OC_hyperparams)
     OC_model.eval()
      
     # Compute the metrics considering two different centers for the OC representation

@@ -26,11 +26,16 @@ from pathlib import Path
 from tqdm import tqdm
 import random
 import warnings
+from matplotlib.ticker import ScalarFormatter
 
 import seaborn as sns
+os.environ.setdefault("MPLBACKEND", "Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse, Circle
 from matplotlib import gridspec
+import matplotlib
+if matplotlib.get_backend().lower() != "agg":
+    matplotlib.use("Agg", force=True)
 from PIL import Image
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
@@ -771,6 +776,87 @@ def define_detector(opts, detector_url, progress):
         detector = get_feature_detector(url=detector_url, device=opts.device, num_gpus=opts.num_gpus, rank=opts.rank, verbose=progress.verbose)
     return detector
 
+def plot_losses(train, val=None, *, save_path=None,
+                title="Training/Validation Loss",
+                relative=False,          # normalize by first finite value
+                smooth_frac=0.05,        # EMA span = 5% of epochs (min 5)
+                tail_frac=0.10,          # right subplot shows last 10% of epochs
+                dpi=200, figsize=(12, 4)):
+    def _ema(x, span):
+        if span <= 1: return np.asarray(x, dtype=float)
+        a = 2.0 / (span + 1.0); m = None; out = []
+        for v in x:
+            v = float(v)
+            m = v if m is None else a*v + (1-a)*m
+            out.append(m)
+        return np.array(out, dtype=float)
+
+    def _normalize(y):
+        if not relative: return y
+        y = np.asarray(y, dtype=float)
+        idx = np.where(np.isfinite(y))[0]
+        if len(idx)==0: return y
+        base = max(y[idx[0]], 1e-12)
+        return y / base
+
+    train = np.asarray(train, dtype=float)
+    val   = None if val is None or len(val)==0 else np.asarray(val, dtype=float)
+    epochs = np.arange(1, len(train)+1)
+
+    train = _normalize(train)
+    if val is not None: val = _normalize(val)
+
+    # choose y-scale
+    vals = train[np.isfinite(train)]
+    if val is not None:
+        vals = np.concatenate([vals, val[np.isfinite(val)]]) if vals.size else val[np.isfinite(val)]
+    yscale = "linear"
+    if vals.size >= 2:
+        ymin, ymax = np.nanmin(vals), np.nanmax(vals)
+        if ymin <= 0 and ymax > 0:
+            yscale = "symlog"           # handles zeros/negatives
+        elif ymin > 0 and ymax / max(ymin,1e-12) > 50:
+            yscale = "log"
+
+    ema_span = max(5, int(len(train)*smooth_frac))
+
+    fig, axes = plt.subplots(1, 2, figsize=figsize, dpi=dpi, constrained_layout=True)
+
+    def _decorate(ax, x, y_tr, y_va, label_suffix=""):
+        ax.plot(x, y_tr, linewidth=1, label=f"train{label_suffix}")
+        ax.plot(x, _ema(y_tr, ema_span), linestyle="--", linewidth=1, label=f"train EMA{label_suffix}")
+        if y_va is not None:
+            ax.plot(x, y_va, linewidth=1, label=f"val{label_suffix}")
+            ax.plot(x, _ema(y_va, ema_span), linestyle="--", linewidth=1, label=f"val EMA{label_suffix}")
+            if np.isfinite(y_va).any():
+                bi = int(np.nanargmin(y_va))
+                ax.axvline(x[bi], alpha=0.15)
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Loss" + (" (relative)" if relative else ""))
+        ax.set_yscale(yscale)
+        ax.grid(True, which="both", alpha=0.25)
+        ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
+        ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    # Left: full series
+    axes[0].set_title(title)
+    _decorate(axes[0], epochs, train, val)
+
+    # Right: last N% (at least 20 epochs if available)
+    last_n = max(20, int(len(epochs)*tail_frac)) if len(epochs) > 1 else 1
+    x_tail = epochs[-last_n:]
+    tr_tail = train[-last_n:]
+    va_tail = None if val is None else val[-last_n:]
+    axes[1].set_title("Last epochs")
+    _decorate(axes[1], x_tail, tr_tail, va_tail)
+
+    # One legend overall (top-right of left axis)
+    axes[0].legend(loc="upper right", fontsize=8)
+
+    if save_path:
+        fig.savefig(save_path, bbox_inches="tight")
+    return fig, axes
+
 def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None, use_pretrained=None):
 
     train_OC = opts.train_OC if use_pretrained is None else not use_pretrained
@@ -786,7 +872,10 @@ def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None, use_pretrain
         OC_model = OneClassLayer(params=OC_params, 
                                  hyperparams=OC_hyperparams,
                                  seed=opts.seed)
-        OC_model.fit(X,verbosity=True)
+        history = OC_model.fit(X,verbosity=True)
+        plot_losses(history["train"], history["val"], save_path=get_unique_filename(opts.run_dir+"/figures/OC_loss_curve.png"), title="One-Class Classifier Training/Validation Loss")
+        OC_model.save_losses(get_unique_filename(opts.run_dir+"/OC_train_losses.npy"), 
+                             get_unique_filename(opts.run_dir+"/OC_val_losses.npy"))
         
         # Check that the folder exists
         if not os.path.exists(os.path.dirname(opts.oc_detector_path)):
@@ -802,8 +891,6 @@ def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None, use_pretrain
     if opts.rank == 0:
         if use_pretrained:
             print(f"Using pretrained OC classifier from {opts.oc_detector_path}")
-        print(OC_params)
-        print(OC_hyperparams)
     OC_model.eval()
     return OC_model, OC_params, OC_hyperparams
 

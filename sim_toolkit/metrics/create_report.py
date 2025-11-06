@@ -528,14 +528,17 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     is_pca_path = os.path.join(metric_folder, "figures/pca_is.png")
     is_path = os.path.join(metric_folder, "figures/is_probs.png")
     if os.path.exists(is_tsne_path):
+        is_tsne_path = metric_utils.get_latest_figure(is_tsne_path)
+        is_pca_path = metric_utils.get_latest_figure(is_pca_path)
+        is_path = metric_utils.get_latest_figure(is_path)
         elements.append(Spacer(1, 24))
         intro_is = Paragraph("Here is an example of PCA and t-SNE visualization of the synthetic images, used to compute the inception score:",
                              justified_style)
         elements.append(intro_is)
 
         is_tsne = Table(
-            [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(is_pca_path), max_width=225), 
-            get_image_with_scaled_dimensions(metric_utils.get_latest_figure(is_tsne_path), max_width=225)]],
+            [[get_image_with_scaled_dimensions(is_pca_path, max_width=225), 
+            get_image_with_scaled_dimensions(is_tsne_path, max_width=225)]],
             colWidths=[225, 225] 
         )
         elements.append(is_tsne) 
@@ -598,6 +601,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     fid_tsne_path = os.path.join(metric_folder, "figures/tsne_fid.png")
     fid_pca_path = os.path.join(metric_folder, "figures/pca_fid.png")
     if os.path.exists(fid_tsne_path):
+        fid_tsne_path = metric_utils.get_latest_figure(fid_tsne_path)
+        fid_pca_path = metric_utils.get_latest_figure(fid_pca_path)
         elements.append(PageBreak())
         subtitle_fid = Paragraph("Fréchet Inception Distance (FID)", styles['Heading3'])
         elements.append(subtitle_fid)   
@@ -621,8 +626,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(text_fid)   
 
         fid_tsne = Table(
-            [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(fid_pca_path), max_width=225), 
-            get_image_with_scaled_dimensions(metric_utils.get_latest_figure(fid_tsne_path), max_width=225)]],
+            [[get_image_with_scaled_dimensions(fid_pca_path, max_width=225), 
+            get_image_with_scaled_dimensions(fid_tsne_path, max_width=225)]],
             colWidths=[225, 225] 
         )
         elements.append(fid_tsne) 
@@ -638,6 +643,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     kid_tsne_path = os.path.join(metric_folder, "figures/tsne_kid.png")
     kid_pca_path = os.path.join(metric_folder, "figures/pca_kid.png")
     if os.path.exists(kid_tsne_path):
+        kid_tsne_path = metric_utils.get_latest_figure(kid_tsne_path)
+        kid_pca_path = metric_utils.get_latest_figure(kid_pca_path)
         subtitle_kid = Paragraph("Kernel Inception Distance (KID)", styles['Heading3'])
         elements.append(subtitle_kid)   
 
@@ -659,10 +666,10 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         )
         elements.append(text_kid)   
 
-        if not os.path.exists(metric_utils.get_latest_figure(fid_tsne_path)):
+        if not os.path.exists(fid_tsne_path):
             kid_tsne = Table(
-                [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(kid_pca_path), max_width=225), 
-                get_image_with_scaled_dimensions(metric_utils.get_latest_figure(kid_tsne_path), max_width=225)]],
+                [[get_image_with_scaled_dimensions(kid_pca_path, max_width=225), 
+                get_image_with_scaled_dimensions(kid_tsne_path, max_width=225)]],
                 colWidths=[225, 225] 
             )
             elements.append(kid_tsne) 
@@ -678,6 +685,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     prdc_tsne_path = os.path.join(metric_folder, "figures/tsne_prdc.png")
     prdc_pca_path = os.path.join(metric_folder, "figures/pca_prdc.png")
     if os.path.exists(prdc_tsne_path):
+        prdc_tsne_path = metric_utils.get_latest_figure(prdc_tsne_path)
+        prdc_pca_path = metric_utils.get_latest_figure(prdc_pca_path)
         elements.append(PageBreak())
         subtitle_prdc = Paragraph("Precision, recall, density, and coverage", styles['Heading3'])
         elements.append(subtitle_prdc)   
@@ -732,8 +741,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(text_prdc)   
 
         prdc_tsne = Table(
-            [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(prdc_pca_path), max_width=225), 
-            get_image_with_scaled_dimensions(metric_utils.get_latest_figure(prdc_tsne_path), max_width=225)]],
+            [[get_image_with_scaled_dimensions(prdc_pca_path, max_width=225), 
+            get_image_with_scaled_dimensions(prdc_tsne_path, max_width=225)]],
             colWidths=[225, 225] 
         )
         elements.append(prdc_tsne) 
@@ -748,10 +757,13 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     # -------------------------- alpha-precision, beta-recall, authenticity -------------------------
 
     pr_auth_tsne_path = os.path.join(metric_folder, "figures/tsne_pr_auth.png")
-    pr_auth_pca_path = os.path.join(metric_folder, "figures/pca_pr_auth.png")
-    pr_auth_OC_tsne_path = os.path.join(metric_folder, "figures/tsne_pr_auth_OC.png")
-    pr_auth_OC_pca_path = os.path.join(metric_folder, "figures/pca_pr_auth_OC.png")
+
     if os.path.exists(pr_auth_tsne_path):
+        pr_auth_tsne_path = metric_utils.get_latest_figure(pr_auth_tsne_path)
+        pr_auth_pca_path = metric_utils.get_latest_figure(os.path.join(metric_folder, "figures/pca_pr_auth.png"))
+        pr_auth_OC_tsne_path = metric_utils.get_latest_figure(os.path.join(metric_folder, "figures/tsne_pr_auth_OC.png"))
+        pr_auth_OC_pca_path = metric_utils.get_latest_figure(os.path.join(metric_folder, "figures/pca_pr_auth_OC.png"))
+        pr_auth_OC_losses_path = metric_utils.get_latest_figure(os.path.join(metric_folder, "figures/OC_loss_curve.png"))
         elements.append(PageBreak())
         subtitle_pr_auth = Paragraph("α-precision, β-recall, and authenticity", styles['Heading3'])
         elements.append(subtitle_pr_auth)   
@@ -790,8 +802,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(text_pr_auth)   
 
         pr_auth_tsne = Table(
-            [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(pr_auth_pca_path), max_width=225), 
-            get_image_with_scaled_dimensions(metric_utils.get_latest_figure(pr_auth_tsne_path), max_width=225)]],
+            [[get_image_with_scaled_dimensions(pr_auth_pca_path, max_width=225), 
+            get_image_with_scaled_dimensions(pr_auth_tsne_path, max_width=225)]],
             colWidths=[225, 225] 
         )
         elements.append(pr_auth_tsne) 
@@ -804,7 +816,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(caption)
 
         text_pr_auth = Paragraph(
-            f'The 2048-dimensional embeddings are then projected onto a 32-dimensional hypersphere using a <b>One-Class (OC)</b> classifier. '
+            f'The 2048-dimensional embeddings are then projected onto a 32-dimensional hypersphere using a <b>One-Class (OC) classifier</b>. '
             'In this transformed space, samples considered "typical" lie near the center of the hypersphere, while outliers are located closer to the boundary. '
             f'Below, we visualize the OC-transformed embeddings using PCA and t-SNE:',
             justified_style
@@ -814,8 +826,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         elements.append(Spacer(1, 5))
 
         pr_auth_tsne = Table(
-            [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(pr_auth_OC_pca_path), max_width=225), 
-            get_image_with_scaled_dimensions(metric_utils.get_latest_figure(pr_auth_OC_tsne_path), max_width=225)]],
+            [[get_image_with_scaled_dimensions(pr_auth_OC_pca_path, max_width=225), 
+            get_image_with_scaled_dimensions(pr_auth_OC_tsne_path, max_width=225)]],
             colWidths=[225, 225] 
         )
         elements.append(pr_auth_tsne) 
@@ -827,8 +839,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         )
         elements.append(caption)
         text_pr_auth = Paragraph(
-            f'In this space, α-precision and β-recall are computed by varying the values of α and β, which act as thresholds to define concentric regions around the data center. '
-            'These thresholds determine which samples are considered <i>typical</i> (i.e., within the hypersphere of radius α or β).<br/><br/>',
+            f'In this space, α-precision and β-recall are computed by varying the thresholds α and β, which define concentric regions around the data center. '
+            'These thresholds determine which samples are considered <i>typical</i> (i.e., within the hypersphere of radius α or β).',
             justified_style
         )
         elements.append(text_pr_auth)  
@@ -836,17 +848,22 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         #elements.append(PageBreak())
         text_pr_auth = Paragraph(
             'By varying these thresholds from 0 (no samples considered <i>typical</i>) to 1 (all samples considered <i>typical</i>), we generate two curves:<br/>'
-            f'- <b>α-precision curve</b>: at each α level, we compute the proportion of synthetic samples that fall within the α-quantile radius of the real data distribution — reflecting how well synthetic data matches the distribution of the <i>typical</i> real data  (i.e., <b>fidelity</b>);<br/>'
-            f'- <b>β-recall curve</b>: at each β level, we compute the proportion of real samples that are (i) closer to a synthetic neighbor than a real one, and (ii) whose closest synthetic neighbor lies within the β-quantile region of the synthetic distribution — reflecting how well synthetic data covers the typical real samples (i.e., <b>diversity</b>). <br/><br/>'
+            f'- <b>α-precision curve</b>: at each α level, we compute the proportion of synthetic samples that fall within the radius of the <i>typical</i> real data distribution — reflecting how well synthetic data matches the distribution of the <i>typical</i> real data  (i.e., <b>fidelity</b>);<br/>'
+            f'- <b>β-recall curve</b>: at each β level, we compute the proportion of real samples that are (i) closer to a synthetic neighbor than a real one, and (ii) whose closest synthetic neighbor lies within the β-quantile region of the synthetic distribution — reflecting how well synthetic data covers the typical real samples (i.e., <b>diversity</b>).',
+            justified_style
+        )
+        elements.append(text_pr_auth)   
+
+        text_pr_auth = Paragraph(
             f'The final scores correspond to the area under the curve (AUC):<br/>'
             f'- <b>α-precision</b>: {metrics["a_precision"]}<br/>'
             f'- <b>β-recall</b>: {metrics["b_recall"]}<br/>',
             justified_style
         )
-        elements.append(text_pr_auth)   
+        elements.append(text_pr_auth)  
 
         # ------------- alpha-precision and beta-recall curves -------------
-        prec_rec_path = os.path.join(metric_folder, "figures/alpha_precision_beta_recall_curves.png")
+        prec_rec_path = metric_utils.get_latest_figure(os.path.join(metric_folder, "figures/alpha_precision_beta_recall_curves.png"))
         additional_text1 = Paragraph(
             'Note: in the original implementation, the final scores were derived by computing the deviation from the ideal curve (optimal performance), indicated by the Δ score. '
             'However, this approach is sensitive to both underperformance and overperformance (i.e., being too "precise" or too "spread out"). '
@@ -854,7 +871,7 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
             justified_style
         )
         pr_images = Table(
-            [[get_image_with_scaled_dimensions(metric_utils.get_latest_figure(prec_rec_path), max_width=350), 
+            [[get_image_with_scaled_dimensions(prec_rec_path, max_width=350), 
             additional_text1]],
             colWidths=[350, 150] 
         )
@@ -865,14 +882,15 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         caption = Paragraph(f"<font color='gray'><i>From: {prec_rec_path}</i></font>", styles['BodyText'])
         elements.append(caption)
 
+
         # ---------- authenticity --------------
         
         elements.append(PageBreak())
-        auth_path= os.path.join(metric_folder, "figures/authenticity_distribution.png")
+        auth_path= metric_utils.get_latest_figure(os.path.join(metric_folder, "figures/authenticity_distribution.png"))
         batch_size = min(1024, num_real, num_syn)
         num_batches = int(np.ceil(num_syn / batch_size))
         text_pr_auth = Paragraph(
-            f"<b>Authenticity</b> measures the fraction of synthetic data not memorized from the training set, quantitatively assessing <b>generalization</b>. "
+            f"The embeddings obtained from the OC classifier are also used to compute <b>authenticity</b>, which measures the fraction of synthetic data not memorized from the training set, quantitatively assessing <b>generalization</b>. "
             "A synthetic image is considered authentic if its closest synthetic neighbor is farther away than its closest real neighbor. "
             f"To compute this score, batches of {batch_size} synthetic images are compared with batches of {batch_size} real ones (with batch_size = min(1024, #real_imgs, #synth_imgs)), and the final score is calculated as the average across these {num_batches} batches.<br/><br/>"
             f"<b>Authenticity score</b>: {metrics['authenticity']}<br/>",
@@ -883,11 +901,29 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
         # Additional text
         elements.append(Spacer(1, 12))
 
-        auth_images = get_image_with_scaled_dimensions(metric_utils.get_latest_figure(auth_path), max_width=350)
+        auth_images = get_image_with_scaled_dimensions(auth_path, max_width=350)
         elements.append(auth_images)
         caption = Paragraph(f'<font color="gray"><i>From: {auth_path}</i></font>', styles['BodyText'])
         elements.append(caption)
 
+        elements.append(Spacer(1, 5))
+
+        text_oc_emb = Paragraph(
+            'α-precision, β-recall, and authenticity are computed in the latent space produced by the OC classifier, which is trained to map <i>typical</i> images close to a given hyperspherical center. '
+            'This figure summarizes the <b>OC training</b>, showing <b>training and validation losses</b> across epochs on a log y-axis for wide-range visibility;'
+            'dashed lines are the Exponential Moving Average (EMA) of each loss curve, to highlight overall trends. '
+            'The left panel shows the complete training process, while the right zooms into the final epochs to hilight convergence behavior. ',
+            justified_style
+        )
+        elements.append(text_oc_emb)   
+        elements.append(Spacer(1, 5))
+
+        pr_auth_OC_losses = get_image_with_scaled_dimensions(pr_auth_OC_losses_path, max_height=170)
+        elements.append(pr_auth_OC_losses)
+
+        caption = Paragraph(f"<font color='gray'><i>From: {pr_auth_OC_losses_path}</i></font>", styles['BodyText'])
+
+        elements.append(caption)
     # ---------------------------------------
     elements.append(PageBreak())
 

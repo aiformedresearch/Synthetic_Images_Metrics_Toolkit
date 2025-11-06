@@ -153,9 +153,10 @@ class OneClassLayer(BaseNet):
             x_train, x_val = x_train[:int(self.train_prop*len(x_train))], x_train[int(self.train_prop*len(x_train)):]
             inputs_val = Variable(x_val.to(self.device)).float()
         
-        self.losses         = []
-        self.loss_vals       = []
+        self.train_losses     = []
+        self.val_losses       = []
         
+        print("Training the One-Class (OC) Network... ", flush=True)
         for epoch in range(self.epochs):
             
             # Converting inputs and labels to Variable
@@ -182,7 +183,7 @@ class OneClassLayer(BaseNet):
             
             # get gradients w.r.t to parameters
             self.loss.backward(retain_graph=True)
-            self.losses.append(self.loss.detach().cpu().numpy())
+            self.train_losses.append(self.loss.detach().cpu().numpy())
         
             # update parameters
             self.optimizer.step()
@@ -208,12 +209,21 @@ class OneClassLayer(BaseNet):
                         
                         loss_val = self.loss_fn(outputs=outputs, c=self.c).detach.cpu().numpy()
                     
-                    self.loss_vals.append(loss_val)
+                    self.val_losses.append(loss_val)
             
             if verbosity:
-                if self.train_prop == 1:
-                    print('epoch {}, loss {}'.format(epoch, self.loss.item()))
-                else:
-                    print('epoch {:4}, train loss {:.4e}, val loss {:.4e}'.format(epoch, self.loss.item(),loss_val))
-                    
+                print(f"\rEpoch {epoch+1}/{self.epochs} ", end="", flush=True)
+        if verbosity:
+            print()    
+
+        return {"train": list(self.train_losses), "val": list(self.val_losses)}        
                 
+    def save_losses(self, path_train="OC_train_losses.npy", path_val="OC_val_losses.npy", verbosity=True):
+        import numpy as np
+        np.save(path_train, np.array(self.train_losses, dtype=float))
+        if verbosity:
+            print(f"-> Saved training losses to: {path_train}")
+        if len(self.val_losses) > 0:
+            np.save(path_val, np.array(self.val_losses, dtype=float))
+            if verbosity:
+                print(f"-> Saved validation losses to: {path_val}")
