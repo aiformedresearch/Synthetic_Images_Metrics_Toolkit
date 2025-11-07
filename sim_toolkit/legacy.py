@@ -14,9 +14,10 @@ import re
 import copy
 import numpy as np
 import torch
-import dnnlib
-from torch_utils import misc
-
+from . import dnnlib
+from . import torch_utils
+import pickle
+    
 #----------------------------------------------------------------------------
 
 def load_network_pkl(f, force_fp16=False):
@@ -57,7 +58,7 @@ def load_network_pkl(f, force_fp16=False):
                 kwargs.conv_clamp = 256
             if kwargs != old.init_kwargs:
                 new = type(old)(**kwargs).eval().requires_grad_(False)
-                misc.copy_params_and_buffers(old, new, require_all=True)
+                torch_utils.misc.copy_params_and_buffers(old, new, require_all=True)
                 data[key] = new
     return data
 
@@ -66,10 +67,20 @@ def load_network_pkl(f, force_fp16=False):
 class _TFNetworkStub(dnnlib.EasyDict):
     pass
 
+_MODULE_MAP = {
+    'torch_utils': 'sim_toolkit.torch_utils',
+    'dnnlib': 'sim_toolkit.dnnlib',
+}
+
 class _LegacyUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
-        if module == 'dnnlib.tflib.network' and name == 'Network':
-            return _TFNetworkStub
+        # map exact matches
+        module = _MODULE_MAP.get(module, module)
+        # also map prefixes, e.g. torch_utils.ops -> sim_toolkit.torch_utils.ops
+        for old, new in _MODULE_MAP.items():
+            if module == old or module.startswith(old + '.'):
+                module = module.replace(old, new, 1)
+                break
         return super().find_class(module, name)
 
 #----------------------------------------------------------------------------
@@ -88,7 +99,7 @@ def _collect_tf_params(tf_net):
 #----------------------------------------------------------------------------
 
 def _populate_module_params(module, *patterns):
-    for name, tensor in misc.named_params_and_buffers(module):
+    for name, tensor in torch_utils.misc.named_params_and_buffers(module):
         found = False
         value = None
         for pattern, value_fn in zip(patterns[0::2], patterns[1::2]):
