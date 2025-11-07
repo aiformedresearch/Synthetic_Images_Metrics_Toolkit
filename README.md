@@ -76,12 +76,24 @@ Refer to the [Usage](#usage) section for detailed instructions about running the
 
 ## Usage (NEW)
 > 🚀 **Last Update:** The SIM Toolkit now runs directly via Python API.
-No Python configuration file is required — pass paths and flags programmatically.
+No Python configuration file needed — everything is passed as function arguments.
+
+To run SIM Toolkit you only need to define how to load:
+
+- **Real data** --> choose a supported format or a custom loader 
+  👉 see A.
+- **Synthetic data** --> either:
+    - load from files (same as real data) 👉 see A;
+    - generate on-the-fly from a pretrained generator 👉 see B.
 
 ### A) From image files 
-Load and analyze pre-existing synthetic images stored in files or directories.
+Load and evaluate synthetic images directly from files or directories.
 
-Currently, the SIM toolkit support NIfTI, DICOM, TIF, JPG, and PNG formats. If you need to work with different data types, you can open an issue or implement it from `sim_toolkit/datasets`.
+**Supported built-in dataset tags**: `nifti`, `dcm`, `tiff`, `jpeg`, `png`, or `auto` (infers format from `path_data`).
+
+**Custom format or custom folder structure?**  
+Define a small dataset class that inherits from `sim_toolkit.datasets.base.BaseDataset` and point `real_dataset` / `synth_dataset` to your `.py` file.
+➡️ Details & example: [sim_toolkit/datasets](sim_toolkit/datasets/README.md)
 
 ```python
 import sim_toolkit as sim
@@ -96,7 +108,7 @@ sim.compute(
     padding=False,
 
     ## Real data
-    real_dataset="auto",     # "nifti" | "dicom" | "tiff" | "jpeg" | "png" | "auto"
+    real_dataset="auto",     # "nifti" | "dcm" | "tiff" | "jpeg" | "png" | "auto"
     real_params={
         "path_data": "data/real_images",
         "path_labels": None, 
@@ -105,7 +117,7 @@ sim.compute(
         },
 
     ## Synthetic data (from files)
-    synth_dataset="auto",    # "nifti" | "dicom" | "tiff" | "jpeg" | "png" | "auto"
+    synth_dataset="auto",    # "nifti" | "dcm" | "tiff" | "jpeg" | "png" | "auto"
     synth_params={
         "path_data": "data/synt_images",
         "path_labels": None, 
@@ -114,24 +126,44 @@ sim.compute(
         },
     )
 ```
-📖 Find here a [short tutorial](https://colab.research.google.com/drive/14ebfSXuMn--heFF-AyjT23MB2QFPgEU3?usp=sharing) to use the SIM Toolkit with your data.
+
+📖 Tutorial (file-based usage):  
+[Colab – SIM Toolkit with your data](https://colab.research.google.com/drive/14ebfSXuMn--heFF-AyjT23MB2QFPgEU3?usp=sharing)
 
 ### B) From a pre-trained generator (no synthetic files)
 Generate synthetic images on-the-fly using a pretrained generative model.
 
-If you want to generate synthetic images dynamically using a pretrained generator, you need to define functions to:
-- Load the pretrained generator
-- Generate new samples
+You provide two functions:
+- `load_network(network_path)` --> Load the pretrained generator
+- `run_generator(z, c, opts)` --> Generate new samples
+
+Real data are loaded exactly as in section A (built-in or custom dataset).
 
 ```python
 import sim_toolkit as sim
 
-def load_network(pkl_path):
+def load_network(network_path):
     # user-provided loader returning a torch.nn.Module (G)
     ...
 
-def run_generator(G, labels, num_images, dataset, device):
-    # custom generator sampling
+def run_generator(z, c, opts):
+    """
+    Args:
+    - z:    Latent input for the generator.
+              - For GANs: typically a tensor of shape (N, latent_dim).
+              - For diffusion / other models: can be any shape your model expects.
+    - c:    (optional) class labels, for conditional generation.
+    - opts:  Helper passed by SIM Toolkit.
+              - opts.G : the loaded generator/model (e.g., torch.nn.Module)
+              - opts.device : torch.device to run generation on
+
+    Must return a tensor of shape:
+      - (N, C, H, W)    for 2D data
+      - (N, C, H, W, D) for 3D data
+    """
+    ## Example:
+    # img = opts.G(z, c)
+    # return img
     ...
 
 sim.compute(
@@ -139,7 +171,7 @@ sim.compute(
     run_dir="./runs/gen",
 
     ## Real data
-    real_dataset="auto", # "nifti" | "jpeg" | "tiff" | "dicom" | "auto"
+    real_dataset="auto", # "nifti" | "dcm" | "tiff" | "jpeg" | "png" | "auto"
     real_params={"path_data": "data/real_images_simulation.nii.gz"},
 
     ## Synthetic data (from pre-trained generator)
@@ -150,9 +182,10 @@ sim.compute(
     num_gen=50000, # how many synthetic images to generate
 )
 ```
-📖 Find here a [short tutorial](https://colab.research.google.com/drive/1TMELn54mEmmFAErgOorhHWeXn9dvNLQM?usp=sharing) to use the SIM Toolkit with your pre-trained model.
+📖 Tutorial (generator-based usage):  
+[Colab – SIM Toolkit with your pre-trained model](https://colab.research.google.com/drive/1TMELn54mEmmFAErgOorhHWeXn9dvNLQM?usp=sharing)
 
-All metric results, figures, and the final report are written under `run_dir/`.
+All metric values, plots, and the final PDF report are saved under: `run_dir/`.
 
 ## Metrics overview
 
