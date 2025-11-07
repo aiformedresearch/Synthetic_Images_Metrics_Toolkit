@@ -13,7 +13,7 @@ import numpy as np
 
 from . import dnnlib
 from ._deps import require_backends
-from ._utils import _normalize_params, _mk_dataset_kwargs
+from ._utils import _normalize_params, _mk_dataset_kwargs, _resolve_device
 
 def set_global_seed(seed: int):
     import torch
@@ -47,10 +47,11 @@ def _subprocess_fn(rank: int, args: dnnlib.EasyDict, temp_dir: str):
 
     # Seed & device
     set_global_seed(args.seed)
-    device = torch.device(f"cuda:{rank}" if torch.cuda.is_available() and args.num_gpus > 0 else "cpu")
+    multi = (args.num_gpus > 1)
+    device = _resolve_device(args.device, rank, multi)
 
     # Init torch.distributed
-    if args.num_gpus > 1 and torch.cuda.is_available():
+    if args.num_gpus > 1 and device.type == "cuda":
         init_file = os.path.abspath(os.path.join(temp_dir, ".torch_distributed_init"))
         if os.name == "nt":
             init_method = "file:///" + init_file.replace("\\", "/")
@@ -92,10 +93,10 @@ def _subprocess_fn(rank: int, args: dnnlib.EasyDict, temp_dir: str):
 
         # Synthetic
         if args.use_pretrained_generator:
-            G = deepcopy(args.G).eval().to(torch.device("cuda:0"))  # keep G on cuda:0 for snapshots
             device_ = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+            args.G = deepcopy(args.G).eval().to(torch.device(device_))  # keep G on cuda:0 for snapshots
             num_images = labels.shape[0]
-            images_synt = metric_utils.setup_grid_generated(args, G, labels, grid_size, num_images, real_dataset, device_)
+            images_synt = metric_utils.setup_grid_generated(args, args.G, labels, grid_size, num_images, real_dataset, device_)
         else:
             synt_dataset = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
             grid_size, images_synt, _ = metric_utils.setup_snapshot_image_grid(args, synt_dataset)
@@ -172,6 +173,7 @@ def compute(
     # Runtime
     run_dir: str,
     num_gpus: int = 1,
+    device: Optional[str] = None,
     batch_size: int = 64,
     data_type: str = "2D",                 # "2D" | "3D"
     use_cache: bool = True,
@@ -275,11 +277,14 @@ def compute(
         "nhood_size": nhood_size,
         "padding": padding,
         "num_gpus": num_gpus,
+        "device": device,
         "verbose": verbose,
         "oc_detector_path": oc_detector_path,
         "use_pretrained_generator": use_pretrained_generator,
         "seed": seed,
     })
+
+    args.device = "cuda" if (num_gpus > 0 and torch.cuda.is_available()) else "cpu"
 
     # Real dataset
     args.dataset_kwargs = _mk_dataset_kwargs(real_dataset, real_params, data_type=args.data_type)
