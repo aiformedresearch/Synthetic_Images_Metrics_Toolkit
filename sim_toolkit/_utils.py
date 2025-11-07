@@ -10,6 +10,7 @@ import inspect
 from types import ModuleType
 import sys
 from typing import Any, Dict, Optional
+import torch
 
 from . import dnnlib
 try:
@@ -41,6 +42,20 @@ def is_main_process() -> bool:
     """Convenience: rank0 AND worker0."""
     return is_dist_rank0() and is_worker0()
 
+def _resolve_device(base: str, rank: int, use_multi: bool) -> torch.device:
+    if base.startswith("cuda"):
+        if not torch.cuda.is_available():
+            return torch.device("cpu")
+        # parse base index if provided (e.g., "cuda:1")
+        if ":" in base:
+            base_idx = int(base.split(":")[1])
+        else:
+            base_idx = 0
+        # If multi-GPU is requested, offset by rank
+        idx = base_idx + (rank if use_multi else 0)
+        return torch.device(f"cuda:{idx}")
+    return torch.device("cpu")
+    
 # ---------- print/warn once per process ----------
 
 def print_once(msg: str) -> None:
