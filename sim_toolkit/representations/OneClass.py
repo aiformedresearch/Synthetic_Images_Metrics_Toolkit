@@ -183,7 +183,7 @@ class OneClassLayer(BaseNet):
             
             # get gradients w.r.t to parameters
             self.loss.backward(retain_graph=True)
-            self.train_losses.append(self.loss.detach().cpu().numpy())
+            self.train_losses.append(self.loss.item())
         
             # update parameters
             self.optimizer.step()
@@ -209,7 +209,7 @@ class OneClassLayer(BaseNet):
                         
                         loss_val = self.loss_fn(outputs=outputs, c=self.c).detach.cpu().numpy()
                     
-                    self.val_losses.append(loss_val)
+                    self.val_losses.append(loss_val.item())
             
             if verbosity:
                 print(f"\rEpoch {epoch+1}/{self.epochs} ", end="", flush=True)
