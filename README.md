@@ -3,88 +3,102 @@ SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
 
 SPDX-License-Identifier: NPOSL-3.0
 -->
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14845934.svg)](https://doi.org/10.5281/zenodo.14845934)
+[![PyPI - Version](https://img.shields.io/pypi/v/sim_toolkit.svg?logo=pypi&logoColor=white)](https://pypi.org/project/sim-toolkit/)
+[![GitHub](https://img.shields.io/badge/GitHub-Repo-181717?logo=github&logoColor=white)](https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit)
+[<img src="https://img.shields.io/badge/  -Dockerhub-blue.svg?logo=docker&logoColor=white">](<https://hub.docker.com/r/aiformedresearch/metrics_toolkit>)
+[<img src="https://img.shields.io/badge/Jupyter_Notebook-orange.svg?logo=jupyter&logoColor=white">](https://colab.research.google.com/drive/1EyO8hAu6sJw_gbE3bsHID-5IzUBjhm6B?usp=sharing)
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14845935.svg)](https://doi.org/10.5281/zenodo.14845935) [<img src="https://img.shields.io/badge/  -Dockerhub-blue.svg?logo=docker&logoColor=white">](<https://hub.docker.com/r/aiformedresearch/metrics_toolkit>) [<img src="https://img.shields.io/badge/Jupyter_Notebook-orange.svg?logo=jupyter&logoColor=white">](https://colab.research.google.com/drive/1EyO8hAu6sJw_gbE3bsHID-5IzUBjhm6B?usp=sharing)
 
-# Synthetic_Images_Metrics_Toolkit
+# Synthetic Images Metrics Toolkit (SIM Toolkit)
 
 <p align="center">
-  <img src="Images/logo.png" width="300" title="metrics">
+  <img src="sim_toolkit/Images/logo.png" width="300" title="metrics">
 </p>
 
-The **Synthetic Images Metrics (SIM) Toolkit** provides a comprehensive collection of state-of-the-art metrics for evaluating the quality of **2D** and **3D** synthetic images. 
+The **Synthetic Images Metrics (SIM) Toolkit** is a Python library for evaluating the quality of **2D** and **3D** synthetic images. 
 
-These metrics enable the assessment of:
-- **Fidelity**: the realism of synthetic data;
-- **Diversity**: the coverage of the real data distribution;
-- **Generalization**: the generation of authentic, non-memorized images. 
+It provides metrics to assess:
+- **Fidelity**: how realistic synthetic images are;
+- **Diversity**: how well they cover the real data distribution ;
+- **Generalization**: whether the model generates new samples instead of memorizing the training set. 
 
-### 📊 Automated Report Generation
-The toolkit produces a comprehensive PDF report with quantitative metrics and qualitative analysis.
+The toolkit automatically generates a **PDF report** with metric values, plots, and qualitative analyses.
 
-➡️ **Example report:** 📄 [report_metrics_toolkit.pdf](https://drive.google.com/file/d/1K_H0KCjjqr6rfi1tHYk03Gy3WhdcyKjk/view?usp=sharing)
+
+📄 **Example report:**  
+[report_metrics_toolkit.pdf](https://drive.google.com/file/d/1K_H0KCjjqr6rfi1tHYk03Gy3WhdcyKjk/view?usp=sharing)
 
 ## Installation
-Before proceeding, ensure that [CUDA](https://developer.nvidia.com/cuda-downloads) is installed. CUDA 11.0 or later is recommended.
+### 🐍 Python and compatibility
+- Officially supported / tested: **Python 3.10**
+- The package *may* install on higher versions, but some dependencies (e.g. `numpy`, `tensorflow`) can break compatibility.  
+  For stable setup, **use Python 3.10**.
 
-### 🔧 Option A: Conda + local source (recommended for development)
-Install [Anaconda](https://docs.anaconda.com/free/anaconda/install/index.html) for your operating system.
+Works on CPU and GPU. For GPU acceleration, install a compatible  [CUDA](https://developer.nvidia.com/cuda-downloads) version (CUDA ≥ 11 recommended) and use the appropriate PyTorch wheels.
 
- ```bash
-conda create -n sim_toolkit python=3.10 -y
-conda activate sim_toolkit
-
-# Clone and install (editable)
-git clone https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit.git
-cd Synthetic_Images_Metrics_Toolkit
-pip install -e .
-```
-Add extras as needed:
-
+### 🔧 Basic install
 ```bash
-# PyTorch backend (CPU by default; see CUDA note below)
-pip install ".[torch]"
-
-# TensorFlow backend (auto-selects the right wheel for your OS/arch)
-pip install ".[tf]"
-
-# Data formats / IO
-pip install ".[nifti,opencv,tiff,csv,dicom]"
+pip install sim_toolkit
 ```
+This installs the core library (no heavy backends).
 
-### 🐳 Option B: Use Docker
-0. Install [Docker](https://docs.docker.com/get-docker/) for your operating system.
+#### ➕ Optional extras
 
-1. Pull the Docker image
+Install only what you need:
+- **PyTorch backend** (required for all core metrics):
+    ```bash
+    pip install "sim_toolkit[torch]"
     ```
-    docker pull aiformedresearch/metrics_toolkit:3.1
+- **TensorFlow backend** (only needed for 2D `pr_auth` and `prdc`):
+    ```bash
+    pip install ".[tf]"
+    ```
+- **File format / dataset support**:
+    ```bash
+    pip install "sim_toolkit[nifti]"        # NIfTI (.nii/.nii.gz)
+    pip install "sim_toolkit[dcm]"          # DICOM (.dcm)
+    pip install "sim_toolkit[tiff]"         # TIFF
+    pip install "sim_toolkit[opencv]"       # JPEG/PNG via OpenCV, etc.
+    pip install "sim_toolkit[csv]"          # CSV-based labels/metadata
+    ```
+You can combine extras, e.g.:
+```bash
+pip install "sim_toolkit[torch,nifti,dicom]"
+```
+If a required backend is missing at runtime, SIM Toolkit will raise a clear, short error with the exact pip install command to run.
+
+### 🐳 Docker
+You can run the SIM Toolkit in a fully isolated, ready-to-use Docker environment.
+
+1. Pull the image:
+    ```bash
+    docker pull aiformedresearch/metrics_toolkit:4.0.1
     ```
 
 2. Run the Docker container
     ```
     docker run -it --gpus all \
-      -v /absolute/path/to/real_data:/Synthetic_Images_Metrics_Toolkit/data \
-      -v /absolute/path/to/config_file:/Synthetic_Images_Metrics_Toolkit/configs \
-      -v /absolute/path/to/local_output_directory:/Synthetic_Images_Metrics_Toolkit/outputs \
-      aiformedresearch/metrics_toolkit
+      -v /absolute/path/to/real_data:/workspace/data/real \
+      -v /absolute/path/to/synt_data:/workspace/data/synt \
+      -v /absolute/path/to/runs:/workspace/runs \
+      aiformedresearch/metrics_toolkit:4.0.1
     ```
       - The `--gpus all` flag enables GPU support. Specify a GPU if needed, e.g., `--gpus 0`.
-      - The `-v` flag is used to mount the local directories to the working directory `Synthetic_Images_Metrics_Toolkit` inside the container. 
+      - The `-v host/container` mount the local directories to the working directory `/workspace` inside the container. 
 
 Refer to the [Usage](#usage) section for detailed instructions about running the main script. 
 
 
-## Usage (NEW)
-> 🚀 **Last Update:** The SIM Toolkit now runs directly via Python API.
-No Python configuration file needed — everything is passed as function arguments.
+## Usage (Python API)
+> 🚀 **Last Update**: No config file needed — everything is passed as function arguments via `sim.compute(...)`.
 
 To run SIM Toolkit you only need to define how to load:
 
-- **Real data** --> choose a supported format or a custom loader 
-  👉 see A.
-- **Synthetic data** --> either:
-    - load from files (same as real data) 👉 see A;
-    - generate on-the-fly from a pretrained generator 👉 see B.
+- **Real data** → choose a built-in dataset tag or define a small custom loader (👉 A).
+- **Synthetic data**:
+    - from files → same as real data (👉 A);
+    - from a pretrained generator → on-the-fly synthesis (👉 B).
 
 ### A) From image files 
 Load and evaluate synthetic images directly from files or directories.
@@ -92,9 +106,10 @@ Load and evaluate synthetic images directly from files or directories.
 **Supported built-in dataset tags**: `nifti`, `dcm`, `tiff`, `jpeg`, `png`, or `auto` (infers format from `path_data`).
 
 **Custom format or custom folder structure?**  
-Define a small dataset class that inherits from `sim_toolkit.datasets.base.BaseDataset` and point `real_dataset` / `synth_dataset` to your `.py` file.
-➡️ Details & example: [sim_toolkit/datasets](sim_toolkit/datasets/README.md)
+Define a small dataset class that inherits from `sim_toolkit.datasets.base.BaseDataset` and point `real_dataset` / `synth_dataset` to your `.py` file.  
+📄 See: [sim_toolkit/datasets](https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit/blob/main/sim_toolkit/datasets/README.md)
 
+**Basic example**
 ```python
 import sim_toolkit as sim
 
@@ -133,11 +148,11 @@ sim.compute(
 ### B) From a pre-trained generator (no synthetic files)
 Generate synthetic images on-the-fly using a pretrained generative model.
 
-You provide two functions:
-- `load_network(network_path)` --> Load the pretrained generator
-- `run_generator(z, c, opts)` --> Generate new samples
+You provide:
+- `load_network(network_path)` → loads your pretrained model
+- `run_generator(z, c, opts)` → uses that model to generate a batch of images
 
-Real data are loaded exactly as in section A (built-in or custom dataset).
+Real data loading is identical to section A (built-in or custom dataset).
 
 ```python
 import sim_toolkit as sim
@@ -153,8 +168,8 @@ def run_generator(z, c, opts):
               - For GANs: typically a tensor of shape (N, latent_dim).
               - For diffusion / other models: can be any shape your model expects.
     - c:    (optional) class labels, for conditional generation.
-    - opts:  Helper passed by SIM Toolkit.
-              - opts.G : the loaded generator/model (e.g., torch.nn.Module)
+    - opts:  Helper object from the SIM Toolkit.
+              - opts.G :      the loaded generator/model (e.g., torch.nn.Module)
               - opts.device : torch.device to run generation on
 
     Must return a tensor of shape:
@@ -187,74 +202,80 @@ sim.compute(
 
 All metric values, plots, and the final PDF report are saved under: `run_dir/`.
 
-## Metrics overview
+## Metrics
 
 <p align="center">
-  <img src="Images/Metrics.png" width="400" title="metrics">
+  <img src="sim_toolkit/Images/Metrics.png" width="400" title="metrics">
 </p>
 
-### Quantitative metrics
-The following quantitative metrics are available:
+### Quantitative 
+| Flag      | Description | Source | Reference |
+| :-----        | :-----: | :---------- | :---------- |
+| `fid` | Fr&eacute;chet inception distance against the full dataset | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch) | [Heusel et al. 2017](https://arxiv.org/abs/1706.08500)
+| `kid` | Kernel inception distance against the full dataset         | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch) | [Bi&nacute;kowski et al. 2018](https://arxiv.org/abs/1801.01401)
+| `is_`       | Inception score against the full dataset (only 2D)                            | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch) | [Salimans et al. 2016](https://arxiv.org/abs/1606.03498)
+| `prdc`    |  Precision, recall, density, and coverage  against the full dataset                    | [Naeem et al.](https://github.com/clovaai/generative-evaluation-prdc) | [Kynk&auml;&auml;nniemi et al. 2019](https://arxiv.org/abs/1904.06991); [Naeem et al., 2020](https://proceedings.mlr.press/v119/naeem20a/naeem20a.pdf)
+| `pr_auth`    |  	$\alpha$-precision, 	$\beta$-recall, and authenticity against the full dataset  | [Alaa et al.](https://github.com/vanderschaarlab/evaluating-generative-models) | [Alaa et al., 2022](https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf)
 
-| Metric flag      | Description | Original implementation |
-| :-----        | :-----: | :---------- |
-| `fid` | Fr&eacute;chet inception distance<sup>[1]</sup> against the full dataset | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
-| `kid` | Kernel inception distance<sup>[2]</sup> against the full dataset         | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
-| `is_`       | Inception score<sup>[3]</sup> against the full dataset (only 2D)                            | [Karras et al.](https://github.com/NVlabs/stylegan2-ada-pytorch)
-| `prdc`    |  Precision, recall<sup>[4]</sup>, density, and coverage<sup>[5]</sup>  against the full dataset                    | [Naeem et al.](https://github.com/clovaai/generative-evaluation-prdc)
-| `pr_auth`    |  	$\alpha$-precision, 	$\beta$-recall, and authenticity<sup>[6]</sup> against the full dataset  | [Alaa et al.](https://github.com/vanderschaarlab/evaluating-generative-models)
+> ⚠️ **3D setup** 3D metrics use a 3D-ResNet50 feature extractor from [MedicalNet](https://github.com/Tencent/MedicalNet/tree/master), pre-trained on 23 medical imaging datasets. Ensure your domain is compatible; otherwise embeddings (and thus metrics) may not be meaningful.
 
-> ⚠️ **3D metrics** uses a 3D-ResNet50 feature extractor from [MedicalNet](https://github.com/Tencent/MedicalNet/tree/master), pre-trained on 23 medical imaging datasets. Ensure your domain is compatible; otherwise embeddings (and thus metrics) may not be meaningful.
+### Qualitative
+The toolkit automatically generates:  
+- Grids of real and synthetic samples
+- **PCA** and **t-SNE** visualizations of real vs. synthetic embeddings
+- Summary plots embedded into the final PDF report
 
-References:
-1. [GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium](https://arxiv.org/abs/1706.08500), Heusel et al. 2017
-2. [Demystifying MMD GANs](https://arxiv.org/abs/1801.01401), Bi&nacute;kowski et al. 2018
-3. [Improved Techniques for Training GANs](https://arxiv.org/abs/1606.03498), Salimans et al. 2016
-4. [Improved Precision and Recall Metric for Assessing Generative Models](https://arxiv.org/abs/1904.06991), Kynk&auml;&auml;nniemi et al. 2019
-5. [A Style-Based Generator Architecture for Generative Adversarial Networks](https://arxiv.org/abs/1812.04948), Karras et al. 2018
-6. [Reliable Fidelity and Diversity Metrics for Generative Models](https://proceedings.mlr.press/v119/naeem20a/naeem20a.pdf), Naeem et al., 2020
-7. [How Faithful is your Synthetic Data?
-Sample-level Metrics for Evaluating and Auditing Generative Models](https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf), Alaa et al., 2022
+Additionally, you can enable:
 
-### Qualitative metrics
-The SIM Toolkit automatically generates **t-SNE** and **PCA** visualizations of real and synthetic image embeddings for each metric, to qualitatively assess the fidelity and diversity of the synthetic images. These plots are included in the final report, which also provides detailed guidance to help users interpret the resulting metric scores.
-You can view an example report [here](https://drive.google.com/file/d/1K_H0KCjjqr6rfi1tHYk03Gy3WhdcyKjk/view?usp=sharing).
+- **k-NN analysis** (`knn` flag):
 
-In addition, the toolkit supports **k-NN analysis**, enabling users to qualitatively evaluate how well synthetic samples generalize with respect to real data:
+  The k-nearest neighbour (k-NN) visualization shows:
+  - The `knn_num_real` real images most similar to *any* synthetic image *(default: `knn_num_real=3`)*.
+  - For each of those real images, the `knn_num_synth` most similar synthetic samples, ranked by their cosine similarity *(default: `knn_num_synth=5`)*.
 
-| Metric flag      | Description | Original implementation |
-| :-----        | :-----: | :---------- |
-| `knn` | k-nearest neighbors (k-NN) analysis, to assess potential memorization of the model | [Lai et al.](https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit) |
-
-<p align="center">
-  <img src="Images/knn_analysis.png" width="600" title="knn-analysis">
-</p>
-
-The k-NN analysis identifies and visualizes the `top_n` real images most similar to any synthetic sample (from a set of 50,000 generated samples). For each real image, the visualization displays the top `k` synthetic images ranked by their cosine similarity to the corresponding real image.
-
-By default, `k=5` and `top_n=3`. These parameters can be customized in the *Metrics configurations* section of the configuration file.
-
-## 🚧To-do list:
-
-- [x] 3D data support;
-
-- [x] Implement PCA and t-SNE to qualitatively assess diversity.
-
-- [x] Simple Python API (no configuration file)
+  These can be configured directly in `sim.compute(...)`:
+  ```python
+  sim.compute(
+      metrics=["knn"],
+      run_dir="./runs/knn_example",
+      knn_num_real=3,
+      knn_num_synth=5,
+      # other args...
+  )
+📄 Example report:  
+[report_sim_toolkit.pdf](https://drive.google.com/file/d/1K_H0KCjjqr6rfi1tHYk03Gy3WhdcyKjk/view?usp=sharing)
 
 ## Licenses
-This repository complies with the [REUSE Specification](https://reuse.software/). All source files are annotated with SPDX license identifiers, and full license texts are included in the `LICENSES` directory.
+This project complies with the [REUSE Specification](https://reuse.software/). All source files are annotated with SPDX license identifiers, and full license texts are included in the `LICENSES` directory.
 
-### Licenses Used
-
-1. **LicenseRef-NVIDIA-1.0**: Applies to code reused from NVIDIA's StyleGAN2-ADA repository: https://github.com/NVlabs/stylegan2-ada-pytorch, under the [NVIDIA Source Code License](https://nvlabs.github.io/stylegan2-ada-pytorch/license.html).
-2. **MIT**:  For code reused from:
+- **LicenseRef-NVIDIA-1.0**: Applies to code reused from NVIDIA's StyleGAN2-ADA repository: https://github.com/NVlabs/stylegan2-ada-pytorch, under the [NVIDIA Source Code License](https://nvlabs.github.io/stylegan2-ada-pytorch/license.html).
+- **MIT**:  For code reused from:
     - https://github.com/vanderschaarlab/evaluating-generative-models; 
     - https://github.com/clovaai/generative-evaluation-prdc.
-3. **BSD-3-Clause**: Applies to two scripts reused from https://github.com/vanderschaarlab/evaluating-generative-models;
-4. **NPOSL-3.0**: Applies to the code developed specifically for this repository.
+- **BSD-3-Clause**: Applies to two scripts reused from https://github.com/vanderschaarlab/evaluating-generative-models;
+- **NPOSL-3.0**: Applies to the code developed specifically for this repository.
 
 For detailed license texts, see the `LICENSES` directory.
 
 ## Aknowledgments
-This repository builds on NVIDIA's StyleGAN2-ADA repository: https://github.com/NVlabs/stylegan2-ada-pytorch.
+This toolkit builds upon and adapts components from:
+- [NVIDIA StyleGAN2-ADA](https://github.com/NVlabs/stylegan2-ada-pytorch) – core project layout, `dnnlib` utilities, dataset and metric infrastructure, and metric implementations (used under the NVIDIA Source Code License).
+- [evaluating-generative-models](https://github.com/vanderschaarlab/evaluating-generative-models) – metric implementations.
+- [generative-evaluation-prdc](https://github.com/clovaai/generative-evaluation-prdc) – metric implementations.
+- [MedicalNet](https://github.com/Tencent/MedicalNet) – pre-trained 3D feature extractor.
+
+## Citation
+
+If you use the SIM Toolkit in your research or publications, please cite:
+
+```bibtex
+@article{lai25,
+  title   = {Generating Brain MRI with StyleGAN2-ADA: The Effect of the Training Set Size on the Quality of Synthetic Images},
+  author = {Lai, Matteo and Mascalchi, Mario and Tessa, Carlo and Diciotti, Stefano},
+  journal = {Journal of Imaging Informatics in Medicine},
+  year    = {2025},
+  issn = {2948-2933},
+  url = {https://doi.org/10.1007/s10278-025-01536-0},
+  doi = {10.1007/s10278-025-01536-0},
+}
+```
