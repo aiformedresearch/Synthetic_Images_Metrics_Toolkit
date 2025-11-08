@@ -1,7 +1,13 @@
 # SPDX-FileCopyrightText: 2024 Matteo Lai <matteo.lai3@unibo.it>
 # SPDX-License-Identifier: NPOSL-3.0
 
-__version__ = "4.0.0"
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("sim_toolkit")
+except PackageNotFoundError:
+    # Fallback for editable / local use before installation
+    __version__ = "0.0.0"
 __all__ = ["compute", "__version__"]
 
 def compute(*args, **kwargs):

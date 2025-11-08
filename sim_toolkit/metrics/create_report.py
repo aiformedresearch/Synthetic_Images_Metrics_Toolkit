@@ -18,6 +18,7 @@ from io import BytesIO
 
 from . import metric_utils
 from .. import dnnlib
+from .. import __version__
 
 # Define the legend mapping metric keys to human-readable labels
 metric_labels = {
@@ -298,8 +299,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
     # Intro text
     elements.append(Spacer(1, 50))
     intro_paragraph = Paragraph(
-        'This report was generated using the <b><a href="https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit" color="blue">'
-        'Synthetic Images Metrics (SIM) Toolkit</a></b> (v4.0), created at the University of Bologna. This toolkit provides a comprehensive evaluation of synthetic image quality using established quantitative and qualitative metrics.<br/><br/>'
+        'This report was generated using the <b><a href="https://pypi.org/project/sim-toolkit/" color="blue">'
+        f'Synthetic Images Metrics (SIM) Toolkit</a></b> (v{__version__}), created at the University of Bologna. This toolkit provides a comprehensive evaluation of synthetic image quality using established quantitative and qualitative metrics.<br/><br/>'
         'The SIM Toolkit evaluates synthetic images based on the following key dimensions:',
         justified_style)
     elements.append(intro_paragraph)
