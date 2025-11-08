@@ -6,7 +6,7 @@ import numpy as np
 from glob import glob
 
 from .base import BaseDataset, BidsDataset
-from .._utils import  _to_chw
+from .._utils import  _to_chw, warn_once
 
 def _require_nibabel():
     try:
