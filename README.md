@@ -75,7 +75,7 @@ You can run the SIM Toolkit in a fully isolated, ready-to-use Docker environment
 
 1. Pull the image:
     ```bash
-    docker pull aiformedresearch/metrics_toolkit:4.0.1
+    docker pull aiformedresearch/metrics_toolkit:4.1.1
     ```
 
 2. Run the Docker container
@@ -84,7 +84,7 @@ You can run the SIM Toolkit in a fully isolated, ready-to-use Docker environment
       -v /absolute/path/to/real_data:/workspace/data/real \
       -v /absolute/path/to/synt_data:/workspace/data/synt \
       -v /absolute/path/to/runs:/workspace/runs \
-      aiformedresearch/metrics_toolkit:4.0.1
+      aiformedresearch/metrics_toolkit:4.1.1
     ```
       - The `--gpus all` flag enables GPU support. Specify a GPU if needed, e.g., `--gpus 0`.
       - The `-v host/container` mount the local directories to the working directory `/workspace` inside the container. 

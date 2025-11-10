@@ -15,7 +15,7 @@ RUN apt-get update && \
     python3 -m pip install --upgrade pip
 
 # Install required libraries
-RUN python -m pip install "sim_toolkit[torch,tf,nifti,tiff,jpeg,png,dcm]==4.0.0"
+RUN python -m pip install "sim_toolkit[torch,tf,nifti,tiff,opencv,jpeg,png,dcm]==4.1.1"
 
 # Workspace for mounting data & runs
 WORKDIR /workspace
