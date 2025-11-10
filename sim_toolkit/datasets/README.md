@@ -17,9 +17,13 @@ synth_dataset = "auto"      # let SIM infer from path_data
 
 If your file format or folder layout is different, you can still use the SIM Toolkit **without modifying its source code** by defining a small custom dataset class.
 
-## 🧩 Defining a custom dataset from a `.py` file
+## 🧩 Defining a custom dataset class
 
-Create a Python file that defines a dataset class inheriting from `sim_toolkit.datasets.base.BaseDataset`:
+Create a Python class that inherits from `sim_toolkit.datasets.base.BaseDataset`.
+
+You can keep it in your own script or module and either:
+- pass the **class object directly** (if it’s importable / in scope), or
+- reference it via a **`.py` file path**.
 
 ```python
 # my_dataset.py
@@ -55,8 +59,37 @@ class MyDataset(BaseDataset):
         return None
 ```
 
-Then point `sim.compute` to your file:
+### Using the class directly
+If `MyDataset` is defined in the same script (or properly imported), you can pass the class itself:
 
+```python
+import sim_toolkit as sim
+from my_dataset import MyDataset
+
+
+sim.compute(
+    metrics=["fid", "kid"],
+    run_dir="./runs/exp1",
+    data_type="2D",
+    num_gpus=1,
+
+    real_dataset=MyDataset,
+    real_params={
+        "path_data": "/path/to/real_data",
+        "use_labels": False,
+    },
+
+    synth_dataset=MyDataset, 
+    synth_params={
+        "path_data": "/path/to/synth_data",
+        "use_labels": False,
+    },
+)
+
+```
+
+### Using a `.py` file path
+Alternatively, you can reference the implementation file as a string:
 ```python
 import sim_toolkit as sim
 
@@ -67,16 +100,10 @@ sim.compute(
     num_gpus=1,
 
     real_dataset="path/to/my_dataset.py:MyDataset",
-    real_params={
-        "path_data": "/path/to/real_data",
-        "use_labels": False,
-    },
+    real_params={"path_data": "/path/to/real_data", "use_labels": False},
 
     synth_dataset="path/to/my_dataset.py:MyDataset",
-    synth_params={
-        "path_data": "/path/to/synth_data",
-        "use_labels": False,
-    },
+    synth_params={"path_data": "/path/to/synth_data", "use_labels": False},
 )
 
 ```
