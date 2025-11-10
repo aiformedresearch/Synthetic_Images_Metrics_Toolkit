@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 from typing import Dict, List, Optional, Any, Callable
 
@@ -234,12 +235,18 @@ def compute(
 
     # Always need torch; tf only for the computation of 2D pr_auth and prdc
     need_torch = True
-    need_tf = (dtype_norm == "2d") and bool({"pr_auth", "prdc"} & metrics_norm)
+    need_tf = (dtype_norm == "2d") and bool({"pr_auth", "prdc", "knn"} & metrics_norm)
+
+    if need_tf and sys.version_info >= (3, 12):
+        raise RuntimeError(
+            "TensorFlow backend for 'pr_auth', 'prdc', and 'knn' is not supported on Python 3.12+ in this version of SIM Toolkit. "
+            "Please use Python 3.11 or disable 'pr_auth', 'prdc', and 'knn'."
+        )
 
     require_backends(
         need_torch=need_torch,
         need_tf=need_tf,
-        reason=("core pipeline" if need_torch and not need_tf else "metrics 'pr_auth' and 'prdc'")
+        reason=("core pipeline" if need_torch and not need_tf else "metrics 'pr_auth', 'prdc', and 'knn'")
     )
 
     import torch

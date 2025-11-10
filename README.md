@@ -31,11 +31,10 @@ The toolkit automatically generates a **PDF report** with metric values, plots, 
 
 ## Installation
 ### 🐍 Python and compatibility
-- Officially supported / tested: **Python 3.10**
-- The package *may* install on higher versions, but some dependencies (e.g. `numpy`, `tensorflow`) can break compatibility.  
-  For stable setup, **use Python 3.10**.
-
-Works on CPU and GPU. For GPU acceleration, install a compatible  [CUDA](https://developer.nvidia.com/cuda-downloads) version (CUDA ≥ 11 recommended) and use the appropriate PyTorch wheels.
+- **Tested / supported**: Python **3.10 – 3.12**
+- **Recommended**: Python **3.10 or 3.11** (most robust with deep learning dependencies).
+- Works on **CPU and GPU**.  
+  For GPU acceleration, install a compatible [CUDA](https://developer.nvidia.org/cuda-downloads) version (CUDA ≥ 11 recommended) and use the matching PyTorch wheels.
 
 ### 🔧 Basic install
 ```bash
@@ -46,14 +45,16 @@ This installs the core library (no heavy backends).
 #### ➕ Optional extras
 
 Install only what you need:
-- **PyTorch backend** (required for all core metrics):
+- **PyTorch backend** (required for core metrics):
     ```bash
     pip install "sim_toolkit[torch]"
     ```
-- **TensorFlow backend** (only needed for 2D `pr_auth` and `prdc`):
+- **TensorFlow backend** (only needed for 2D `pr_auth`, `prdc`, and `knn`):
     ```bash
-    pip install ".[tf]"
+    pip install "sim_toolkit[tf]"
     ```
+    ⚠️ Officially supported on Python 3.10–3.11.  
+    On Python 3.12, this extra may not resolve a compatible TF wheel; if TF is already installed and working (e.g. Colab), SIM Toolkit will detect and use it.  
 - **File format / dataset support**:
     ```bash
     pip install "sim_toolkit[nifti]"        # NIfTI (.nii/.nii.gz)
@@ -62,11 +63,11 @@ Install only what you need:
     pip install "sim_toolkit[opencv]"       # JPEG/PNG via OpenCV, etc.
     pip install "sim_toolkit[csv]"          # CSV-based labels/metadata
     ```
-You can combine extras, e.g.:
+You can combine extras, for example:
 ```bash
-pip install "sim_toolkit[torch,nifti,dicom]"
+pip install "sim_toolkit[torch,nifti]"
 ```
-If a required backend is missing at runtime, SIM Toolkit will raise a clear, short error with the exact pip install command to run.
+If a required backend is missing at runtime, SIM Toolkit will raise a clear, short error with the exact `pip install` command to run.
 
 ### 🐳 Docker
 You can run the SIM Toolkit in a fully isolated, ready-to-use Docker environment.
@@ -88,7 +89,6 @@ You can run the SIM Toolkit in a fully isolated, ready-to-use Docker environment
       - The `-v host/container` mount the local directories to the working directory `/workspace` inside the container. 
 
 Refer to the [Usage](#usage) section for detailed instructions about running the main script. 
-
 
 ## Usage (Python API)
 > 🚀 **Last Update**: No config file needed — everything is passed as function arguments via `sim.compute(...)`.
