@@ -28,14 +28,17 @@ class BaseDataset(data.Dataset):
 
         # Load dataset
         self._data = self._load_files()
-        self._labels = self._load_raw_labels() if use_labels and path_labels else None
-        if self._labels is None:
-            warn_once(
-                "use_labels=True was set, but no labels were loaded "
-                "(missing path_labels or _load_raw_labels returned None). "
-                "Proceeding without labels. If you need conditioning, implement "
-                "_load_raw_labels() in your dataset class.\n"
-            )
+        self._labels = None
+        if self._use_labels:
+            if self.path_labels is not None:
+                self._labels = self._load_raw_labels()
+            else:
+                warn_once(
+                    "use_labels=True was set, but no labels were loaded "
+                    "(missing path_labels or _load_raw_labels returned None). "
+                    "Proceeding without labels. If you need conditioning, implement "
+                    "_load_raw_labels() in your dataset class.\n"
+                )
 
         # Store dataset metadata
         self.name = os.path.basename(path_data)
