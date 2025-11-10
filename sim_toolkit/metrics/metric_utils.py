@@ -588,14 +588,17 @@ def setup_grid_slices(images_3d, grid_size, drange, line_thickness=2):
     assert len(slices) == gh * gw, f"Expected {gh*gw} slices, got {len(slices)}"
     return np.stack(slices, axis=0)  # [N, 1, H, W]
 
-def setup_snapshot_image_grid(args, dataset, random_seed=0):
+def set_grid_size(args, n_imgs, W, H):
+    n = 1 if args.data_type=="2d" or args.data_type=="2D" else 3
+    grid_size = min(int(np.round(np.sqrt(n_imgs*n))), 32)
+    gw = np.clip(7680 // W, 7, grid_size)
+    gh = np.clip(4320 // H, 4, grid_size)
+    return (int(gw), int(gh))
+
+def setup_snapshot_image_grid(dataset, grid_size, random_seed=0):
     rnd = np.random.RandomState(random_seed)
 
-    n = 1 if args.data_type=="2d" or args.data_type=="2D" else 3
-    grid_size = min(int(np.round(np.sqrt(len(dataset)*n))), 32)
-    gw = np.clip(7680 // dataset._raw_shape[2], 7, grid_size)
-    gh = np.clip(4320 // dataset._raw_shape[3], 4, grid_size)
-
+    gw, gh = grid_size
     # No labels => show random subset of training samples.
     if not dataset._use_labels:
         all_indices = list(range(len(dataset)))
@@ -625,7 +628,7 @@ def setup_snapshot_image_grid(args, dataset, random_seed=0):
             label_groups[label] = [indices[(i + gw) % len(indices)] for i in range(len(indices))]
 
     images, labels = zip(*[dataset[i] for i in grid_indices])
-    return (gw, gh), np.stack(images), np.stack(labels)
+    return np.stack(images), np.stack(labels)
 
 def setup_grid_generated(args, G, labels, grid_size, num_images, real_dataset, device):
     # Latent vectors

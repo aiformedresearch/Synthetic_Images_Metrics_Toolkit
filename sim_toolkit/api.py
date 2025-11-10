@@ -82,25 +82,42 @@ def _subprocess_fn(rank: int, args: dnnlib.EasyDict, temp_dir: str):
 
     # Visualize samples (rank 0 only)
     if rank == 0:
-        # Real
+        # ----------------   Real dataset   ----------------
         real_dataset = dnnlib.util.construct_class_by_name(**args.dataset_kwargs)
         drange_real = [real_dataset._min, real_dataset._max]
-        grid_size, images_real, labels = metric_utils.setup_snapshot_image_grid(args, real_dataset)
+        W, H = real_dataset._raw_shape[2], real_dataset._raw_shape[3]
+        n_real = len(real_dataset)
+
+        # ---------------- Synthetic dataset ----------------
+        if args.use_pretrained_generator:
+            max_synt = args.num_gen if args.num_gen is not None else n_real
+            n_common = max(1, min(n_real, max_synt))
+        else:
+            synt_dataset = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
+            drange_synt = [synt_dataset._min, synt_dataset._max]
+            Ws, Hs = synt_dataset._raw_shape[2], synt_dataset._raw_shape[3]
+            assert (W == Ws) and (H == Hs), f"Real dataset image size {(W,H)} differs from synthetic dataset image size {(Ws,Hs)}"
+            n_synt = len(synt_dataset)
+            n_common = max(1, min(n_real, n_synt))
+
+        # Choose a common grid size
+        grid_size = metric_utils.set_grid_size(args, n_common, W, H)
+
+        # ---------------- Real grid ----------------
+        images_real, labels = metric_utils.setup_snapshot_image_grid(real_dataset, grid_size)
         if args.data_type.lower() == "3d":
             images_real = metric_utils.setup_grid_slices(images_real, grid_size, drange_real)
         metric_utils.plot_image_grid(
             args, images_real, drange=drange_real, grid_size=grid_size, group="real", rank=rank, verbose=args.verbose
         )
 
-        # Synthetic
+        # ---------------- Synthetic grid ----------------
         if args.use_pretrained_generator:
-            device_ = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-            args.G = deepcopy(args.G).eval().to(torch.device(device_))  # keep G on cuda:0 for snapshots
-            num_images = labels.shape[0]
-            images_synt = metric_utils.setup_grid_generated(args, args.G, labels, grid_size, num_images, real_dataset, device_)
+            num_images = grid_size[0] * grid_size[1]
+            images_synt = metric_utils.setup_grid_generated(args, args.G, labels, grid_size, num_images, real_dataset, device)
         else:
             synt_dataset = dnnlib.util.construct_class_by_name(**args.dataset_synt_kwargs)
-            grid_size, images_synt, _ = metric_utils.setup_snapshot_image_grid(args, synt_dataset)
+            images_synt, _ = metric_utils.setup_snapshot_image_grid(synt_dataset, grid_size)
         drange_synt = [images_synt.min(), images_synt.max()]
         if args.data_type.lower() == "3d":
             images_synt = metric_utils.setup_grid_slices(images_synt, grid_size, drange_synt)
