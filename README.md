@@ -13,8 +13,9 @@ SPDX-License-Identifier: NPOSL-3.0
 # Synthetic Images Metrics Toolkit (SIM Toolkit)
 
 <p align="center">
-  <img src="sim_toolkit/Images/logo.png" width="300" title="metrics">
+  <img src="https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit/raw/main/sim_toolkit/Images/logo.png" width="300" alt="SIM Toolkit logo">
 </p>
+
 
 The **Synthetic Images Metrics (SIM) Toolkit** is a Python library for evaluating the quality of **2D** and **3D** synthetic images. 
 
@@ -205,8 +206,9 @@ All metric values, plots, and the final PDF report are saved under: `run_dir/`.
 ## Metrics
 
 <p align="center">
-  <img src="sim_toolkit/Images/Metrics.png" width="400" title="metrics">
+  <img src="https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit/raw/main/sim_toolkit/Images/Metrics.png" width="300" alt="SIM Toolkit metrics">
 </p>
+
 
 ### Quantitative 
 | Flag      | Description | Source | Reference |
