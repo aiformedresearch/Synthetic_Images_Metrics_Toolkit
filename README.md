@@ -107,7 +107,12 @@ Load and evaluate synthetic images directly from files or directories.
 **Supported built-in dataset tags**: `nifti`, `dcm`, `tiff`, `jpeg`, `png`, or `auto` (infers format from `path_data`).
 
 **Custom format or custom folder structure?**  
-Define a small dataset class that inherits from `sim_toolkit.datasets.base.BaseDataset` and point `real_dataset` / `synth_dataset` to your `.py` file.  
+You can plug in your own loader **without modifying SIM Toolkit**:  
+- define a small dataset class inheriting from `sim_toolkit.datasets.base.BaseDataset`
+- then either:
+  - pass the class directly: `real_dataset=MyDataset`, or  
+  - point to a file: `real_dataset="path/to/my_dataset.py:MyDataset"`
+
 📄 See: [sim_toolkit/datasets](https://github.com/aiformedresearch/Synthetic_Images_Metrics_Toolkit/blob/main/sim_toolkit/datasets/README.md)
 
 **Basic example**
