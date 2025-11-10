@@ -911,9 +911,8 @@ def save_metrics_to_pdf(args, metrics, metric_folder, out_pdf_path):
 
         text_oc_emb = Paragraph(
             'α-precision, β-recall, and authenticity are computed in the latent space produced by the OC classifier, which is trained to map <i>typical</i> images close to a given hyperspherical center. '
-            'This figure summarizes the <b>OC training</b>, showing <b>training and validation losses</b> across epochs on a log y-axis for wide-range visibility;'
-            'dashed lines are the Exponential Moving Average (EMA) of each loss curve, to highlight overall trends. '
-            'The left panel shows the complete training process, while the right zooms into the final epochs to hilight convergence behavior. ',
+            'This figure summarizes the <b>OC training dynamics</b>: the left panel shows <b>training and validation loss</b> across epochs on a linear scale, while the right panel shows the same losses on a log-scaled y-axis, for wide-range visibility. '
+            'In the right panel, dashed curves represent the Exponential Moving Average (EMA) of each loss, to highlight overall trends. ',
             justified_style
         )
         elements.append(text_oc_emb)   

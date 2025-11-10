@@ -806,55 +806,85 @@ def plot_losses(train, val=None, *, save_path=None,
     train = _normalize(train)
     if val is not None: val = _normalize(val)
 
-    # choose y-scale
+    ema_span = max(5, int(len(train)*smooth_frac))
+
+    # Decide right-panel y scale (log if possible, else symlog if mixed, else linear)
     vals = train[np.isfinite(train)]
     if val is not None:
         vals = np.concatenate([vals, val[np.isfinite(val)]]) if vals.size else val[np.isfinite(val)]
-    yscale = "linear"
-    if vals.size >= 2:
-        ymin, ymax = np.nanmin(vals), np.nanmax(vals)
-        if ymin <= 0 and ymax > 0:
-            yscale = "symlog"           # handles zeros/negatives
-        elif ymin > 0 and ymax / max(ymin,1e-12) > 50:
-            yscale = "log"
 
-    ema_span = max(5, int(len(train)*smooth_frac))
+    if vals.size and np.any(vals > 0):
+        if np.all(vals > 0):
+            yscale_right = "log"      # all positive -> true log
+        else:
+            yscale_right = "symlog"   # mix of <=0 and >0 -> safe fallback
+    else:
+        yscale_right = "linear"       # no positive values -> log not meaningful
 
     fig, axes = plt.subplots(1, 2, figsize=figsize, dpi=dpi, constrained_layout=True)
 
-    def _decorate(ax, x, y_tr, y_va, label_suffix=""):
-        ax.plot(x, y_tr, linewidth=1, label=f"train{label_suffix}")
-        ax.plot(x, _ema(y_tr, ema_span), linestyle="--", linewidth=1, label=f"train EMA{label_suffix}")
-        if y_va is not None:
-            ax.plot(x, y_va, linewidth=1, label=f"val{label_suffix}")
-            ax.plot(x, _ema(y_va, ema_span), linestyle="--", linewidth=1, label=f"val EMA{label_suffix}")
-            if np.isfinite(y_va).any():
-                bi = int(np.nanargmin(y_va))
-                ax.axvline(x[bi], alpha=0.15)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Loss" + (" (relative)" if relative else ""))
-        ax.set_yscale(yscale)
-        ax.grid(True, which="both", alpha=0.25)
-        ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
-        ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+    # ---------- Left: linear scale ----------
+    ax_lin = axes[0]
+    ax_lin.set_title(title)
 
-    # Left: full series
-    axes[0].set_title(title)
-    _decorate(axes[0], epochs, train, val)
+    line_tr_lin, = ax_lin.plot(epochs, train, linewidth=1, label="train")
+    line_va_lin = None
+    if val is not None:
+        line_va_lin, = ax_lin.plot(epochs, val, linewidth=1, label="val")
 
-    # Right: last N% (at least 20 epochs if available)
-    last_n = max(20, int(len(epochs)*tail_frac)) if len(epochs) > 1 else 1
-    x_tail = epochs[-last_n:]
-    tr_tail = train[-last_n:]
-    va_tail = None if val is None else val[-last_n:]
-    axes[1].set_title("Last epochs")
-    _decorate(axes[1], x_tail, tr_tail, va_tail)
+    ax_lin.set_xlabel("Epoch")
+    ax_lin.set_ylabel("Loss (linear scale)")
+    ax_lin.set_yscale("linear")
+    ax_lin.grid(True, which="both", alpha=0.25)
+    ax_lin.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
+    ax_lin.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
 
-    # One legend overall (top-right of left axis)
-    axes[0].legend(loc="upper right", fontsize=8)
+    # Legend: only train / val
+    handles_lin = [line_tr_lin]
+    if line_va_lin is not None:
+        handles_lin.append(line_va_lin)
+    ax_lin.legend(handles=handles_lin, loc="upper right", fontsize=8)
+
+    # ---------- Right: log/symlog + EMA ----------
+    ax_log = axes[1]
+    ax_log.set_title("All epochs (log scale)")
+
+    # Raw curves
+    line_tr, = ax_log.plot(epochs, train, linewidth=1, label="train")
+    line_va = None
+    if val is not None:
+        line_va, = ax_log.plot(epochs, val, linewidth=1, label="val")
+
+    # EMA curves
+    ema_tr = _ema(train, ema_span)
+    line_tr_ema, = ax_log.plot(epochs, ema_tr, "--", linewidth=1, label="train EMA")
+
+    line_va_ema = None
+    if val is not None:
+        ema_va = _ema(val, ema_span)
+        line_va_ema, = ax_log.plot(epochs, ema_va, "--", linewidth=1, label="val EMA")
+        if np.isfinite(val).any():
+            bi = int(np.nanargmin(val))
+            ax_log.axvline(epochs[bi], alpha=0.15)
+
+    ax_log.set_xlabel("Epoch")
+    ax_log.set_ylabel("Loss (log scale)")
+    ax_log.set_yscale(yscale_right)
+    ax_log.grid(True, which="both", alpha=0.25)
+    ax_log.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
+    ax_log.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    # Legend: train, val, train EMA, val EMA
+    handles_log = [line_tr, line_tr_ema]
+    if line_va is not None:
+        handles_log.insert(1, line_va)
+    if line_va_ema is not None:
+        handles_log.append(line_va_ema)
+    ax_log.legend(handles=handles_log, loc="upper right", fontsize=8)
 
     if save_path:
         fig.savefig(save_path, bbox_inches="tight")
+
     return fig, axes
 
 def get_OC_model(opts, X=None, OC_params=None, OC_hyperparams=None, use_pretrained=None):
